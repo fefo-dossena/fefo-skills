@@ -237,9 +237,10 @@ def montar(F, B, p, n):
         g.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
     else:
         g.append(f"[aa]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
+    g.append(F.SAIDA_720)
     sc = f"{tmp}/fc_AD{n}_{p}.txt"; open(sc, "w").write(";\n".join(g))
     out = F.export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
-    subprocess.run([F.FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[vout]", "-map", "[aout]",
+    subprocess.run([F.FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[v720]", "-map", "[aout]",
                     "-t", f"{total:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
                     "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out], check=True)
     shutil.rmtree(tmp, ignore_errors=True); F.tira_export_antigo(B, plano, p, n)

@@ -60,6 +60,10 @@
 5. **xml** — `08_auto/BATCH<n>_premiere.xml`: uma sequência por AD (falas cortadas em V1/A1, b-roll em V2 com escala,
    centro e crop). Ainda não validado no Premiere: se o b-roll vier fora de posição, ajuste no Effect Controls.
 Opções: `--ate legendas` (para antes dos ADs), `--so AD2_neurobella`, `--forcar`.
+## Resolução
+Regra do Fefo (02/11/2026): vídeo gerado e AD final sempre em **720p** (720x1280). `fluxo.py`, `cartao.py` e `umtake.py` compõem em
+1080x1920 (por isso posições e overlays seguem em px de 1920) e descem na saída. O XML do Premiere continua em 1080x1920: exportar de lá em 720x1280.
+
 ## Conferência antes de mandar ao Fefo
 - Prancha `ffmpeg -i AD.mp4 -vf "fps=1/6,scale=180:-1,tile=8x2" s.jpg` (prancha com fps+tile pode mostrar quadro preto
   falso — conferir com `-ss`); loudness `-af ebur128`.

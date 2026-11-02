@@ -6,6 +6,10 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
   python3 kie.py upload ARQ.png                         # devolve a URL (o Kie apaga em 24 h)
   python3 kie.py sunburst PROMPT.txt SAIDA.png [--ref A.png --ref B.png] [--res 2K] [--ratio 9:16]
         # GPT Image 2.5 Sunburst. Com --ref (até 16), edita ou usa referências; sem --ref, só texto.
+  python3 kie.py nanopro PROMPT.txt SAIDA.png --ref QUADRO.png [--ref B.png] [--res 2K] [--ratio 9:16]
+        # Nano Banana Pro (até 8 --ref). Avatar a partir de quadro real de UGC: ver modulos/03_personagens.md.
+  python3 kie.py omni PROMPT.txt IMAGEM SAIDA.mp4 --dur 8 [--res 720p]
+        # Gemini Omni com som. --dur só 4, 6, 8 ou 10. Liberado junto do Kling em 02/11/2026; custo ainda não medido.
   python3 kie.py kling3 PROMPT.txt IMAGEM SAIDA.mp4 --dur 5 [--mode std] [--sem-som] [--fim FIM.png]
         # IMAGEM = quadro inicial, ou "-" para só texto (sai 9:16).
   python3 kie.py kling4 PROMPT.txt SAIDA.mp4 --dur 5 [--video F01.mp4] [--imagem A.png] [--voz nome=AUDIO.mp3] [--res 720p]
@@ -133,6 +137,16 @@ def main():
             entrada['input_urls'] = [_sobe(r) for r in refs]
         tipo = 'image-to-image' if refs else 'text-to-image'
         espera(cria(f'gpt-image-2-5-sunburst-{tipo}', entrada, saida), saida)
+    elif a[0] == 'nanopro':
+        prompt, saida = _texto(a[1]), a[2]
+        entrada = {'prompt': prompt, 'aspect_ratio': _opcao(a, '--ratio', '9:16'), 'resolution': _opcao(a, '--res', '2K'),
+                   'output_format': 'png', 'image_input': [_sobe(r) for r in _opcoes(a, '--ref')]}
+        espera(cria('nano-banana-pro', entrada, saida), saida)
+    elif a[0] == 'omni':
+        prompt, imagem, saida = _texto(a[1]), a[2], a[3]
+        entrada = {'prompt': prompt, 'image_urls': [_sobe(imagem)], 'duration': _opcao(a, '--dur', '8'),
+                   'aspect_ratio': '9:16', 'resolution': _opcao(a, '--res', '720p')}
+        espera(cria('gemini-omni-video', entrada, saida), saida)
     elif a[0] == 'kling3':
         prompt, imagem, saida = _texto(a[1]), a[2], a[3]
         entrada = {'prompt': prompt, 'sound': '--sem-som' not in a, 'duration': _opcao(a, '--dur', '5'),

@@ -4,10 +4,11 @@
 **Seed Audio não existe no Kie.** A rota de guia Seed Audio descrita abaixo acabou: não gere guia novo. Marca ou termo técnico errado: refaça a fala no Kling 4.0 com o vídeo da F01 aprovado (`--video`) ou a voz em `--voz`, grafia fonética dentro da fala, e confira no Whisper e de ouvido. Rota ainda não testada no Kie. Não resolveu: avise o Fefo. VO sobre b-roll sem avatar depende de voz nova: pergunte ao Fefo antes de gerar.
 Áudio NATIVO do modelo — sem lipsync colado depois. Use o áudio do próprio clipe.
 
-## Qual modelo: Kling; Seedance só em Drama ad
+## Qual modelo: Kling e Omni; Seedance só em Drama ad
 **Ordem do cliente (30/10/2026):** não usar mais Seedance, que é caro demais e desnecessário em ad curto e em ad que não
-é drama. Só Kling, em falas, b-roll e revisão. Seedance só em **Drama ad**: o que o card ou o briefing chama assim; na
-dúvida, Kling e pergunte ao Fefo.
+é drama. Falas, b-roll e revisão vão no Kling e, desde 02/11/2026, também no Gemini Omni (seção própria abaixo; validado
+pelo Fefo com o Umut). Seedance só em **Drama ad**: o que o card ou o briefing chama assim; na dúvida, Kling e pergunte
+ao Fefo.
 | Caso | Modelo |
 |---|---|
 | Padrão: clipes de fala de 3–15 s, poucas falas, orçamento curto | **Kling 3.0** (`kling3_0`), `mode: std`, 9:16, `sound: on`, `start_image` = avatar aprovado (1,75/s) |
@@ -26,8 +27,8 @@ Kling × BATCH#1980 no Seedance, 15/10/2026):
 | Defeitos típicos | mão deformada subindo; última palavra embolada se a fala vai até o fim do clipe | repete palavra ("is, is"); **estalo ~50 ms antes do fim de todo clipe**; mostra o celular se o prompt citar |
 | Marca | grafia fonética dentro da fala acerta | "VisioVance" pode exigir a rota Seed Audio (abaixo) |
 
-- **480p** (3/s) só para teste de voz/ritmo antes do lote; nunca em take com frasco/rótulo legível. 1080p existe (mais caro) e
-  ainda não foi necessário.
+- **480p** (3/s) só para teste de voz/ritmo antes do lote; nunca em take com frasco/rótulo legível. **Vídeo gerado é sempre 720p**
+  (regra do Fefo, 02/11/2026): 1080p e 4k não se usam.
 - Pelo MCP o Seedance sai **com áudio** e não barrou "strong erections" (pelo site saía mudo e barrava).
 - `start_image` no Seedance vira referência: o enquadramento sai um pouco mais aberto que o quadro.
 - Kling e Seedance sugerem o preset "IN THE DARK" (ou um com o nome da cena) em quase todo pedido com `start_image`,
@@ -63,6 +64,30 @@ POSITIVE LOCKS: face, hair, outfit and setting stay exactly as in the start fram
   one meter in front of her". Nem em outro bloco: "phone camera on a small tripod" pôs um celular deitado na borda de
   baixo da F10 da 3214 (faixa escura em 18/18 quadros) — o prompt da mesa vai sem "phone".
 - Pronúncia da marca: ver "Marca e números" abaixo.
+
+## Travar o prompt numa fala só (desde 02/11/2026)
+Vale para Kling e Seedance. A inconsistência entre falas vem de mexer no prompt a cada clipe.
+1. Gere 1 fala e julgue com rigor. Refaça a **mesma** fala até energia, enquadramento, ritmo e jeito ficarem certos.
+2. Cada defeito vira uma regra fixa no fim do prompt (energia baixa, pouca confiança, fala lenta, sorriso faltando), em
+   vez de reescrever o resto. Toda fala leva "one continuous take, no jump cuts".
+3. Travou: **só a fala muda** até o fim do roteiro. Mudança de cenário ou posição é prompt novo, travado do mesmo jeito.
+4. Diga sempre o movimento da câmera, mesmo sem movimento: "static, locked-off shot" ou "handheld UGC iPhone shot". Sem
+   isso, a câmera deriva. Ordem do prompt no vídeo: movimento, tipo de câmera, cena, o que o avatar faz ("body still,
+   mouth moving naturally, eye contact with the camera"), energia, fala entre aspas, regras fixas. Nos 14 blocos, isso
+   cabe em CAMERA, ACTION, PERFORMANCE e AUDIO; as regras fixas vão em POSITIVE LOCKS.
+- **Energia:** no CAMERA ou PERFORMANCE, conforme o ref. Avatar sem energia sai chapado; em hook de UGC, teste energia
+  alta antes de aceitar. A "emoção contida" do modelo acima é para o ref calmo, não regra para todo ad.
+- **Ênfase em maiúscula (a testar no Kling):** escreva em caixa alta a palavra que deve pesar na fala. Não use em marca
+  nem em termo técnico, que têm grafia própria em "Marca e números". Confira de ouvido e no Whisper.
+- **Palavras de sobra no fim (a testar):** se a última palavra embola ou é cortada, some 3 ou 4 palavras neutras depois
+  da frase e corte na edição. Pode trocar o segundo a mais de duração, que deixa a fala lenta. Medir antes de virar regra.
+
+## Gemini Omni: liberado junto do Kling (Fefo com o Umut, 02/11/2026)
+Omni e Kling podem andar na mesma batch; Seedance segue só em Drama ad. Ainda sem teste nosso e sem custo medido: mida
+na 1ª fala e peça ok de crédito, como em todo lote. `kie.py omni`, 720p, durações 4, 6, 8 ou 10 s: fala entre duas durações usa a maior, com palavras de sobra
+cortadas na edição. Omni Flash já barrou palavrão na Trendscale; no Omni cheio, não testado. Todo avatar do Omni sai com
+os mesmos dentes: repare ao comparar dois avatares no mesmo ad. O vídeo não mostra marca difícil nem termo técnico:
+compare com o Kling numa fala com "Vizzy-oh Vance" antes de confiar. Voz entre falas no Omni também não é abordada.
 
 ## Duração (errar aqui estraga o ritmo)
 - **Kling 4.0** (`kling4_0`, 3217): `ceil(palavras/3,3 + 1,5)`. Com `round(pal/3,3 + 0,7)` ele cortou a última palavra em 4

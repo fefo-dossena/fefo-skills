@@ -40,7 +40,7 @@
 
 ## O que funciona (e o que não)
 - **Frasco**: fechado, em pé e parado — só a mão se mexe. Aberto/inclinado/girando deforma rótulo e gargalo.
-  Rótulo legível em close: frasco a ~1/3 da altura + **Kling 3.0 pro** (1080x1912). **Nunca Seedance 480p** com
+  Rótulo legível em close: frasco a ~1/3 da altura, sempre em 720p (regra do Fefo, 02/11/2026: o Kling 3.0 pro, 1080x1912, saiu do fluxo). **Nunca Seedance 480p** com
   rótulo legível (o quadro estava perfeito, o vídeo deformou). O Kling às vezes traz o frasco para a câmera e o rótulo
   deforma: "the bottle keeps the same size and position as in the start frame for the whole clip".
   **Frasco que cresce no quadro** (push-in até o frasco, revelação): só no **pro** (7,5 por 5 s). No std as linhas

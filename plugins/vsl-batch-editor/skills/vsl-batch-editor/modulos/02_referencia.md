@@ -79,7 +79,7 @@ OK; nas duas, médico(a) falando para a câmera fixa na mesa do consultório + s
   legenda pílula em y 0,555 (logo acima da janela) e `estilo.destaque_y` 760 (o destaque no meio batia na legenda).
   Corte de b-roll a < 0,4 s de uma emenda do avatar vai para a emenda (meio quadro antes) e cena < 0,45 s pega tempo das
   vizinhas. Cena com `"pip": false` esconde a janela (frasco em close que ela cobria; 3217: S53, S54, S62, S64), com
-  `legenda_y` acima do rótulo. Freezedetect do AD só na faixa de cima (`crop=1080:990:0:0`): a janela falando esconde b-roll
+  `legenda_y` acima do rótulo. Freezedetect do AD só na faixa de cima (`crop=720:660:0:0`): a janela falando esconde b-roll
   parado; os reaproveitados que eram cortados pelo médico em tela cheia pediram push 8–25% (`efeitos_3217.py`). O XML
   ainda não monta a janela (falas em V1 em tela cheia).
 - O que o script ainda não faz (outros elementos, motions, música do ref) vai em `elementos`/`observacoes` e entra pelo

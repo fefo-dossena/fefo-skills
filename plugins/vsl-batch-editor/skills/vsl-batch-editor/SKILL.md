@@ -86,6 +86,7 @@ Barra de linha do tempo, legenda estilo Snapchat e tela dividida já saem do `mo
 
 ## Regras fixas
 - **Uma geração por vez**: o `kie.py` espera e baixa. Paralelo só com ok do Fefo.
+- **Sempre 720p.** Vídeo gerado e AD final em 720p (720x1280), detalhe em `modulos/07_montagem.md`.
 - **Crédito só com ok.** Antes de cada lote: quantas gerações, modelo, duração, custo estimado. Aprovar imagens não autoriza vídeos.
 - **Versões dos exports (toda batch):** todas ficam dentro da pasta de exports. A atual em `09_export/<p>/`; toda versão
   anterior em `09_export/_old/V<k>/<p>/`. Nunca pasta irmã (`09_export_V1`, `_export_v1`, `View_v2`…). Antes de

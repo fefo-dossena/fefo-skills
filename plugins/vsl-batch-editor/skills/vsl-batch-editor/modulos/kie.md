@@ -9,6 +9,8 @@ pedido do Fefo (`modulos/higgsfield.md`).
 | Uso | Comando | Modelo no Kie |
 |---|---|---|
 | Quadro, personagem, frasco | `kie.py sunburst P.txt S.png --ref A.png --ref B.png --res 2K` | `gpt-image-2-5-sunburst-image-to-image` (sem `--ref`, `-text-to-image`) |
+| Avatar a partir de quadro real de UGC | `kie.py nanopro P.txt S.png --ref QUADRO.png --res 2K` | `nano-banana-pro` (até 8 `--ref`; regra em `03_personagens.md`) |
+| Fala no Gemini Omni, junto do Kling (liberado em 02/11) | `kie.py omni P.txt A.png S.mp4 --dur 8` | `gemini-omni-video` (`--dur` 4, 6, 8 ou 10; ver `04_falas.md`) |
 | B-roll e fala padrão | `kie.py kling3 P.txt QUADRO.png S.mp4 --dur 5 --sem-som [--fim FIM.png]` | `kling-3.0/video` (`-` no lugar do quadro = só texto) |
 | Voz igual entre falas | `kie.py kling4 P.txt S.mp4 --dur 6 --video F01.mp4 [--imagem A.png] [--voz Nome=A.mp3]` | `kling-4.0/reference-to-video` |
 | Só Drama ad | `kie.py seedance P.txt S.mp4 --dur 8 --imagem A.png --audio F01.mp3` | `bytedance/seedance-2-5` |
@@ -24,7 +26,7 @@ pedido do Fefo (`modulos/higgsfield.md`).
 ## Regras
 - **Crédito só com ok.** `kie.py saldo` antes de cada lote. Falha não cobra.
 - Custo real: `creditsConsumed` no fim de cada geração, anotado em `08_auto/*_ids.tsv`. 1 cr ≈ US$ 0,005. O crédito do
-  Kie não é o do Higgsfield: Kling 3.0 std 5 s com som = 100 cr (3217, 31/10). Só o Kling 3.0 tem custo medido; os
+  Kie não é o do Higgsfield: Kling 3.0 std 5 s com som = 100 cr (3217, 31/10). Kling 4.0 720p com som: 34 cr/s (3222). Só esses dois têm custo medido; os
   demais, medir no 1º uso. Os números de crédito antigos dos módulos e do `CALIBRACAO.md` são do Higgsfield.
 - Uma geração por vez: o `kie.py` espera e baixa. O limite do Kie é 20 pedidos novos por 10 s; paralelo só com ok do Fefo.
 - Caiu a conexão: `kie.py espera <taskId> <saída>` (o id fica em `<saída>.task.json`). **Não reenvie: cobra de novo.**

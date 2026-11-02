@@ -144,9 +144,10 @@ def montar(F, B, p, n):
                  f"[vz][tr]amix=inputs=2:duration=first:normalize=0[mx];[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
     else:
         g.append(f"[0:a]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
+    g.append(F.SAIDA_720)
     sc = f"{tmp}/fc.txt"; open(sc, "w").write(";".join(g))
     out = F.export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
-    subprocess.run([F.FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[vout]", "-map", "[aout]",
+    subprocess.run([F.FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[v720]", "-map", "[aout]",
                     "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
                     "-t", f"{b - a:.3f}", out], check=True)
     shutil.copy(f"{tmp}/titulo.png", f"{B}/06_elementos/titulo_{p}.png")

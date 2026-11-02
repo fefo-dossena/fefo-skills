@@ -865,6 +865,9 @@ def dur_corte_hold(B, plano, p):
     return sum(dur_corte(corte(B, fala_stem(f, p if f.get("marca") else None))) for f in falas_hold(plano))
 
 # ---------------------------------------------------------------- montagem final
+# Regra do Fefo (02/11/2026): export sempre em 720p. A composição continua em 1080x1920 (posições em px de 1920)
+# e só a saída desce; usado também em cartao.py e umtake.py.
+SAIDA_720 = "[vout]scale=720:1280:flags=lanczos,setsar=1[v720]"
 # O estilo vem SEMPRE de plano.json -> "estilo", definido a partir de 01_refs/ da batch (módulo referencia).
 ESTILOS = {
     "amarelo_contorno": "FontName=Arial Black,FontSize=16,PrimaryColour=&H0000E6FF,OutlineColour=&H00000000,BorderStyle=1,Outline=2.2,Shadow=0",
@@ -1152,9 +1155,10 @@ def montar(B, p, n):
         g.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
     else:
         g.append(f"[aa]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
+    g.append(SAIDA_720)
     sc = f"{tmp}/fc_AD{n}_{p}.txt"; open(sc, "w").write(";".join(g))
     out = export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
-    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[vout]", "-map", "[aout]",
+    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[v720]", "-map", "[aout]",
                     "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                     "-movflags", "+faststart", out], check=True)
     shutil.rmtree(tmp, ignore_errors=True); tira_export_antigo(B, plano, p, n)
