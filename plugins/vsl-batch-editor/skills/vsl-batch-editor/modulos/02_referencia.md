@@ -4,6 +4,13 @@ Se `01_refs/` estiver vazio, pergunte ao Fefo qual ad seguir antes de seguir. Ca
 ref, BATCH#3214 e #3215): proponha um estilo UGC (personagem, cenário, enquadramento de cada setup, legenda) e espere o
 OK; nas duas, médico(a) falando para a câmera fixa na mesa do consultório + selfie andando nos hooks foi aprovado.
 
+## Régua de qualidade: BATCH#3217
+Elogiada pelo Daniel (31/10/2026: "this one bro, really good"; ele não disse o motivo). Serve para comparar o nível antes de ir ao Fefo, em especial em build de médico em PIP, **nunca como fonte de estilo**: o estilo continua vindo de `01_refs/` e do card. O que olhar em `BATCH#3217/09_export/`:
+- Voz e rosto iguais do início ao fim (Kling 4.0 com a 1ª fala aprovada como referência), fala sem palavra cortada.
+- B-roll trocando a cada 1 a 3 s, sempre casado com a fala: gente da idade do público, closes e 3D da mesma anatomia ao longo do ad; 3D nunca dois seguidos.
+- Legenda em expressões inteiras, faixa só no dado que vende (dose, garantia), frasco inteiro e rótulo nítido.
+- Os exports são de 27/10, em 1080p: a saída agora é 720p.
+
 ## Como analisar
 - Com ffmpeg: `ffmpeg -i ref.mp4 -vf "fps=1/2,scale=150:-1,tile=8x6" sheet.jpg` (prancha a cada 2 s) e, se precisar,
   `-ss <t> -frames:v 1` para ver um momento. Transcreva o áudio do ref (`vsl.py transcrever`) para casar copy × cena.

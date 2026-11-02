@@ -50,7 +50,8 @@
    "trechos": [{"cena": "S14"}, {"de": "<texto da legenda>", "ate": "<texto>" ou "fim"}], "fade": 0.12}]. Banners da
    campanha em `@assets/` (Halloween 2026: zip em `@assets/halloween 2026/`; Black Friday 2026 ("Earliest", EXTRA 25% OFF,
    code EARLIESTBF25): `@assets/#BLACKFRIDAY_BANNERS-20261027T124845Z-1-001.zip`, prévias em `_PREVIEW (mp4)/`, detalhes em
-   `CALIBRACAO.md` 27/10; extrair, copiar o usado para `06_elementos/`).
+   `CALIBRACAO.md` 27/10; extrair, copiar o usado para `06_elementos/`; BF Early 2026 (aviso de 02/11, code EARLYBF, não usar
+   os do Earliest): `@assets/BF Early 2026/`, subpastas `25% OFF` (EXTRA 25% OFF) e `75% OFF` (75% OFF + EXTRA 25%)).
    Banner de baixo bate na legenda dos takes de frasco e no botão do Meta → preferir o de cima.
    `estilo.trilha_final_db` sobe a trilha na tela final sem voz (a −22 dB ela some ali).
    Elementos de hook (`modulos/hooks.md`, `scripts/elementos_hook.py`): `estilo.barra_tempo` (barra de marcos no topo),
