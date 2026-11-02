@@ -1,0 +1,2 @@
+Elementos de campanha e motion: stickers, sliders, banners, seta de CTA (.mov com alfa ou .png).
+Ex.: Prime Day -> slider_topo.mov, sticker_oferta.mov

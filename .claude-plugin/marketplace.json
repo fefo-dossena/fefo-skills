@@ -1,0 +1,12 @@
+{
+  "name": "fefo-skills",
+  "description": "Skills do Fefo",
+  "owner": { "name": "Fefo" },
+  "plugins": [
+    {
+      "name": "vsl-batch-editor",
+      "source": "./plugins/vsl-batch-editor",
+      "description": "Batches de VSL/UGC ads de Neurobella e VisioVance"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+Projeto do Premiere. Nome = nome da batch.
+Sequências: HOLD_neurobella, HOLD_visiovance, AD1/AD2/AD3 de cada produto (hook + hold aninhada).

@@ -1,0 +1,829 @@
+<title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Review Room — built by tools/reviewroom.py from this template. Single dark look on purpose: video is judged on dark. */
+:root{
+  color-scheme: dark;
+  --ground:#0F1114; --panel:#171A1E; --panel2:#1E2227; --line:#2A2F36; --line2:#363C44;
+  --text:#E9EBEE; --muted:#8C949E; --dim:#5E6670;
+  --marker:#F2B544; --marker-ink:#2A1E05; --marker-soft:rgba(242,181,68,.16);
+  --ok:#4CC38A; --ok-ink:#06210F; --ok-soft:rgba(76,195,138,.14);
+  --warn:#F06A5A; --warn-soft:rgba(240,106,90,.14);
+  --claude:#C9A6F5; --claude-ink:#2A1646; --claude-soft:rgba(201,166,245,.13);
+  --seg-hook:#F2B544; --seg-body:#5B8FE5; --seg-close:#C9A6F5;
+  --sans:"Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--ground);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;margin:0}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--marker);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:240px minmax(0,1fr) 360px;grid-template-rows:auto minmax(0,1fr);height:100%}
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.crumbs{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px;min-width:0;flex-wrap:wrap}
+.crumbs b{color:var(--text);font-weight:600}
+.crumbs .sep{color:var(--dim)}
+.spacer{flex:1}
+.seg-ctl{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg-ctl button{border:0;background:none;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--muted);font-family:var(--mono)}
+.seg-ctl button.on{background:var(--line2);color:var(--text)}
+.seg-ctl button:disabled{opacity:.35;cursor:default}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);font-size:12.5px;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn.primary{background:var(--ok);border-color:var(--ok);color:var(--ok-ink)}
+.btn.marker{background:var(--marker);border-color:var(--marker);color:var(--marker-ink)}
+.btn.on{border-color:var(--marker);color:var(--marker)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.claude{background:var(--claude-soft);color:var(--claude)}
+.pill.mk{background:var(--marker-soft);color:var(--marker)}
+.pill.dim{background:var(--panel2);color:var(--muted)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* rail */
+.rail{border-right:1px solid var(--line);padding:14px 12px;display:flex;flex-direction:column;gap:12px;overflow:auto;background:var(--panel)}
+.rail h4{margin:4px 0 0;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.vgroup{display:flex;flex-direction:column;gap:4px}
+.vtitle{font-size:12.5px;font-weight:700;color:var(--muted);padding:0 4px}
+.asset{display:grid;grid-template-columns:40px 1fr;gap:10px;padding:7px;border-radius:9px;border:1px solid transparent;align-items:center;background:none;text-align:left;width:100%}
+.asset:hover{background:var(--panel2)}
+.asset.on{background:var(--panel2);border-color:var(--line2)}
+.asset img{width:40px;height:56px;object-fit:cover;border-radius:5px;background:var(--line)}
+.asset .nm{font-weight:600;font-size:13px;line-height:1.25}
+.asset .meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px}
+.count{font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:5px;font-weight:600}
+.count.open{background:var(--marker-soft);color:var(--marker)}
+.count.fixed{background:var(--claude-soft);color:var(--claude)}
+.count.ok{background:var(--ok-soft);color:var(--ok)}
+.railnote{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;margin-top:auto}
+
+/* stage */
+.stage{display:flex;flex-direction:column;background:#0B0C0E;min-width:0;min-height:0}
+.viewer{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:18px;padding:16px}
+.pane{height:100%;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.pane-label{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.frame{position:relative;height:100%;max-height:calc(100% - 22px);background:#000;border-radius:6px;overflow:hidden}
+.frame video{display:block;height:100%;width:auto;max-width:100%}
+.frame svg.ov{position:absolute;inset:0;width:100%;height:100%}
+.frame.drawing{cursor:crosshair;touch-action:none}
+.ink,.ink-shadow{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.ink{stroke-width:3.5} .ink-shadow{stroke:rgba(0,0,0,.55);stroke-width:6.5}
+.drawhint{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.72);color:#fff;font-size:11.5px;padding:3px 10px;border-radius:999px;pointer-events:none;white-space:nowrap}
+.swatch{width:20px;height:20px;border-radius:50%;border:2px solid var(--line2);padding:0}
+.swatch.on{border-color:var(--text);box-shadow:0 0 0 2px var(--panel2) inset}
+.safe rect{fill:rgba(240,106,90,.16);stroke:rgba(240,106,90,.65);stroke-dasharray:4 3;stroke-width:1;vector-effect:non-scaling-stroke}
+.safe text{fill:#ffb3a9;font:9px var(--mono)}
+.shape{fill:none;stroke:var(--marker);stroke-width:2.5;vector-effect:non-scaling-stroke}
+.shape.fixed{stroke:var(--claude)} .shape.resolved{stroke:var(--ok)} .shape.draft{stroke-dasharray:5 4}
+.empty{color:var(--muted);text-align:center;max-width:40ch}
+
+.transport{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.tc{font-family:var(--mono);font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.tc small{color:var(--dim);font-weight:400;font-size:12.5px}
+.icon{width:32px;height:30px;border-radius:7px;display:grid;place-items:center;color:var(--muted);border:1px solid var(--line);background:none}
+.icon:hover{color:var(--text)}
+.icon.play{background:var(--text);color:var(--ground);border-color:var(--text)}
+.icon svg{width:14px;height:14px}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.chk input{accent-color:var(--marker)}
+
+/* timeline */
+.timeline{padding:8px 16px 12px;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:62px minmax(0,1fr);row-gap:5px;column-gap:10px;align-items:center;user-select:none}
+.tlab{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.lanes{position:relative;grid-column:2;grid-row:1/span 5;display:grid;row-gap:5px;cursor:pointer}
+.lane{position:relative;height:22px}
+.ruler{height:16px;border-bottom:1px solid var(--line)}
+.ruler i{position:absolute;bottom:0;width:1px;height:5px;background:var(--line2)}
+.ruler b{position:absolute;bottom:5px;font-family:var(--mono);font-size:9.5px;color:var(--dim);font-weight:400;transform:translateX(-50%)}
+.seg{position:absolute;top:0;height:22px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.06em;padding:4px 6px;color:#0d0f12;overflow:hidden;white-space:nowrap;text-transform:uppercase}
+.capblk{position:absolute;top:3px;height:16px;border-radius:3px;background:var(--panel2);border:1px solid var(--line2);font-size:9.5px;color:var(--muted);padding:0 4px;overflow:hidden;white-space:nowrap;line-height:14px}
+.capblk.headline,.capblk.badge,.capblk.text,.capblk.strike,.capblk.reply{border-color:rgba(242,181,68,.5);color:var(--marker)}
+canvas.wave{width:100%;height:22px;display:block}
+.mk{position:absolute;top:1px;transform:translateX(-50%);border:0;background:none;padding:0}
+.pin{width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--marker);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.pin span{transform:rotate(45deg);font-size:9px;font-weight:800;color:var(--marker-ink)}
+.mk.fixed .pin{background:var(--claude)} .mk.fixed .pin span{color:var(--claude-ink)}
+.mk.resolved .pin{background:var(--ok)} .mk.resolved .pin span{color:var(--ok-ink)}
+.mk.old{opacity:.45}
+.mk.sel .pin{outline:2px solid #fff}
+.range{position:absolute;top:2px;height:18px;background:var(--marker-soft);border:1.5px solid var(--marker);border-radius:4px;pointer-events:none}
+.range.draft{border-style:dashed}
+.playhead{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;z-index:3;pointer-events:none}
+.playhead:before{content:"";position:absolute;top:-4px;left:-5px;border:6px solid transparent;border-top:7px solid #fff}
+
+/* panel */
+.panel{border-left:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);min-height:0}
+.tabs{display:flex;gap:16px;padding:12px 16px 0;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:0 0 10px;font-size:13px;color:var(--muted);font-weight:600}
+.tabs button.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--marker)}
+.composer{margin:12px;border:1px solid var(--line2);border-radius:10px;background:var(--panel2);padding:10px;display:flex;flex-direction:column;gap:8px}
+.composer:focus-within{border-color:var(--marker)}
+.row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tcchip{font-family:var(--mono);font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:5px;background:var(--marker-soft);color:var(--marker);border:0}
+.tcchip.solid{background:var(--marker);color:var(--marker-ink)}
+textarea{width:100%;min-height:58px;resize:vertical;background:transparent;border:0;outline:0;font-size:13px;line-height:1.45}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);background:none}
+.tag.on{border-color:var(--marker);color:var(--marker)}
+.threads{flex:1;overflow:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
+.th{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:7px}
+.th.sel{border-color:var(--line2);background:var(--panel2)}
+.th.old{opacity:.7}
+.th .hd{display:flex;align-items:center;gap:6px;font-size:12px;flex-wrap:wrap}
+.th .when{color:var(--dim);margin-left:auto;font-size:11px}
+.th p{margin:0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.reply{border-left:2px solid var(--line2);padding-left:9px;display:flex;flex-direction:column;gap:2px}
+.reply.claude{border-color:var(--claude)}
+.reply .who{font-weight:700;font-size:12px;color:var(--muted)}
+.reply.claude .who{color:var(--claude)}
+.reply p{font-size:12.5px;color:#d6d0e2}
+.foot{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.replybox{display:flex;gap:6px}
+.editbox{display:flex;flex-direction:column;gap:6px}
+.editbox textarea{background:var(--ground);border:1px solid var(--marker);border-radius:7px;padding:6px 8px;min-height:64px}
+.edited{color:var(--dim);font-size:11px;font-style:italic}
+.seghint{color:var(--dim);font-size:11px}
+.replybox input{flex:1;min-width:0;background:var(--ground);border:1px solid var(--line2);border-radius:7px;padding:5px 8px;font-size:12.5px}
+.sendbar{margin:0 12px 12px;padding:10px;border-radius:10px;background:var(--claude-soft);border:1px solid rgba(201,166,245,.35);display:flex;flex-direction:column;gap:8px;font-size:12px}
+.sendbar b{color:var(--claude)}
+.banner{margin:12px;padding:10px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12.5px}
+.notes-doc{flex:1;min-height:0;padding:14px 16px;overflow:auto;display:flex;flex-direction:column;gap:14px;font-size:13px}
+.notes-doc h3{margin:0;font-size:13px}
+.notes-doc table{width:100%;border-collapse:collapse;font-size:12px}
+.notes-doc td,.notes-doc th{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left;vertical-align:top}
+.notes-doc th{color:var(--dim);font-weight:600}
+.sel-text{user-select:all;font-family:var(--mono);font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.keys{font-size:11px;color:var(--dim);display:flex;gap:10px;flex-wrap:wrap;padding:0 16px 10px;background:var(--panel)}
+kbd{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:4px;border:1px solid var(--line2);color:var(--muted);background:var(--panel2)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--ground);padding:8px 14px;border-radius:8px;font-weight:600;font-size:13px;z-index:20}
+
+@media (max-width:1000px){
+  html,body{height:auto}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto;height:auto}
+  .rail{border-right:0;border-bottom:1px solid var(--line);max-height:none;flex-direction:row;flex-wrap:wrap;padding-inline:16px}
+  .rail h4,.railnote{width:100%}
+  .vgroup{flex:1 1 220px}
+  .viewer{height:70vh}
+  .panel{border-left:0;border-top:1px solid var(--line)}
+  .topbar{padding-inline:16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="crumbs" id="crumbs"></div>
+    <div class="spacer"></div>
+    <div class="seg-ctl" id="versions" aria-label="Version"></div>
+    <button class="btn" id="compareBtn" type="button">Compare</button>
+    <span id="statusPill"></span>
+    <button class="btn primary" id="approveBtn" type="button">✓ Approve</button>
+  </header>
+
+  <aside class="rail" id="rail"></aside>
+
+  <section class="stage">
+    <div class="viewer" id="viewer"></div>
+    <div class="transport">
+      <button class="icon" id="stepBack" type="button" title="Back one frame (←)" aria-label="Back one frame"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
+      <button class="icon play" id="playBtn" type="button" title="Play / pause (Space)" aria-label="Play or pause"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg></button>
+      <button class="icon" id="stepFwd" type="button" title="Forward one frame (→)" aria-label="Forward one frame"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M11 3h2v10h-2zM3 3v10l7-5z"/></svg></button>
+      <span class="tc" id="tc">00:00.00 <small>/ 00:00.00</small></span>
+      <button class="btn sm" id="speedBtn" type="button">1×</button>
+      <button class="btn sm" id="loopBtn" type="button" title="Loop the marked range">Loop range</button>
+      <div class="spacer"></div>
+      <div class="seg-ctl" id="ratios" aria-label="Ratio"></div>
+      <label class="chk"><input type="checkbox" id="safeChk" checked> Safe zones</label>
+      <label class="chk"><input type="checkbox" id="muteChk"> Mute</label>
+    </div>
+    <div class="timeline" id="timeline">
+      <span></span>
+      <span class="tlab">Edit</span>
+      <span class="tlab">Notes</span>
+      <span class="tlab">Text</span>
+      <span class="tlab">Audio</span>
+      <div class="lanes" id="lanes">
+        <div class="lane ruler" id="ruler"></div>
+        <div class="lane" id="segLane"></div>
+        <div class="lane" id="noteLane"></div>
+        <div class="lane" id="textLane"></div>
+        <div class="lane"><canvas class="wave" id="wave"></canvas></div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+    </div>
+    <div class="keys"><span><kbd>Space</kbd> play</span><span><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> shuttle</span><span><kbd>←</kbd><kbd>→</kbd> frame</span><span><kbd>C</kbd> note here</span><span><kbd>I</kbd><kbd>O</kbd> range in/out</span><span><kbd>[</kbd><kbd>]</kbd> prev/next note</span><span><kbd>D</kbd> draw</span></div>
+  </section>
+
+  <aside class="panel">
+    <div class="tabs" id="tabs">
+      <button type="button" data-tab="open" class="on">Open</button>
+      <button type="button" data-tab="fixed">To check</button>
+      <button type="button" data-tab="resolved">Resolved</button>
+      <button type="button" data-tab="edit">Edit notes</button>
+    </div>
+    <div id="dbBanner" class="banner" hidden>Notes are off in this view. Open this link in claude.ai while signed in to leave or read notes.</div>
+    <form class="composer" id="composer" autocomplete="off">
+      <div class="row">
+        <button type="button" class="tcchip solid" id="cIn" title="Jump to the note's time"></button>
+        <button type="button" class="tcchip" id="cOut" title="Set the end with O">+ end (O)</button>
+        <button type="button" class="tag" id="drawBtn" title="Draw on the picture: lines, arrows, circles (D)">✎ Draw</button>
+        <span class="row" id="inkTools"></span>
+      </div>
+      <textarea id="cText" placeholder="Note at this frame. Enter to add, Shift+Enter for a new line."></textarea>
+      <div class="row" id="cTags"></div>
+      <div class="row" style="justify-content:space-between">
+        <label class="chk"><input type="checkbox" id="cAll"> Applies to all hooks <span class="seghint" id="cSeg"></span></label>
+        <button class="btn marker" type="submit" id="cAdd">Add note</button>
+      </div>
+    </form>
+    <div class="threads" id="threads"></div>
+    <div class="notes-doc" id="editNotes" hidden></div>
+    <div class="sendbar" id="sendbar"></div>
+  </aside>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script id="manifest" type="application/json">__MANIFEST__</script>
+<script>
+(() => {
+const M = JSON.parse(document.getElementById('manifest').textContent);
+const TAGS = ['Cut', 'Text placement', 'Caption', 'Audio', 'Footage', 'Hook', 'Other'];
+const FPS = M.fps || 30;
+const INK = ['#F2B544', '#F06A5A', '#FFFFFF', '#4CC38A', '#5B8FE5'];   // pen colours: amber, red, white, green, blue
+// Instagram Reels/Stories UI cover as a fraction of a 9:16 frame (top bar, caption + CTA zone, action icons)
+const SAFE = { '9x16': { top: .14, bottom: .35, side: .059 } };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = (t) => { if (!isFinite(t)) t = 0; const m = Math.floor(t / 60), s = t - m * 60; return String(m).padStart(2, '0') + ':' + s.toFixed(2).padStart(5, '0'); };
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); } catch { return ''; } };
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+// ---------------------------------------------------------------- state
+const S = { vid: null, hook: 1, v: null, ratio: '9x16', compare: false, tab: 'open', notes: [], approvals: {}, sel: null,
+            inT: 0, outT: null, ink: [], live: null, color: INK[0], drawing: false, tag: 'Cut', loop: false, speed: 1, db: null, dbReady: false,
+            allTouched: false, editId: null, editDraft: null, replyDraft: '' };
+const videoById = (id) => M.videos.find(v => v.id === id);
+const latest = (vd) => vd.versions[vd.versions.length - 1];
+const verObj = (vd, v) => vd.versions.find(x => x.v === v);
+const media = (vd, v, hook, ratio) => { const ver = verObj(vd, v); return ver && ver.available !== false && ver.media?.[hook]?.[ratio] || null; };
+const ratiosOf = (vd, v, hook) => Object.keys(verObj(vd, v)?.media?.[hook] || {});
+const hookKey = (vid, hook) => vid + '_H' + hook;
+const hookObj = (vd, n) => vd.hooks.find(h => h.n === n) || { n, label: 'Hook ' + n };
+
+(function initState() {
+  const saved = (store.get('rr:' + M.id) || '').split('|');
+  const vd = videoById(saved[0]) || M.videos[0];
+  S.vid = vd.id; S.v = latest(vd).v;
+  const hk = +saved[1]; S.hook = vd.hooks.some(h => h.n === hk) ? hk : vd.hooks[0].n;
+  if (saved[2] && ratiosOf(vd, S.v, S.hook).includes(saved[2])) S.ratio = saved[2];
+  else S.ratio = ratiosOf(vd, S.v, S.hook)[0] || '9x16';
+})();
+
+// ---------------------------------------------------------------- notes: where they sit on this render
+// A note keeps its absolute time on the hook it was made on, plus segment + offset. On another hook
+// (an "all hooks" note) it is placed by segment, because hooks differ in length.
+function noteTime(n, m) {
+  if (!m) return n.t;
+  if (n.hook === S.hook && n.version === S.v) return n.t;
+  const seg = n.seg && m.segments?.find(s => s.seg === n.seg);
+  return seg ? Math.min(seg.start + (n.seg_t || 0), seg.end) : n.t;
+}
+function noteEnd(n, m) { return n.t2 == null ? null : noteTime(n, m) + (n.t2 - n.t); }
+function segAt(m, t) {
+  const s = m?.segments?.find(s => t >= s.start && t < s.end) || m?.segments?.[m.segments.length - 1];
+  return s ? { seg: s.seg, seg_t: +(t - s.start).toFixed(3) } : { seg: null, seg_t: null };
+}
+const visibleNotes = () => S.notes.filter(n => n.video === S.vid && (n.hook === S.hook || n.all_hooks));
+const openFor = (vid, hook) => S.notes.filter(n => n.video === vid && (n.hook === hook || n.all_hooks));
+
+// ---------------------------------------------------------------- render: chrome
+function renderTop() {
+  const vd = videoById(S.vid), h = hookObj(vd, S.hook);
+  $('crumbs').innerHTML = `${M.client ? `<span>${esc(M.client)}</span><span class="sep">/</span>` : ''}<span>${esc(M.title)}</span><span class="sep">/</span><b>Video ${esc(vd.id)} · Hook ${h.n}${h.label ? ' · ' + esc(h.label) : ''}</b>`;
+  $('versions').innerHTML = vd.versions.map(x => `<button type="button" data-v="${x.v}" class="${x.v === S.v ? 'on' : ''}" ${x.available === false ? 'disabled title="File retired. Notes on it are kept."' : ''}>v${x.v}</button>`).join('');
+  const prev = prevVersion(vd);
+  $('compareBtn').disabled = !prev;
+  $('compareBtn').classList.toggle('on', S.compare && !!prev);
+  $('compareBtn').textContent = prev ? `Compare v${prev.v} ↔ v${S.v}` : 'Compare';
+  const ap = S.approvals[hookKey(S.vid, S.hook)];
+  const ns = openFor(S.vid, S.hook), open = ns.filter(n => n.status === 'open').length, fixed = ns.filter(n => n.status === 'fixed').length;
+  let pill;
+  if (ap) pill = `<span class="pill ok"><span class="dot"></span>Approved v${ap.version} · ${fmtDate(ap.at)}</span>`;
+  else if (open) pill = `<span class="pill warn"><span class="dot"></span>Changes requested · ${open} open</span>`;
+  else if (fixed) pill = `<span class="pill claude"><span class="dot"></span>${fixed} fixed, check v${latest(vd).v}</span>`;
+  else pill = `<span class="pill dim"><span class="dot"></span>In review</span>`;
+  $('statusPill').innerHTML = pill;
+  const ab = $('approveBtn');
+  ab.textContent = ap ? 'Undo approval' : '✓ Approve';
+  ab.classList.toggle('primary', !ap);
+  const blocked = !ap && (open + fixed > 0 || S.v !== latest(vd).v);
+  ab.disabled = !S.dbReady || blocked;
+  ab.title = !S.dbReady ? 'Notes are off in this view' : S.v !== latest(vd).v ? 'Approve the latest version' : (open + fixed) ? 'Resolve every note on this hook first' : '';
+  $('ratios').innerHTML = ['9x16', '4x5'].map(r => `<button type="button" data-r="${r}" class="${r === S.ratio ? 'on' : ''}" ${ratiosOf(vd, S.v, S.hook).includes(r) ? '' : 'disabled'}>${r.replace('x', ':')}</button>`).join('');
+}
+function prevVersion(vd) {
+  const i = vd.versions.findIndex(x => x.v === S.v);
+  for (let j = i - 1; j >= 0; j--) if (vd.versions[j].available !== false && media(vd, vd.versions[j].v, S.hook, S.ratio)) return vd.versions[j];
+  return null;
+}
+function renderRail() {
+  let html = '<h4>This batch</h4>';
+  for (const vd of M.videos) {
+    html += `<div class="vgroup"><div class="vtitle">Video ${esc(vd.id)}${vd.concept ? ' · ' + esc(vd.concept) : ''}</div>`;
+    for (const h of vd.hooks) {
+      const m = media(vd, latest(vd).v, h.n, '9x16') || media(vd, latest(vd).v, h.n, '4x5');
+      const ns = openFor(vd.id, h.n), open = ns.filter(n => n.status === 'open').length, fixed = ns.filter(n => n.status === 'fixed').length;
+      const ap = S.approvals[hookKey(vd.id, h.n)];
+      const chips = (ap ? `<span class="count ok">✓ v${ap.version}</span>` : '') + (open ? `<span class="count open">${open} open</span>` : '') + (fixed ? `<span class="count fixed">${fixed} to check</span>` : '');
+      html += `<button type="button" class="asset ${vd.id === S.vid && h.n === S.hook ? 'on' : ''}" data-vid="${esc(vd.id)}" data-hook="${h.n}">
+        ${m?.poster ? `<img src="${esc(m.poster)}" alt="">` : '<img alt="">'}
+        <div><div class="nm">Hook ${h.n}${h.label ? ' · ' + esc(h.label) : ''}</div><div class="meta"><span class="count" style="color:var(--dim)">v${latest(vd).v}${m ? ' · ' + Math.round(m.duration) + 's' : ''}</span>${chips}</div></div></button>`;
+    }
+    html += '</div>';
+  }
+  const total = M.videos.reduce((a, vd) => a + vd.hooks.length, 0), done = Object.keys(S.approvals).length;
+  html += `<div class="railnote">${done} of ${total} approved. A note marked <b style="color:var(--text)">all hooks</b> shows on every hook of that video, at the same moment of the body.</div>`;
+  $('rail').innerHTML = html;
+}
+
+// ---------------------------------------------------------------- player
+let mainVid = null, cmpVid = null, waveFor = null;
+function renderViewer() {
+  const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio);
+  const t0 = mainVid ? mainVid.currentTime : 0;
+  if (!m) { $('viewer').innerHTML = `<p class="empty">This version's file has been retired to keep the room under its size limit. Its notes are still listed.</p>`; mainVid = null; cmpVid = null; renderTimeline(); return; }
+  const prev = S.compare ? prevVersion(vd) : null, pm = prev && media(vd, prev.v, S.hook, S.ratio);
+  const pane = (mm, label, id) => `<div class="pane"><span class="pane-label">${label}</span><div class="frame" id="${id}F"><video id="${id}" src="${esc(mm.src)}" poster="${esc(mm.poster || '')}" playsinline preload="auto"></video><svg class="ov" id="${id}O" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>${id === 'vA' ? `<div class="drawhint" id="vAH" ${S.drawing ? '' : 'hidden'}>Draw on the picture · D or Esc to stop</div>` : ''}</div></div>`;
+  $('viewer').innerHTML = (pm ? pane(pm, 'v' + prev.v, 'vB') : '') + pane(m, 'v' + S.v + (pm ? ' · current' : ''), 'vA');
+  mainVid = $('vA'); cmpVid = pm ? $('vB') : null;
+  mainVid.muted = $('muteChk').checked; mainVid.playbackRate = S.speed;
+  if (cmpVid) { cmpVid.muted = true; cmpVid.playbackRate = S.speed; }
+  mainVid.addEventListener('loadedmetadata', () => { if (t0 && t0 < mainVid.duration) mainVid.currentTime = t0; tick(); }, { once: true });
+  mainVid.addEventListener('play', syncPlay); mainVid.addEventListener('pause', syncPlay);
+  mainVid.addEventListener('seeked', () => { if (cmpVid) cmpVid.currentTime = Math.min(mainVid.currentTime, cmpVid.duration || 1e9); });
+  bindDraw($('vAF'), $('vAO'));
+  renderTimeline();
+  if (waveFor !== m.src) { waveFor = m.src; drawWave(m.src); }
+}
+function syncPlay() {
+  $('playBtn').innerHTML = mainVid && !mainVid.paused ? '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg>' : '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg>';
+  if (!cmpVid) return;
+  cmpVid.currentTime = mainVid.currentTime;
+  mainVid.paused ? cmpVid.pause() : cmpVid.play().catch(() => {});
+}
+function cur() { return mainVid ? mainVid.currentTime : 0; }
+function dur() { const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio); return (mainVid && isFinite(mainVid.duration) && mainVid.duration) || m?.duration || 1; }
+function seek(t) { if (!mainVid) return; mainVid.currentTime = Math.max(0, Math.min(t, dur() - 0.001)); tick(); }
+function step(n) { if (!mainVid) return; mainVid.pause(); seek(Math.round(cur() * FPS + n) / FPS); }
+
+function overlaySvg(svg, t) {
+  if (!svg) return;
+  const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio);
+  let h = '';
+  const sz = $('safeChk').checked && SAFE[S.ratio];
+  if (sz) {
+    h += `<g class="safe"><rect x="0" y="0" width="1000" height="${sz.top * 1000}"/><rect x="0" y="${1000 - sz.bottom * 1000}" width="1000" height="${sz.bottom * 1000}"/>
+      <rect x="${1000 - sz.side * 1000}" y="${sz.top * 1000}" width="${sz.side * 1000}" height="${(1 - sz.top - sz.bottom) * 1000}"/></g>`;
+  }
+  for (const n of visibleNotes()) {
+    if (!(n.draw || n.strokes?.length) || n.ratio !== S.ratio) continue;
+    const nt = noteTime(n, m), ne = noteEnd(n, m);
+    const on = n.id === S.sel || (ne != null ? t >= nt - .05 && t <= ne + .05 : Math.abs(t - nt) < .6);
+    if (!on) continue;
+    const d = n.draw;
+    if (d) h += `<ellipse class="shape ${n.status}" cx="${(d.x + d.w / 2) * 1000}" cy="${(d.y + d.h / 2) * 1000}" rx="${d.w * 500}" ry="${d.h * 500}"/>`;
+    for (const s of n.strokes || []) h += inkSvg(s);
+  }
+  for (const s of S.live ? [...S.ink, S.live] : S.ink) h += inkSvg(s);
+  svg.innerHTML = h;
+}
+function inkSvg(s) {
+  if (!s?.p?.length) return '';
+  const pts = s.p.map(([x, y]) => (x * 1000).toFixed(1) + ',' + (y * 1000).toFixed(1)).join(' ');
+  const c = /^#[0-9a-f]{3,8}$/i.test(s.c) ? s.c : INK[0];
+  return `<polyline class="ink-shadow" points="${pts}"/><polyline class="ink" points="${pts}" style="stroke:${c}"/>`;
+}
+function bindDraw(frame, svg) {
+  const pos = (e) => { const r = frame.getBoundingClientRect(); return [+Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)).toFixed(4), +Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)).toFixed(4)]; };
+  frame.classList.toggle('drawing', S.drawing);
+  frame.addEventListener('pointerdown', (e) => {
+    if (!S.drawing) { if (mainVid) mainVid.paused ? mainVid.play().catch(() => {}) : mainVid.pause(); return; }
+    e.preventDefault(); frame.setPointerCapture(e.pointerId); mainVid.pause();
+    if (!S.ink.length) { S.inT = cur(); S.composing = true; renderComposerTime(); }   // the note sits on the frame of its first line
+    S.live = { c: S.color, p: [pos(e)] };
+  });
+  frame.addEventListener('pointermove', (e) => {
+    if (!S.live) return;
+    const p = pos(e), q = S.live.p[S.live.p.length - 1];
+    if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) < .004) return;
+    S.live.p.push(p); overlaySvg(svg, cur());
+  });
+  const end = () => {
+    if (!S.live) return;
+    const s = S.live; S.live = null;
+    if (s.p.length === 1) s.p.push([s.p[0][0] + .003, s.p[0][1]]);   // a tap leaves a dot
+    if (s.p.length > 300) { const k = Math.ceil(s.p.length / 300); s.p = s.p.filter((_, i) => i % k === 0 || i === s.p.length - 1); }
+    S.ink.push(s); renderComposer(); overlaySvg(svg, cur());
+  };
+  frame.addEventListener('pointerup', end); frame.addEventListener('pointercancel', end);
+}
+
+// ---------------------------------------------------------------- timeline
+function renderTimeline() {
+  const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio), D = dur();
+  const pct = (t) => (100 * t / D).toFixed(3) + '%';
+  let r = '';
+  const stepS = D > 60 ? 10 : 5;
+  for (let s = 0; s <= D; s += stepS) r += `<i style="left:${pct(s)}"></i><b style="left:${pct(s)};${s === 0 ? 'transform:none' : ''}">${s}${s === 0 ? 's' : ''}</b>`;
+  $('ruler').innerHTML = r;
+  const col = { hook: 'var(--seg-hook)', body: 'var(--seg-body)', close: 'var(--seg-close)' };
+  $('segLane').innerHTML = (m?.segments || []).map(s => `<div class="seg" style="left:${pct(s.start)};width:calc(${pct(s.end - s.start)} - 2px);background:${col[s.seg] || 'var(--line2)'}">${esc(s.seg)}</div>`).join('');
+  $('textLane').innerHTML = (m?.text || []).map(x => `<div class="capblk ${esc(x.type)}" style="left:${pct(x.start)};width:calc(${pct(x.end - x.start)} - 1px)" title="${esc(x.type)}: ${esc(x.text)}">${esc(x.text)}</div>`).join('');
+  let nl = '';
+  visibleNotes().forEach((n) => {
+    const nt = noteTime(n, m), ne = noteEnd(n, m), idx = noteIndex(n);
+    if (ne != null) nl += `<div class="range" style="left:${pct(nt)};width:${pct(Math.max(ne - nt, .05))}"></div>`;
+    nl += `<button type="button" class="mk ${n.status} ${n.version !== S.v ? 'old' : ''} ${n.id === S.sel ? 'sel' : ''}" data-note="${esc(n.id)}" style="left:${pct(nt)}" title="${esc(n.text)}"><div class="pin"><span>${n.status === 'resolved' ? '✓' : idx}</span></div></button>`;
+  });
+  if (S.outT != null) nl += `<div class="range draft" style="left:${pct(Math.min(S.inT, S.outT))};width:${pct(Math.abs(S.outT - S.inT))}"></div>`;
+  $('noteLane').innerHTML = nl;
+  tick();
+}
+function noteIndex(n) { const list = visibleNotes().slice().sort((a, b) => a.created < b.created ? -1 : 1); return list.indexOf(n) + 1; }
+async function drawWave(src) {
+  const c = $('wave'), w = c.clientWidth || 600, h = 22; c.width = w * 2; c.height = h * 2;
+  const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
+  try {
+    const buf = await (await fetch(src)).arrayBuffer();
+    const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const audio = await new AC(1, 44100, 44100).decodeAudioData(buf);
+    if (waveFor !== src) return;
+    const d = audio.getChannelData(0), bars = Math.floor(c.width / 4), per = Math.floor(d.length / bars);
+    g.fillStyle = '#4E5A70';
+    for (let i = 0; i < bars; i++) {
+      let peak = 0; for (let j = i * per; j < (i + 1) * per; j += 16) peak = Math.max(peak, Math.abs(d[j]));
+      const bh = Math.max(2, peak * c.height * .95);
+      g.fillRect(i * 4, (c.height - bh) / 2, 2.5, bh);
+    }
+  } catch { g.fillStyle = '#2A2F36'; g.fillRect(0, c.height / 2 - 1, c.width, 2); }
+}
+function tick() {
+  const t = cur(), D = dur();
+  $('playhead').style.left = (100 * t / D) + '%';
+  $('tc').innerHTML = `${fmt(t)} <small>/ ${fmt(D)}</small>`;
+  overlaySvg($('vAO'), t);
+  if (cmpVid) overlaySvg($('vBO'), t);
+  if (S.loop && S.outT != null && mainVid && !mainVid.paused) {
+    const a = Math.min(S.inT, S.outT), b = Math.max(S.inT, S.outT);
+    if (t >= b || t < a - .1) seek(a);
+  }
+  if (!S.composing && document.activeElement !== $('cText')) { S.inT = t; renderComposerTime(); }
+}
+(function loop() { if (mainVid && !mainVid.paused) tick(); requestAnimationFrame(loop); })();
+
+$('lanes').addEventListener('pointerdown', (e) => {
+  const mk = e.target.closest('.mk');
+  if (mk) { selectNote(mk.dataset.note, true); return; }
+  const r = $('lanes').getBoundingClientRect();
+  const go = (ev) => seek(dur() * Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)));
+  go(e);
+  const mv = (ev) => go(ev), up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+});
+
+// ---------------------------------------------------------------- composer
+// Body and close are shared by every hook, so a note there defaults to "all hooks". A hand-set checkbox wins
+// until the note is added or another hook is opened.
+function syncAllHooks() {
+  const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio), seg = segAt(m, S.inT).seg;
+  $('cSeg').textContent = seg ? '· in ' + seg : '';
+  if (!S.allTouched) $('cAll').checked = !!seg && seg !== 'hook';
+}
+function renderComposerTime() {
+  syncAllHooks();
+  $('cIn').textContent = fmt(S.inT);
+  $('cOut').textContent = S.outT != null ? '→ ' + fmt(S.outT) + ' ✕' : '+ end (O)';
+}
+function renderComposer() {
+  renderComposerTime();
+  $('cTags').innerHTML = TAGS.map(t => `<button type="button" class="tag ${t === S.tag ? 'on' : ''}" data-tag="${t}">${t}</button>`).join('');
+  $('drawBtn').classList.toggle('on', S.drawing || S.ink.length > 0);
+  $('drawBtn').textContent = S.drawing ? '✎ Drawing · done' : S.ink.length ? `✎ ${S.ink.length} line${S.ink.length > 1 ? 's' : ''}` : '✎ Draw';
+  $('inkTools').innerHTML = (S.drawing ? INK.map(c => `<button type="button" class="swatch ${c === S.color ? 'on' : ''}" data-ink="${c}" style="background:${c}" aria-label="Pen colour ${c}"></button>`).join('') : '')
+    + (S.ink.length ? '<button type="button" class="tag" data-ink="undo">Undo</button><button type="button" class="tag" data-ink="clear">Clear</button>' : '');
+  if ($('vAH')) $('vAH').hidden = !S.drawing;
+  const off = !S.dbReady;
+  for (const el of $('composer').querySelectorAll('textarea,button,input')) el.disabled = off;
+}
+$('cAll').addEventListener('change', () => { S.allTouched = true; });
+$('cTags').addEventListener('click', (e) => { const b = e.target.closest('[data-tag]'); if (!b) return; S.tag = b.dataset.tag; renderComposer(); });
+$('cIn').addEventListener('click', () => seek(S.inT));
+$('cOut').addEventListener('click', () => { S.outT = S.outT == null ? cur() : null; renderComposer(); renderTimeline(); });
+$('drawBtn').addEventListener('click', () => toggleDraw());
+function toggleDraw(on) { S.drawing = on ?? !S.drawing; if (S.drawing && mainVid) mainVid.pause(); const f = $('vAF'); if (f) f.classList.toggle('drawing', S.drawing); renderComposer(); overlaySvg($('vAO'), cur()); }
+$('inkTools').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ink]'); if (!b) return;
+  const k = b.dataset.ink;
+  if (k === 'undo') S.ink.pop(); else if (k === 'clear') S.ink = []; else S.color = k;
+  if (!S.ink.length && !$('cText').value.trim() && S.outT == null) S.composing = false;
+  renderComposer(); overlaySvg($('vAO'), cur());
+});
+$('cText').addEventListener('focus', () => { S.composing = true; if (mainVid) mainVid.pause(); });
+$('cText').addEventListener('blur', () => { S.composing = !!$('cText').value.trim() || S.outT != null || S.ink.length > 0; });
+$('cText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('composer').requestSubmit(); } if (e.key === 'Escape') { $('cText').blur(); } });
+$('composer').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = $('cText').value.trim(); if (!text || !S.db) return;
+  const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio);
+  let t = S.inT, t2 = S.outT; if (t2 != null && t2 < t) [t, t2] = [t2, t];
+  const doc = { video: S.vid, hook: S.hook, version: S.v, ratio: S.ratio, t: +t.toFixed(3), t2: t2 == null ? null : +t2.toFixed(3),
+    ...segAt(m, t), tag: S.tag, text, all_hooks: $('cAll').checked, draw: null, strokes: S.ink, status: 'open', created: new Date().toISOString(), replies: [] };
+  $('cAdd').disabled = true;
+  try {
+    await S.db.collection('notes').add(doc);
+    $('cText').value = ''; S.outT = null; S.ink = []; S.allTouched = false; S.composing = false; if (S.drawing) toggleDraw(false);
+    toast('Note added at ' + fmt(t));
+  } catch (err) { toast(err?.code === 'quota_exceeded' ? 'The notes store is full. Resolve and delete old notes.' : 'Note not saved. Check you are signed in, then try again.'); }
+  $('cAdd').disabled = false; renderComposer(); renderTimeline();
+});
+
+// ---------------------------------------------------------------- threads
+function renderThreads() {
+  const edit = S.tab === 'edit';
+  $('threads').hidden = edit; $('editNotes').hidden = !edit; $('composer').hidden = edit;
+  for (const b of $('tabs').querySelectorAll('button')) {
+    b.classList.toggle('on', b.dataset.tab === S.tab);
+    const n = { open: 'open', fixed: 'fixed', resolved: 'resolved' }[b.dataset.tab];
+    if (n) b.textContent = { open: 'Open', fixed: 'To check', resolved: 'Resolved' }[n] + ' · ' + visibleNotes().filter(x => x.status === n).length;
+  }
+  if (edit) { renderEditNotes(); return; }
+  const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio);
+  const list = visibleNotes().filter(n => n.status === S.tab).sort((a, b) => noteTime(a, m) - noteTime(b, m));
+  if (!list.length) {
+    $('threads').innerHTML = `<p class="empty" style="margin:20px auto">${S.tab === 'open' ? (S.dbReady ? 'No open notes on this hook. Press C at any frame to add one.' : '') : S.tab === 'fixed' ? 'Nothing waiting for your check.' : 'No resolved notes yet.'}</p>`;
+    return;
+  }
+  $('threads').innerHTML = list.map(n => {
+    const nt = noteTime(n, m), ne = noteEnd(n, m);
+    const replies = (n.replies || []).map(r => `<div class="reply ${r.by === 'claude' ? 'claude' : ''}"><span class="who">${r.by === 'claude' ? 'Claude' : 'You'}${r.version ? ' · v' + r.version : ''}</span><p>${esc(r.text)}</p></div>`).join('');
+    const acts = n.status === 'open'
+      ? `<button type="button" class="btn sm" data-act="resolve">Resolve</button>`
+      : n.status === 'fixed'
+        ? `<button type="button" class="btn sm primary" data-act="resolve">Confirm fix</button><button type="button" class="btn sm" data-act="reopen">Reopen</button>`
+        : `<button type="button" class="btn sm" data-act="reopen">Reopen</button>`;
+    return `<div class="th ${n.id === S.sel ? 'sel' : ''} ${n.version !== S.v ? 'old' : ''}" data-note="${esc(n.id)}">
+      <div class="hd"><button type="button" class="tcchip" data-act="seek">${fmt(nt)}${ne != null ? '–' + fmt(ne) : ''}</button>
+        <span class="pill mk">${esc(n.tag)}</span>${n.all_hooks ? '<span class="pill dim">All hooks</span>' : ''}${n.draw || n.strokes?.length ? '<span class="pill dim">✎</span>' : ''}
+        ${n.status === 'fixed' ? `<span class="pill claude">Fixed in v${n.fixed_in || '?'}</span>` : ''}
+        <span class="when">v${n.version} · ${n.ratio.replace('x', ':')} · ${fmtDate(n.created)}</span></div>
+      ${S.editId === n.id ? `<form class="editbox" data-act="editform">
+          <textarea id="editText">${esc(S.editDraft.text)}</textarea>
+          <div class="row">${TAGS.map(t => `<button type="button" class="tag ${t === S.editDraft.tag ? 'on' : ''}" data-act="edittag" data-tag="${t}">${t}</button>`).join('')}</div>
+          <div class="row" style="justify-content:space-between"><label class="chk"><input type="checkbox" id="editAll" ${S.editDraft.all_hooks ? 'checked' : ''}> Applies to all hooks</label>
+          <span class="row"><button type="button" class="btn sm" data-act="editcancel">Cancel</button><button type="submit" class="btn sm marker">Save</button></span></div>
+        </form>` : `<p>${esc(n.text)}</p>${n.edited_at ? `<span class="edited">edited ${fmtDate(n.edited_at)}</span>` : ''}`}${replies}
+      <div class="foot">${acts}${S.editId === n.id ? '' : '<button type="button" class="btn sm" data-act="edit">Edit</button>'}<button type="button" class="btn sm" data-act="reply">Reply</button><span class="spacer"></span><button type="button" class="btn sm" data-act="del" title="Delete note">${S.confirmDel === n.id ? 'Delete?' : '🗑'}</button></div>
+      ${S.replyTo === n.id ? `<form class="replybox" data-act="replyform"><input id="replyIn" placeholder="Reply" autocomplete="off" value="${esc(S.replyDraft || '')}"><button class="btn sm" type="submit">Send</button></form>` : ''}
+    </div>`;
+  }).join('');
+  if (S.replyTo) $('replyIn')?.focus();
+  if (S.editId) { const ta = $('editText'); if (ta && document.activeElement !== ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }
+}
+$('threads').addEventListener('input', (e) => {
+  if (e.target.id === 'editText') S.editDraft.text = e.target.value;
+  if (e.target.id === 'replyIn') S.replyDraft = e.target.value;
+});
+$('threads').addEventListener('change', (e) => { if (e.target.id === 'editAll') S.editDraft.all_hooks = e.target.checked; });
+$('threads').addEventListener('keydown', (e) => {
+  if (e.target.id !== 'editText') return;
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.closest('form').requestSubmit(); }
+  if (e.key === 'Escape') { S.editId = null; renderThreads(); }
+});
+$('threads').addEventListener('click', async (e) => {
+  const card = e.target.closest('.th'); if (!card) return;
+  const n = S.notes.find(x => x.id === card.dataset.note); if (!n) return;
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (e.target.closest('.editbox, .replybox') && (!act || act === 'editform' || act === 'replyform')) return;   // typing in a form, not selecting
+  if (!act || act === 'seek') { selectNote(n.id, true); return; }
+  if (!S.db) return;
+  const ref = S.db.collection('notes').doc(n.id);
+  try {
+    if (act === 'resolve') { await ref.update({ status: 'resolved', resolved_at: new Date().toISOString() }); toast('Resolved'); }
+    if (act === 'reopen') { await ref.update({ status: 'open' }); toast('Reopened'); }
+    if (act === 'reply') { S.replyTo = S.replyTo === n.id ? null : n.id; S.replyDraft = ''; renderThreads(); }
+    if (act === 'edit') { S.editId = n.id; S.editDraft = { text: n.text, tag: n.tag, all_hooks: !!n.all_hooks }; renderThreads(); }
+    if (act === 'edittag') { S.editDraft.tag = e.target.closest('[data-tag]').dataset.tag; renderThreads(); }
+    if (act === 'editcancel') { S.editId = null; renderThreads(); }
+    if (act === 'del') {
+      if (S.confirmDel !== n.id) { S.confirmDel = n.id; renderThreads(); setTimeout(() => { if (S.confirmDel === n.id) { S.confirmDel = null; renderThreads(); } }, 3000); return; }
+      S.confirmDel = null; await ref.delete(); toast('Note deleted');
+    }
+  } catch { toast('Not saved. Try again.'); }
+});
+$('threads').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (e.target.dataset.act === 'editform') {
+    const n = S.notes.find(x => x.id === S.editId), d = S.editDraft, text = (d?.text || '').trim();
+    if (!n || !text || !S.db) return;
+    const changed = text !== n.text || d.tag !== n.tag || d.all_hooks !== !!n.all_hooks;
+    if (!changed) { S.editId = null; renderThreads(); return; }
+    // A changed request on a fixed or resolved note goes back to open: the fix answered the old wording.
+    const patch = { text, tag: d.tag, all_hooks: d.all_hooks, edited_at: new Date().toISOString() };
+    if (n.status !== 'open' && text !== n.text) patch.status = 'open';
+    try { await S.db.collection('notes').doc(n.id).update(patch); S.editId = null; toast(patch.status ? 'Note edited and reopened' : 'Note edited'); }
+    catch { toast('Edit not saved. Try again.'); }
+    renderThreads();
+    return;
+  }
+  const card = e.target.closest('.th'), n = S.notes.find(x => x.id === card?.dataset.note), text = $('replyIn')?.value.trim();
+  if (!n || !text || !S.db) return;
+  try {
+    await S.db.collection('notes').doc(n.id).update({ replies: [...(n.replies || []), { by: 'reviewer', text, at: new Date().toISOString() }], status: 'open' });
+    S.replyTo = null; S.replyDraft = ''; toast('Reply added. The note is open again.');
+  } catch { toast('Reply not saved. Try again.'); }
+});
+function selectNote(id, go) {
+  const n = S.notes.find(x => x.id === id); if (!n) return;
+  S.sel = id;
+  if (n.status !== S.tab && S.tab !== 'edit') S.tab = n.status;
+  if (go) { const vd = videoById(S.vid); if (mainVid) mainVid.pause(); if (n.ratio !== S.ratio && ratiosOf(vd, S.v, S.hook).includes(n.ratio)) { S.ratio = n.ratio; renderAll(); } seek(noteTime(n, media(vd, S.v, S.hook, S.ratio))); }
+  renderThreads(); renderTimeline();
+  document.querySelector(`.th[data-note="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+
+function renderEditNotes() {
+  const vd = videoById(S.vid);
+  let h = '';
+  for (const ver of vd.versions.slice().reverse()) {
+    h += `<div><h3>v${ver.v}${ver.date ? ' · ' + esc(ver.date) : ''}${ver.available === false ? ' <span class="pill dim">file retired</span>' : ''}</h3>${ver.note ? `<p style="margin:4px 0 0;color:var(--muted)">${esc(ver.note)}</p>` : ''}</div>`;
+  }
+  h += `<div><h3>Ad names</h3><table><tr><th>Hook</th><th>Ad name</th><th>Status</th></tr>` +
+    vd.hooks.map(hk => { const ap = S.approvals[hookKey(vd.id, hk.n)]; return `<tr><td>H${hk.n}</td><td class="sel-text">${esc(hk.ad_name || '—')}</td><td>${ap ? 'Approved v' + ap.version : '—'}</td></tr>`; }).join('') + `</table></div>`;
+  for (const sec of vd.sections || []) h += `<div><h3>${esc(sec.title)}</h3>${(sec.lines || []).map(l => `<p style="margin:2px 0;color:var(--muted)">${esc(l)}</p>`).join('')}</div>`;
+  const lv = latest(vd);
+  if (lv.masters) {
+    h += `<div><h3>Full-quality masters · v${lv.v}</h3><p style="margin:2px 0 6px;color:var(--muted);font-size:12px">On your computer. These are the full-quality files, not the review copies played here.</p>` +
+      Object.entries(lv.masters).map(([hk, rs]) => Object.entries(rs).map(([r, p]) => `<div class="sel-text">H${hk} ${r}: ${esc(p)}</div>`).join('')).join('') + '</div>';
+  }
+  if (vd.extras?.length) h += `<div><h3>Also in this delivery</h3>${vd.extras.map(x => `<p style="margin:2px 0;color:var(--muted)">${esc(x)}</p>`).join('')}</div>`;
+  $('editNotes').innerHTML = h;
+}
+$('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; renderThreads(); });
+
+// The bottom bar sends the next step to the Claude session watching this room, as a comment "sent to Claude"
+// (comments capability). Two moments: open notes → "Apply notes on <title>"; every hook approved → write the record.
+// When no session is watching, the bar says how to start one; the chat phrase still works as before.
+function sendState() {
+  const open = S.notes.filter(n => n.status === 'open'), fixed = S.notes.filter(n => n.status === 'fixed');
+  const total = M.videos.reduce((a, vd) => a + vd.hooks.length, 0), approved = Object.keys(S.approvals).length;
+  const who = M.title;
+  if (open.length) return { kind: 'notes', open, fixed, label: `Apply notes on ${M.title}`,
+    text: `Apply notes on ${who}: ${open.length} open note${open.length > 1 ? 's' : ''} in the Review Room.` };
+  if (total && approved === total) return { kind: 'approved', open, fixed, label: 'Batch approved: write the record',
+    text: `${who} is approved in the Review Room (${approved} of ${total} hooks). Write the record.` };
+  return { kind: 'idle', open, fixed };
+}
+let sendCheckT = 0;
+async function refreshSendBtn() {
+  if (!$('sendClaude')) return;
+  if (!S.comments) { $('sendClaude').hidden = true; return; }
+  const mine = ++sendCheckT;
+  let st = 'off';
+  try { st = await S.comments.canSendToClaude(); } catch { st = 'off'; }
+  if (mine !== sendCheckT || !$('sendClaude')) return;   // a newer render asked since
+  const btn = $('sendClaude'), why = $('sendWhy');
+  btn.hidden = st === 'off' || st === 'writers_only';
+  btn.disabled = st !== 'available' || !!S.sending || S.sentText === sendState().text;   // one send per state: a second click waits for the notes to change
+  why.textContent = st === 'no_session' ? 'No Claude session is watching this room. Paste this room’s link in the chat and say “watch this room”, then press again.' : '';
+}
+function renderSendbar() {
+  const st = sendState(), vids = [...new Set(st.open.map(n => n.video))];
+  let msg;
+  if (st.kind === 'notes') msg = `<span><b>${st.open.length} open note${st.open.length > 1 ? 's' : ''}</b> across ${vids.length > 1 ? 'videos ' : 'Video '}${vids.join(', ')}.</span>`;
+  else if (st.kind === 'approved') msg = `<span><b>Every hook is approved.</b> Send it to Claude to write the record.</span>`;
+  else if (st.fixed.length) msg = `<span><b>${st.fixed.length} fix${st.fixed.length > 1 ? 'es' : ''}</b> waiting for your check in “To check”.</span>`;
+  else msg = `<span>No open notes in this batch.</span>`;
+  const sent = S.sentAt ? `<span style="color:var(--muted)">Sent ${new Date(S.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Claude answers in the comment thread and under each note.</span>` : '';
+  const btns = st.kind === 'idle' ? '' : `<div class="row"><button class="btn sm primary" type="button" id="sendClaude" hidden style="background:var(--claude);border-color:var(--claude);color:var(--claude-ink)">➤ ${esc(st.label)}</button>${st.kind === 'notes' ? '<button class="btn sm" type="button" id="copyNotes">Copy notes as text</button>' : ''}</div><span style="color:var(--muted)">Or say “${esc(st.kind === 'notes' ? `Apply notes on ${M.title}` : `${M.title} is approved`)}” in the chat.</span><span id="sendWhy" style="color:var(--muted)"></span>`;
+  $('sendbar').innerHTML = msg + btns + sent;
+  refreshSendBtn();
+}
+$('sendbar').addEventListener('click', async (e) => {
+  if (e.target.id === 'sendClaude') {
+    const st = sendState(); if (st.kind === 'idle' || !S.comments || S.sending) return;
+    if (S.sentText === st.text) return;
+    S.sending = true; S.sentText = st.text; e.target.disabled = true; e.target.textContent = 'Sending…';
+    try {
+      const anchor = await S.comments.anchorFor($('sendbar'));
+      await S.comments.sendToClaude({ anchor, text: st.text });
+      S.sentAt = Date.now(); toast('Sent to Claude');
+    } catch (err) {
+      const c = err?.code;
+      toast(c === 'consent_required' ? 'Allow this page to comment when asked, then press again.'
+        : c === 'claude_unavailable' ? 'No Claude session could take it. Say it in the chat instead.'
+        : c === 'rate_limited' ? 'Sent too recently. Wait a moment.'
+        : c === 'forbidden' || c === 'not_granted' ? 'Sending from the page is off here. Say it in the chat instead.'
+        : 'Not sent. Try again, or say it in the chat.');
+      S.sentText = null;   // nothing went out: allow another press
+      if (c === 'forbidden' || c === 'not_granted') S.comments = null;
+    }
+    S.sending = false; renderSendbar();
+    return;
+  }
+  if (e.target.id !== 'copyNotes') return;
+  const open = S.notes.filter(n => n.status === 'open');
+  const txt = `${M.title} notes\n` + open.map(n => `- Video ${n.video} H${n.hook}${n.all_hooks ? ' (all hooks)' : ''} v${n.version} ${n.ratio} @ ${fmt(n.t)}${n.t2 != null ? '–' + fmt(n.t2) : ''} [${n.tag}]: ${n.text}`).join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Copied'); } catch { toast('Copy blocked here. Say “apply notes” in chat instead.'); }
+});
+addEventListener('focus', () => refreshSendBtn());
+
+// ---------------------------------------------------------------- approve
+$('approveBtn').addEventListener('click', async () => {
+  if (!S.db) return;
+  const k = hookKey(S.vid, S.hook), ref = S.db.collection('approvals').doc(k);
+  try {
+    if (S.approvals[k]) { await ref.delete(); toast('Approval removed'); }
+    else { await ref.set({ video: S.vid, hook: S.hook, version: S.v, at: new Date().toISOString(), ad_name: hookObj(videoById(S.vid), S.hook).ad_name || null }); toast(`Approved v${S.v}`); }
+  } catch { toast('Not saved. Try again.'); }
+});
+
+// ---------------------------------------------------------------- navigation
+$('rail').addEventListener('click', (e) => {
+  const b = e.target.closest('.asset'); if (!b) return;
+  const vd = videoById(b.dataset.vid);
+  S.vid = vd.id; S.hook = +b.dataset.hook; S.v = latest(vd).v; S.sel = null; S.outT = null; S.ink = []; S.drawing = false; S.allTouched = false; S.editId = null;
+  if (!ratiosOf(vd, S.v, S.hook).includes(S.ratio)) S.ratio = ratiosOf(vd, S.v, S.hook)[0];
+  if (mainVid) mainVid.currentTime = 0;
+  store.set('rr:' + M.id, [S.vid, S.hook, S.ratio].join('|'));
+  renderAll();
+});
+$('versions').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b || b.disabled) return; S.v = +b.dataset.v; renderAll(); });
+$('ratios').addEventListener('click', (e) => { const b = e.target.closest('[data-r]'); if (!b || b.disabled) return; S.ratio = b.dataset.r; store.set('rr:' + M.id, [S.vid, S.hook, S.ratio].join('|')); renderAll(); });
+$('compareBtn').addEventListener('click', () => { S.compare = !S.compare; renderTop(); renderViewer(); });
+$('playBtn').addEventListener('click', () => { if (!mainVid) return; mainVid.paused ? mainVid.play().catch(() => {}) : mainVid.pause(); });
+$('stepBack').addEventListener('click', () => step(-1));
+$('stepFwd').addEventListener('click', () => step(1));
+const SPEEDS = [1, 1.5, 2, 0.5];
+$('speedBtn').addEventListener('click', () => { S.speed = SPEEDS[(SPEEDS.indexOf(S.speed) + 1) % SPEEDS.length]; $('speedBtn').textContent = S.speed + '×'; if (mainVid) mainVid.playbackRate = S.speed; if (cmpVid) cmpVid.playbackRate = S.speed; });
+$('loopBtn').addEventListener('click', () => { S.loop = !S.loop; $('loopBtn').classList.toggle('on', S.loop); if (S.loop && S.outT == null) toast('Mark a range with I and O to loop it'); });
+$('safeChk').addEventListener('change', () => { tick(); store.set('rr:safe', $('safeChk').checked ? '1' : '0'); });
+$('muteChk').addEventListener('change', () => { if (mainVid) mainVid.muted = $('muteChk').checked; });
+if (store.get('rr:safe') === '0') $('safeChk').checked = false;
+
+addEventListener('keydown', (e) => {
+  if (e.target.closest('textarea,input,select') || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if (k === ' ' || k === 'k' || k === 'K') { e.preventDefault(); if (mainVid) { if (k === ' ') { mainVid.paused ? mainVid.play().catch(() => {}) : mainVid.pause(); } else mainVid.pause(); } }
+  else if (k === 'l' || k === 'L') { if (mainVid) { S.speed = mainVid.paused ? 1 : Math.min(S.speed * 2, 4); mainVid.playbackRate = S.speed; $('speedBtn').textContent = S.speed + '×'; mainVid.play().catch(() => {}); } }
+  else if (k === 'j' || k === 'J') { if (mainVid) { mainVid.pause(); seek(cur() - 1); } }
+  else if (k === 'ArrowLeft') { e.preventDefault(); step(e.shiftKey ? -FPS : -1); }
+  else if (k === 'ArrowRight') { e.preventDefault(); step(e.shiftKey ? FPS : 1); }
+  else if (k === 'c' || k === 'C') { e.preventDefault(); if (mainVid) mainVid.pause(); S.inT = cur(); renderComposerTime(); $('cText').focus(); }
+  else if (k === 'i' || k === 'I') { S.inT = cur(); S.composing = true; renderComposerTime(); renderTimeline(); }
+  else if (k === 'o' || k === 'O') { S.outT = cur(); S.composing = true; renderComposerTime(); renderTimeline(); }
+  else if (k === 'd' || k === 'D') { toggleDraw(); }
+  else if (k === 'Escape' && S.drawing) { toggleDraw(false); }
+  else if (k === '[' || k === ']') {
+    const vd = videoById(S.vid), m = media(vd, S.v, S.hook, S.ratio);
+    const ts = visibleNotes().filter(n => n.status !== 'resolved').map(n => [noteTime(n, m), n.id]).sort((a, b) => a[0] - b[0]);
+    const t = cur(); const hit = k === ']' ? ts.find(x => x[0] > t + .02) : ts.slice().reverse().find(x => x[0] < t - .02);
+    if (hit) selectNote(hit[1], true);
+  }
+});
+
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200); }
+
+function renderAll() { renderTop(); renderRail(); renderViewer(); renderComposer(); renderThreads(); renderSendbar(); }
+function renderData() { renderTop(); renderRail(); renderTimeline(); renderThreads(); renderSendbar(); }
+renderAll();
+
+// ---------------------------------------------------------------- notes store
+(async () => {
+  const c = window.claude?.use ? await window.claude.use('comments') : null;
+  if (c && 'sendToClaude' in c) { S.comments = c; renderSendbar(); }
+})();
+(async () => {
+  const db = window.claude?.use ? await window.claude.use('db') : null;
+  if (!db) { $('dbBanner').hidden = false; renderAll(); return; }
+  S.db = db; S.dbReady = true; renderComposer(); renderTop();
+  const fail = () => { S.dbReady = false; $('dbBanner').hidden = false; renderComposer(); renderTop(); };
+  db.collection('notes').onSnapshot((snap) => {
+    S.notes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderData();
+  }, fail);
+  db.collection('approvals').onSnapshot((snap) => {
+    S.approvals = {}; for (const d of snap.docs) S.approvals[d.id] = d.data();
+    renderData();
+  }, fail);
+})();
+})();
+</script>

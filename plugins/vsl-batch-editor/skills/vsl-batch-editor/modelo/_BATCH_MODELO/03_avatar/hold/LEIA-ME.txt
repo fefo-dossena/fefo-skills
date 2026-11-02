@@ -1,0 +1,4 @@
+Avatar falando a hold.
+Take único: avatar_hold.mp4
+Ou em partes, na ordem: hold_01.mp4, hold_02.mp4, hold_03.mp4...
+Se o avatar fala o nome do produto, crie as subpastas neurobella/ e visiovance/ aqui dentro.

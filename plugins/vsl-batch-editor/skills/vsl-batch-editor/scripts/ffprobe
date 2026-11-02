@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+# ffprobe mínimo (sem admin): só imprime a duração em segundos, como
+# "ffprobe -v error -show_entries format=duration -of csv=p=0 ARQUIVO"
+import re, subprocess, sys
+f = sys.argv[-1]
+err = subprocess.run([__import__('os').path.expanduser('~/bin/ffmpeg'), '-nostdin', '-i', f], capture_output=True, text=True).stderr
+m = re.search(r'Duration: (\d+):(\d+):([\d.]+)', err)
+if not m: sys.exit(1)
+h, mi, s = m.groups(); print(f"{int(h)*3600 + int(mi)*60 + float(s):.6f}")

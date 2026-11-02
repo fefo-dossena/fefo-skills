@@ -1,0 +1,7 @@
+roteiro.txt (ou .docx) = copy completa, com HOOK 1, HOOK 2, HOOK 3 e HOLD separados.
+
+cenas.md = o Claude gera a partir do roteiro (formato em cenas_modelo.md):
+ - cenas numeradas (H1-01.. para hooks, S01, S02.. para a hold) com o trecho da copy
+ - quais cenas levam produto [PRODUTO]
+ - prompt pronto para o Higgsfield (MiniMax) em cada cena
+ - nome do arquivo e a pasta onde salvar o resultado

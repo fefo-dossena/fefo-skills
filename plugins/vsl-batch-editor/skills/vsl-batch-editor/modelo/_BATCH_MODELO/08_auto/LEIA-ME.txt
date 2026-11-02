@@ -1,0 +1,2 @@
+Gerado pela skill. Não precisa mexer.
+hold_cortada_<produto>.xml (importar no Premiere), legendas_<produto>_<ad>.srt, cortes.json, previews.

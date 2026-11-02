@@ -1,0 +1,2 @@
+VO do ElevenLabs para VisioVance: hold.mp3, hook1.mp3, hook2.mp3, hook3.mp3
+(se o texto for igual e só o nome do produto muda, mesmo assim gere um áudio por produto)
