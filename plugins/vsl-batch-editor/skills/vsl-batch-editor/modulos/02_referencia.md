@@ -17,6 +17,14 @@ Elogiada pelo Daniel (31/10/2026: "this one bro, really good"; ele não disse o 
 - Sem ffmpeg: copie para o scratchpad, sirva com `python3 -m http.server`, abra no navegador interno (127.0.0.1) e capture
   quadros tocando o vídeo em 4× com `requestVideoFrameCallback` (o http.server não aceita seek).
 
+## Regras do ad, antes das cenas (desde 02/11/2026)
+Antes de pensar em imagem, escreva 5 a 10 linhas do que o ref faz, no topo de `cenas.md` e em `estilo.observacoes`, e siga
+até o fim: ritmo, tom da fala, tempo de corte no hook e na hold, quanto o avatar aparece, quem apresenta o produto, tipo de
+b-roll (real, sem meme nem estúdio) e arte do 3D (uma só no ad). Iteração de ganhador: assista ao ganhador e anote o que se
+repete e o que dá sensação. Sem ref: procure ads e conteúdo orgânico do que o público já consome.
+- **Ritmo vem do público:** técnica de retenção de TikTok afasta quem tem 60+. Dentro de "algo muda a cada 1 a 3 s"
+  (`07_montagem`), prefira a ponta calma, sem efeito de rehook, salvo se o ref fizer diferente.
+
 ## O que registrar em `plano.json` → `estilo` (o `montar` lê daqui)
 ```json
 "estilo": {

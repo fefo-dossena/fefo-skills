@@ -38,6 +38,17 @@
    `python3 scripts/inicio_movimento.py <clipes.mp4>` em todo b-roll novo e grave `inicio` na cena do plano
    (≥ 0,5 s, ou o trecho parado detectado). Conferir no AD com `freezedetect`.
 
+## Decidir o b-roll antes de gerar (desde 02/11/2026; sem teste nosso ainda)
+- **Base do ad:** a fala do avatar corre por baixo do ad inteiro e o b-roll entra por cima. Só fala emendada não é ad pronto.
+- **Volte sempre ao avatar**, por pouco tempo. Olhado por muito tempo ele entrega a IA; sumido, o ad perde quem conta a
+  história. O PIP da 3217 resolve isso por construção; em tela cheia, planeje os retornos nas cenas.
+- **Quem filmou isto?** Em UGC, o b-roll é o que aquele avatar filmaria: criador jovem é mais estético, com o celular
+  encaixado em algum canto; 60+ tem menos técnica e o b-roll sai mais simples. Decida de propósito antes de escrever as cenas.
+- **Avatar no b-roll:** parta da imagem aprovada dele e troque a roupa conforme a cena; mantenha anel, relógio e outros
+  detalhes. A mesma roupa em tudo denuncia a IA (dentro da mesma cena, a mesma roupa). Para trocar: ver "Roupa", abaixo.
+- **Emoção antes da ação:** no momento forte, o rosto de quem sente pesa mais do que o fato. Pode durar pouco: valem as
+  regras de "Pessoa no b-roll".
+
 ## O que funciona (e o que não)
 - **Frasco**: fechado, em pé e parado — só a mão se mexe. Aberto/inclinado/girando deforma rótulo e gargalo.
   Rótulo legível em close: frasco a ~1/3 da altura, sempre em 720p (regra do Fefo, 02/11/2026: o Kling 3.0 pro, 1080x1912, saiu do fluxo). **Nunca Seedance 480p** com

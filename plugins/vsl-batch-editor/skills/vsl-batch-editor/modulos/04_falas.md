@@ -75,6 +75,8 @@ Vale para Kling e Seedance. A inconsistência entre falas vem de mexer no prompt
    isso, a câmera deriva. Ordem do prompt no vídeo: movimento, tipo de câmera, cena, o que o avatar faz ("body still,
    mouth moving naturally, eye contact with the camera"), energia, fala entre aspas, regras fixas. Nos 14 blocos, isso
    cabe em CAMERA, ACTION, PERFORMANCE e AUDIO; as regras fixas vão em POSITIVE LOCKS.
+5. Guarde o prompt travado (com personagem e voz) no fim de `00_roteiro/falas.md`: a iteração da batch reusa o mesmo avatar e
+   a mesma voz sem começar de novo.
 - **Energia:** no CAMERA ou PERFORMANCE, conforme o ref. Avatar sem energia sai chapado; em hook de UGC, teste energia
   alta antes de aceitar. A "emoção contida" do modelo acima é para o ref calmo, não regra para todo ad.
 - **Ênfase em maiúscula (a testar no Kling):** escreva em caixa alta a palavra que deve pesar na fala. Não use em marca

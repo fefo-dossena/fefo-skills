@@ -22,6 +22,13 @@ e para leitura humana `00_roteiro/cenas.md` + `00_roteiro/falas.md`.
   clipe próprio com `"marca": true` (o script espera `F06_neurobella.mp4` e `F06_visiovance.mp4`).
 - Cenas: uma por trecho de ~2–3 s de fala, nunca acima de 3 s (frase longa vira duas cenas; ver "Ritmo" em `07_montagem.md`); `copy` = trecho **exato** do roteiro (o script acha o tempo da cena por ele;
   use `{MARCA}` no lugar do nome do produto). Ordem das cenas = ordem da fala.
+- **Mundo do avatar:** tudo em cena pertence ao dia a dia de quem vai ver (casa, objetos, tela, referências), também em
+  animação. O ad é para o público, não para nós.
+- **Dúvida na cena:** escreva o que o público precisa entender naquela frase antes de escolher a imagem, e prefira emoção a
+  ação (`05_broll.md`). A imagem segue mostrando o que a frase diz (`07_montagem`). Trocar por outra imagem, como mostrar a
+  solução sem explicar numa frase que abre curiosidade ("it's not just…"), só com ok do Fefo na batch.
+- **Mudar o avatar de lugar em ad longo** (a testar): o exemplo do autor tem ~2 min: quarto em ~60% do ad, depois rua e
+  parque, com o produto entrando na troca. Cada cenário pede imagem e prompt travado próprios: proponha ao Fefo, com o custo.
 - `ref`: `-` só texto · `N` narrador · `NW` narrador+esposa · `W` esposa · `B` frasco · `BN` frasco+narrador · `BC`/`BNC` + cápsula.
 - `tipo`: `geral` (sem produto) · `produto` (gera uma por marca) · `hook`.
 - `frame` e `motion` já são escritos na estrutura de 14 blocos de `modulos/prompts.md` (imagem: só os blocos ●).

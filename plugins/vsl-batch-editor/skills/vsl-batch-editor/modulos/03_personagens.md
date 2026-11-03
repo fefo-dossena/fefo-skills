@@ -27,8 +27,9 @@ a variação partindo da imagem aprovada. Metade do esforço do avatar vai aqui,
 3. **Pessoa nova, sempre:** nunca usar a identidade de quem está no quadro. Mude traços que cabelo e roupa não mudam
    (olhos, nariz, pele), até não poder ser a mesma pessoa. Médico, enfermeiro ou profissional de saúde nunca sai de foto
    de profissional real. Dúvida se ficou parecido: mostre os dois ao Fefo.
-4. **Mudar tudo em um só prompt** (`kie.py nanopro`, quadro em `--ref`): pessoa, fundo, acessórios, microfone e o bloco
-   PELE juntos. Edição em cima de edição deixa emenda que o olho não vê e aparece ao animar. Saiu ruim: gere de novo a
+4. **Mudar tudo em um só prompt** (`kie.py nanopro`, quadro em `--ref`): pessoa, fundo, acessórios e microfone juntos,
+   em poucas frases, sem o bloco PELE: a pele já vem do quadro. Pedir poro e imperfeição é como pedir "aja natural" (o
+   exemplo do autor tem duas frases; mega prompt piora). Edição em cima de edição deixa emenda que o olho não vê e aparece ao animar. Saiu ruim: gere de novo a
    partir do quadro, sem editar o resultado. Cada coisa pedida é mais uma camada de IA: mude só o que precisa. Pela mesma razão, o RETOQUE abaixo é para imagem já aprovada de antes, não
    um passo fixo deste caminho.
 5. **Detalhe fora da média:** a IA tende ao padrão (camiseta lisa, cabelo genérico). Dê 1 ou 2 detalhes da vida da
@@ -41,6 +42,7 @@ a variação partindo da imagem aprovada. Metade do esforço do avatar vai aqui,
    quadro em vez de insistir: imagem custa bem menos que vídeo.
 
 ## Pele realista (padrão do Fefo desde 13/10/2026)
+Vale para imagem gerada sem quadro real. No caminho do quadro real, o prompt fica curto (acima).
 Todo personagem **fotográfico** leva os parâmetros de pele abaixo (ilustração, ex. anos 50, não leva):
 - **Gerado do zero:** prompt nos blocos de imagem (●) de `modulos/prompts.md` (Scene Context, Active References,
   Location Map, First Frame, Optics, Performance/expressão, Lighting, Style, Positive Locks) com aparência/roupa/cenário

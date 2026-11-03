@@ -90,6 +90,10 @@ de celular, no ar de 89 a 301 dias (quanto mais dias, mais o ad se pagou). Tabel
   "hooks": [1]} (faixa preta translúcida de ponta a ponta, Helvetica fina branca, emoji colorido). Ele não esconde a
   legenda nem o `hook_header`: nesses ~2 s, hook sem header fica mais "orgânico".
 
+## Curiosidade, nunca confusão (Kristian Jennings, 02/11/2026)
+Imagem estranha só serve se o ad resolver depois por que ela está ali. Curiosidade faz a pessoa ficar para fechar a dúvida;
+grito ou explosão sem explicação é confusão e ela rola a tela. Na conferência: dá para dizer em qual fala essa imagem se explica?
+
 ## Conferência dos hooks (antes de mandar os ADs ao Fefo)
 - Quadro 0 com ação acontecendo, sem pose.
 - Produto visível até ~2 s (salvo o tipo C).
