@@ -32,9 +32,21 @@ script e outra conta (`@TRENDSCALE/2026/_FLUXO/kie.py`, chave `kie_chave_ts`): n
 - Custo real: `creditsConsumed` no fim de cada geração, anotado em `08_auto/*_ids.tsv`. 1 cr ≈ US$ 0,005. O crédito do
   Kie não é o do Higgsfield: Kling 3.0 std 5 s com som = 100 cr (3217, 31/10). Kling 4.0 720p com som: 34 cr/s (3222). GPT Image 2.5 Sunburst 2K (texto ou com --ref): 10 cr. Kling 3.0 std 5 s sem som: 70 cr (14 cr/s), sai 716x1280 24 fps (3825, 03/11). Os
   demais, medir no 1º uso. Os números de crédito antigos dos módulos e do `CALIBRACAO.md` são do Higgsfield.
-- Em paralelo (Fefo, 04/11/2026): um `kie.py` em segundo plano por geração, ~10–15 s entre disparos, cada um com o seu log; nada de fila única. O limite do Kie é 20 pedidos novos por 10 s.
+- Em paralelo (Fefo, 04/11/2026), pelo `kie.py lote` (seção abaixo); nada de fila única. O limite do Kie é 20 pedidos novos por 10 s.
 - Caiu a conexão: `kie.py espera <taskId> <saída>` (o id fica em `<saída>.task.json`). **Não reenvie: cobra de novo.**
 - O `kie.py` baixa o resultado na hora. A mídia gerada some em 14 dias e o upload em 24 h: o arquivo que vale é o local,
   e o script sobe de novo a cada pedido.
 - Erro volta com HTTP 200: o script já lê o `code` do corpo.
 - O callback do banco de conteúdo com o Kie ainda não está combinado com o Daniel.
+
+## Lote (05/11/2026)
+Depois do ok de crédito, todas as gerações aprovadas num comando só, com um resumo no fim (economia de tokens).
+- `08_auto/pedidos_<etapa>.json`: lista de `{"cmd": "kling4", "args": ["P.txt", "S.mp4", "--dur", "5", "--imagem", "A.png"]}`.
+  `args` na mesma ordem do subcomando (posicionais primeiro, opções depois). `"saida"` opcional, se não for a de sempre.
+- `kie.py lote pedidos.json --teste` mostra o pedido de cada um no log, sem subir nada nem gastar. Depois, sem `--teste`,
+  em segundo plano (`run_in_background`); `--intervalo 12` é o padrão entre disparos.
+- Cada pedido roda como um `kie.py` próprio; o lote espera todos baixarem e imprime uma linha por pedido: status
+  (`ok`, `erro`, `barrado` = recusa de conteúdo), saída, taskId, crédito. Resumo em `pedidos.resultado.tsv`, logs em
+  `pedidos.logs/`. Ler só o resumo; o log, só do que deu erro.
+- Rodar de novo o mesmo JSON é seguro: pedido que já tem `<saída>.task.json` vira `espera` (baixa sem cobrar). Para gerar
+  de novo uma saída de propósito, apagar o `.task.json` dela ou usar outro nome.

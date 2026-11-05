@@ -21,10 +21,13 @@ Do roteiro e do briefing, escreva em `01_refs/avatar_quadro/busca.md`:
    nunca entre com senha. Sem download de vídeo (pede permissão a cada arquivo); o quadro sai de captura de tela.
 2. Busca direta: Facebook `facebook.com/search/videos/?q=<termo>`, Instagram por hashtag (`instagram.com/explore/tags/<tag>/`)
    ou reels de perfil, TikTok `tiktok.com/search/video?q=<termo>`.
-3. Passe os resultados rápido e abra só o que já tem o enquadramento do ref. Uns 15 a 25 vídeos por batch; não fique
-   num perfil só: o ideal são candidatos de 4 a 6 pessoas e cenários diferentes.
+3. Passe os resultados rápido e abra só o que já tem o enquadramento do ref. Até 10 vídeos por rodada; nova rodada só se
+   nenhum servir. Não fique num perfil só: candidatos de pessoas e cenários diferentes. Navegue e leia a página como
+   texto/acessibilidade (`get_page_text`, `read_page`, `find`) sempre que der; captura de tela só do candidato (uma por
+   vídeo, `screenshot` com `scale: 0.5`).
 4. **Tirar o quadro:** aumente a janela antes (`resize_window` 900 × 1600) para o vídeo ficar grande, pause no instante certo
-   (boca fechada, olhar para a câmera, mãos à vista) e use `computer` `zoom` só na área do vídeo, `scale: 1`. Copie o
+   (boca fechada, olhar para a câmera, mãos à vista) e use `computer` `zoom` só na área do vídeo, `scale: 1`, e só no quadro
+   final escolhido (os outros candidatos ficam na captura de `scale: 0.5`). Copie o
    arquivo da captura para `01_refs/avatar_quadro/q<n>_<plataforma>.png` e confira o tamanho: abaixo de 600 px de altura,
    pause de novo com o vídeo maior.
 

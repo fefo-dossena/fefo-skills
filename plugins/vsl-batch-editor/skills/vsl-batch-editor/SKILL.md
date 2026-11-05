@@ -52,6 +52,10 @@ python3 fluxo.py fazer  "<pasta da batch>"     # roda SÓ as etapas locais pende
 4. Depois de qualquer mudança (clipe novo, copy alterada, trilha nova), `status` → `fazer` refaz só o afetado.
 5. **Banco de conteúdo antes de gerar** (regra do Fefo, 30/10/2026): toda batch nova passa pelo módulo `banco`. Cada cena
    sai como REUSE ou NEW em `08_auto/banco_reuso.tsv`, e só o NEW entra no pedido de crédito. O `status` não cobra esta etapa.
+6. **Uma sessão por etapa grande** (economia de tokens, 05/11/2026): 1. plano e geração; 2. montagem e QC; 3. cada revisão.
+   Cada sessão começa pelo `fluxo.py status` e pelo `08_auto/ESTADO.md` da batch, não pelo histórico da anterior. Ao fechar
+   a etapa, reescrever o `ESTADO.md` (curto, até ~20 linhas: etapa feita, versão, prompts e vozes travados, o que falta) e
+   sugerir ao Fefo abrir a próxima sessão. Todas continuam no grupo EMPIRE VISION da barra lateral.
 
 ## Módulos (leia o arquivo do módulo antes de rodá-lo)
 Modelo e esforço por etapa (economia de tokens, 05/11/2026): ao entrar numa etapa cujo modelo difere do da sessão, avise em uma linha para trocar (`/model`, `/effort`) ou abrir sessão nova. Criativo = Opus; conferir e rodar script = Sonnet; mecânico (subir, renomear, Notion/Asana, Clock) = Haiku ou Sonnet baixo. **Troca automática por agente:** passo mecânico já aprovado vai para o agente `executor-mecanico` (Haiku), com o OK do Fefo escrito na tarefa; montagem e checagens por script vão para o `montador` (Sonnet); QC visual para o `revisor-de-video` (Sonnet). A sessão principal fica com as decisões e recebe só o resumo.
@@ -93,7 +97,7 @@ Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do mot
 - **AD do Daniel sempre com música:** sem música no banco ou no card, gerar no Kie da Empire Vision (`scripts/kie.py suno` / `suno-ref`; nunca o Kie da Trendscale), com ok de crédito.
 - **VisioVance só em eye vitamin:** batch de outro nicho (pele, neuropatia, rim…) sai só Neurobella.
 - **Criador real é intocável:** UGC com bruto de criador contratado usa o vídeo e a voz originais dele. Nada de voz de IA (troca, TTS, clone) nem avatar parecido com ele. Batch com versão de IA do criador: reeditar com o original. Bruto difícil: avisar a Louise antes. Avatar novo a partir de quadro real continua, sempre pessoa diferente (`modulos/03_personagens.md`).
-- **Gerações em paralelo:** depois do ok de crédito, um `kie.py` em segundo plano por geração (~10–15 s entre disparos). Enquanto rodam, adiantar trabalho local e conferir todos de uma vez no fim, não um por um.
+- **Gerações em paralelo:** depois do ok de crédito, montar `08_auto/pedidos_<etapa>.json` e rodar `kie.py lote` em segundo plano (um comando, um resumo; `modulos/kie.md`, seção Lote), em vez de um `kie.py` por geração conferido um por um. Enquanto roda, adiantar trabalho local; no fim, ler só o resumo.
 - **Sempre 720p** na geração e no AD final (`modulos/07_montagem.md`).
 - **Crédito só com ok:** antes de cada lote, quantas gerações, modelo, duração e custo. Aprovar imagens não autoriza vídeos.
 - **Versões dos exports:** atual em `09_export/<p>/`, anteriores em `09_export/_old/V<k>/<p>/`, nunca pasta irmã. Antes de re-renderizar: `mkdir -p 09_export/_old/V<k> && cp -Rp 09_export/neurobella 09_export/visiovance 09_export/_old/V<k>/`. Mudar pasta de lugar no Drive = `mv` da pasta inteira (mantém ID e links).

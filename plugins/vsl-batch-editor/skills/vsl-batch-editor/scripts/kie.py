@@ -30,6 +30,13 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
         # Fixa a voz de uma faixa já gerada (suno ou suno-ref) num persona_id, para todos os hooks
         # cantarem com a mesma voz. Use o persona_id com --persona em suno e suno-ref.
   python3 kie.py espera TASK_ID SAIDA                   # retoma uma tarefa já criada, sem cobrar de novo
+  python3 kie.py lote PEDIDOS.json [--teste] [--intervalo 12]
+        # Várias gerações num comando só (depois do ok de crédito). PEDIDOS.json = lista de
+        # {"cmd": "kling4", "args": ["P.txt", "S.mp4", "--dur", "5", "--imagem", "A.png"]}: args na mesma ordem
+        # do subcomando (posicionais primeiro). Opcional "saida" quando o script não acha sozinho.
+        # Dispara um kie.py por pedido, ~12 s entre disparos, espera todos e imprime uma linha por pedido
+        # (saída, status ok/erro/barrado, taskId, cr). Resumo em PEDIDOS.resultado.tsv, logs em PEDIDOS.logs/.
+        # Pedido com SAIDA.task.json já existente vira `espera` (não cobra de novo). --teste repassa --teste.
 
 CONTA: este é o Kie da Empire Vision. Lê só a chave ~/.vsl-batch-editor/kie_chave e cobra só dessa conta.
 O Kie da Trendscale é outro script (@TRENDSCALE/2026/_FLUXO/kie.py), com a chave dele.
@@ -191,11 +198,92 @@ def _texto(caminho):
     return open(caminho, encoding='utf-8').read().strip()
 
 
+# Posição da SAIDA entre os args de cada subcomando (args = o que vem depois do nome do subcomando).
+POS_SAIDA = {'sunburst': 1, 'nanopro': 1, 'omni': 2, 'kling3': 2, 'kling4': 1, 'seedance': 1, 'tts': 1,
+             'suno': 1, 'suno-ref': 2, 'espera': 1}
+BARRADO = re.compile(r'sensitive|moderat|policy|nsfw|inappropriate|prohibit|violat|safety|copyright|'
+                     r'celebrit|public figure', re.I)
+
+
+def lote(caminho, intervalo=12.0):
+    """Dispara cada pedido como um kie.py próprio (subprocesso), em paralelo, e resume no fim."""
+    import subprocess
+    pedidos = json.load(open(caminho, encoding='utf-8'))
+    if not isinstance(pedidos, list) or not pedidos:
+        sys.exit('lote: o JSON precisa ser uma lista de pedidos')
+    base = os.path.splitext(caminho)[0]
+    logs = base + '.logs'
+    os.makedirs(logs, exist_ok=True)
+    script = os.path.abspath(__file__)
+    itens, vistas = [], set()
+    for n, p in enumerate(pedidos, 1):
+        cmd, args = p.get('cmd'), [str(x) for x in p.get('args', [])]
+        if cmd not in POS_SAIDA or cmd == 'espera':
+            sys.exit(f'lote: pedido {n} com cmd inválido: {cmd!r} (use {", ".join(k for k in POS_SAIDA if k != "espera")})')
+        saida = p.get('saida') or (args[POS_SAIDA[cmd]] if len(args) > POS_SAIDA[cmd] else None)
+        if not saida:
+            sys.exit(f'lote: pedido {n} sem saída')
+        if saida in vistas:
+            sys.exit(f'lote: saída repetida {saida} (pedido {n})')
+        vistas.add(saida)
+        if not TESTE and os.path.exists(saida + '.task.json'):   # já criada: só espera e baixa, sem cobrar
+            task = json.load(open(saida + '.task.json')).get('taskId')
+            cmd, args = 'espera', [task, saida]
+        if TESTE:
+            args = args + ['--teste']
+        itens.append({'n': n, 'cmd': cmd, 'args': args, 'saida': saida,
+                      'log': os.path.join(logs, f'{n:02d}_{os.path.basename(saida)}.log')})
+    print(f'{len(itens)} pedidos' + (' (teste, nada é enviado)' if TESTE else f', ~{intervalo:g} s entre disparos'),
+          flush=True)
+    for i, it in enumerate(itens):
+        if i and not TESTE:
+            time.sleep(intervalo)
+        it['arq'] = open(it['log'], 'w')
+        it['proc'] = subprocess.Popen([sys.executable, script, it['cmd']] + it['args'],
+                                      stdout=it['arq'], stderr=subprocess.STDOUT)
+        print(f'  {it["n"]:02d} {it["cmd"]} → {it["saida"]}', flush=True)
+    linhas = []
+    for it in itens:
+        cod = it['proc'].wait()
+        it['arq'].close()
+        txt = open(it['log'], encoding='utf-8', errors='replace').read()
+        task = re.search(r'taskId (\S+)', txt)
+        task = task.group(1) if task else (it['args'][0] if it['cmd'] == 'espera' else '')
+        cr = re.search(r'· (\S+) cr ·', txt)
+        cr = cr.group(1) if cr else ''
+        ultima = (txt.strip().splitlines() or [''])[-1][:200]
+        if TESTE:
+            status = 'teste' if '"model"' in txt else 'erro'
+            ultima = '' if status == 'teste' else ultima
+        elif cod == 0:
+            status, ultima = 'ok', ''
+        else:
+            status = 'barrado' if BARRADO.search(ultima) else 'erro'
+        linhas.append((it['saida'], status, task, cr, ultima))
+    with open(base + '.resultado.tsv', 'w', encoding='utf-8') as f:
+        f.write('saida\tstatus\ttaskId\tcr\tmotivo\n')
+        for l in linhas:
+            f.write('\t'.join(l) + '\n')
+    print('---')
+    for s, st, t, c, m in linhas:
+        print(f'{st:8} {s} · {t or "-"} · {c + " cr" if c else "-"}' + (f' · {m}' if m else ''))
+    total = sum(float(c) for *_, c, _ in linhas if c.replace('.', '', 1).isdigit())
+    ok = sum(1 for l in linhas if l[1] in ('ok', 'teste'))
+    print(f'{ok}/{len(linhas)} ok · {total:g} cr · resumo em {base}.resultado.tsv · logs em {logs}/')
+    if TESTE:
+        print(f'O pedido montado de cada um está no log ({logs}/).')
+
+
 def main():
     a = sys.argv[1:]
     if not a:
         sys.exit(__doc__)
-    if a[0] == 'saldo':
+    if a[0] == 'lote':
+        arq = next((x for x in a[1:] if not x.startswith('--') and x != _opcao(a, '--intervalo')), None)
+        if not arq:
+            sys.exit('lote pede PEDIDOS.json')
+        lote(arq, float(_opcao(a, '--intervalo', '12')))
+    elif a[0] == 'saldo':
         print(saldo())
     elif a[0] == 'upload':
         print(upload(a[1]))
