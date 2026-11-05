@@ -54,23 +54,25 @@ python3 fluxo.py fazer  "<pasta da batch>"     # roda SÓ as etapas locais pende
    sai como REUSE ou NEW em `08_auto/banco_reuso.tsv`, e só o NEW entra no pedido de crédito. O `status` não cobra esta etapa.
 
 ## Módulos (leia o arquivo do módulo antes de rodá-lo)
-| Módulo | Quando | Crédito | Arquivo |
-|---|---|---|---|
-| configurar | primeira vez de cada pessoa / sem `~/.vsl-batch-editor/raiz` / `perfil` diz "Sem perfil" | não | `modulos/00_configurar.md` |
-| ambiente | primeira vez no Mac / script reclama de ffmpeg | não | `modulos/00_ambiente.md` |
-| roteiro | chegou PDF/texto novo; ou não existe `plano.json` | não | `modulos/01_roteiro.md` |
-| referencia | início de toda batch, ou ref novo em `01_refs/` (define `estilo`) | não | `modulos/02_referencia.md` |
-| banco | **toda batch nova**, depois de `roteiro` e `referencia` e antes de gerar qualquer coisa; b-roll novo em revisão | não | `modulos/05a_banco.md` |
-| busca_avatar | avatar fotográfico de UGC novo sem quadro real escolhido | não | `modulos/03a_busca_avatar.md` |
-| personagens | plano tem personagem sem imagem aprovada | sim (custo em `modulos/kie.md`) | `modulos/03_personagens.md` |
-| falas | `status` mostra falas faltando | sim (Kling; Seedance só em Drama ad) | `modulos/04_falas.md` |
-| broll | `status` mostra b-roll faltando | sim (Sunburst + Kling) | `modulos/05_broll.md` |
-| coleta | há gerações de batch antiga no Higgsfield a baixar (o `kie.py` já baixa as dele) | não | `modulos/06_coleta.md` |
-| cortes / legendas / ads / xml | `status` mostra pendente | não | `modulos/07_montagem.md` |
-| motions | pedido explícito (punch-in, CTA, legenda animada) | não | `modulos/08_motions.md` |
-| review room | ADs conferidos, para o Fefo revisar; "apply notes"; batch aprovada na sala | não | `modulos/11_review_room.md` |
-| entrega | fim da batch/revisão: Frame.io (raiz → V<k>), links f.io por marca, link do Drive, "Ready for view", comentário no card do Notion + status CS NEEDS TO REVIEW, Clock Out | não | `modulos/09_entrega.md` |
-| revisao | link/comentários do Frame.io para ajustar (vale para os 6 ADs e as 2 marcas, não só o ponto); card "só QA" (vídeo pronto de outro editor, sem editar) | depende | `modulos/10_revisao.md` |
+Modelo e esforço por etapa (economia de tokens, 05/11/2026): ao entrar numa etapa cujo modelo difere do da sessão, avise em uma linha para trocar (`/model`, `/effort`) ou abrir sessão nova. Criativo = Opus; conferir e rodar script = Sonnet; mecânico (subir, renomear, Notion/Asana, Clock) = Haiku ou Sonnet baixo.
+
+| Módulo | Quando | Crédito | Modelo · esforço | Arquivo |
+|---|---|---|---|---|
+| configurar | primeira vez de cada pessoa / sem `~/.vsl-batch-editor/raiz` / `perfil` diz "Sem perfil" | não | Sonnet · baixo | `modulos/00_configurar.md` |
+| ambiente | primeira vez no Mac / script reclama de ffmpeg | não | Haiku/Sonnet · baixo | `modulos/00_ambiente.md` |
+| roteiro | chegou PDF/texto novo; ou não existe `plano.json` | não | Opus · alto | `modulos/01_roteiro.md` |
+| referencia | início de toda batch, ou ref novo em `01_refs/` (define `estilo`) | não | Opus · alto | `modulos/02_referencia.md` |
+| banco | **toda batch nova**, depois de `roteiro` e `referencia` e antes de gerar qualquer coisa; b-roll novo em revisão | não | Sonnet · médio | `modulos/05a_banco.md` |
+| busca_avatar | avatar fotográfico de UGC novo sem quadro real escolhido | não | Sonnet · médio | `modulos/03a_busca_avatar.md` |
+| personagens | plano tem personagem sem imagem aprovada | sim (custo em `modulos/kie.md`) | Opus · alto | `modulos/03_personagens.md` |
+| falas | `status` mostra falas faltando | sim (Kling; Seedance só em Drama ad) | Sonnet · médio | `modulos/04_falas.md` |
+| broll | `status` mostra b-roll faltando | sim (Sunburst + Kling) | Sonnet · médio | `modulos/05_broll.md` |
+| coleta | há gerações de batch antiga no Higgsfield a baixar (o `kie.py` já baixa as dele) | não | Haiku/Sonnet · baixo | `modulos/06_coleta.md` |
+| cortes / legendas / ads / xml | `status` mostra pendente | não | Sonnet · baixo | `modulos/07_montagem.md` |
+| motions | pedido explícito (punch-in, CTA, legenda animada) | não | Sonnet · médio | `modulos/08_motions.md` |
+| review room | ADs conferidos, para o Fefo revisar; "apply notes"; batch aprovada na sala | não | Sonnet · baixo | `modulos/11_review_room.md` |
+| entrega | fim da batch/revisão: Frame.io (raiz → V<k>), links f.io por marca, link do Drive, "Ready for view", comentário no card do Notion + status CS NEEDS TO REVIEW, Clock Out | não | Haiku/Sonnet · baixo | `modulos/09_entrega.md` |
+| revisao | link/comentários do Frame.io para ajustar (vale para os 6 ADs e as 2 marcas, não só o ponto); card "só QA" (vídeo pronto de outro editor, sem editar) | depende | Opus · alto para decidir; Sonnet para aplicar | `modulos/10_revisao.md` |
 
 Geração: **sempre pelo Kie** (`scripts/kie.py`; `kie.py saldo` antes de gastar crédito). Comandos, modelos, limites e custos: `modulos/kie.md`.
 O Higgsfield saiu das batches em 02/11/2026 e só entra com pedido do Fefo (`modulos/higgsfield.md`).
