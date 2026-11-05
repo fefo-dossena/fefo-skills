@@ -86,47 +86,25 @@ Barra de linha do tempo, legenda estilo Snapchat e tela dividida já saem do `mo
 `estilo.tag_nativa`, cena `"formato": "split"`; campos em `modulos/02_referencia.md`).
 
 ## Regras fixas
-- **ED descontinuado (call com a Empire Vision, 05/11/2026; suspenso desde 04/11 pela Louise):** o nicho de ED acabou, Cocoa ED incluso, na Neurobella e na VisioVance: nada de edição, revisão, review nem entrega. Card de ED na fila ou em Revisions: não pegar, avisar o Fefo.
-- **AD do Daniel sempre com música (Fefo, 05/11/2026):** todo AD de card do Daniel sai com trilha musical, nunca só voz. Sem música no banco ou no card, gerar no Kie da Empire Vision (`scripts/kie.py suno` / `suno-ref`, comandos no cabeçalho do script; nunca o Kie da Trendscale). Crédito segue pedindo o ok do Fefo.
-- **VisioVance só em eye vitamin (call, 05/11/2026):** a VisioVance fica só com o nicho de olho. Batch de outro nicho (pele, neuropatia, rim…) sai só Neurobella, mesmo sem menção no card; versão VisioVance só em batch de olho.
-- **Criador real é intocável (Louise, 04/11/2026):** em UGC com bruto de criador contratado, entram o vídeo e a voz originais dele. Nada de voz de IA no lugar da dele (troca de voz, TTS, clone) nem avatar de IA parecido com ele; ritmo, legenda, b-roll, música e hooks seguem iguais. Batch em andamento com versão de IA do criador: reeditar com o original. Bruto difícil (áudio ruim): avisar a Louise antes. Motivo: autenticidade e consentimento (o contrato com os criadores não cobre réplica de IA). Avatar novo a partir de quadro real (`modulos/03_personagens.md`) continua, sempre como pessoa diferente.
-- **Gerações em paralelo** (Fefo, 04/11/2026): depois do ok de crédito, um `kie.py` em segundo plano por geração (~10–15 s entre disparos), nunca uma fila única. Cada um espera e baixa o seu.
-- **Sempre 720p.** Vídeo gerado e AD final em 720p (720x1280), detalhe em `modulos/07_montagem.md`.
-- **Crédito só com ok.** Antes de cada lote: quantas gerações, modelo, duração, custo estimado. Aprovar imagens não autoriza vídeos.
-- **Versões dos exports (toda batch):** todas ficam dentro da pasta de exports. A atual em `09_export/<p>/`; toda versão
-  anterior em `09_export/_old/V<k>/<p>/`. Nunca pasta irmã (`09_export_V1`, `_export_v1`, `View_v2`…). Antes de
-  re-renderizar uma revisão: `mkdir -p 09_export/_old/V<k> && cp -Rp 09_export/neurobella 09_export/visiovance 09_export/_old/V<k>/`.
-  Para mudar pasta de lugar no Drive, mova a pasta inteira (`mv`), sem copiar e apagar: assim o ID e os links enviados continuam valendo.
-- **Nunca sobrescrever** arquivo do Fefo; arquivo existente fica. Corte ajustado à mão vive em `08_auto/cortes/<clipe>.manual.json` e sempre vence o automático.
-- **Caiu a conexão no meio de uma geração**: `kie.py espera <taskId> <saída>`. Nunca reenvie: cobra de novo.
-- Sem acentos/espaços em nomes novos (menos os ADs finais, que levam o título do card; ver abaixo). Registrar IDs de geração em `08_auto/falas_ids.tsv` e `08_auto/broll_ids.tsv`.
-- **Qualidade antes de entregar** (regras do Fefo): personagem fotográfico com o bloco de pele realista
-  (`modulos/03_personagens.md`); texto inventado pela IA em quadro/vídeo = descartar e gerar de novo; todo clipe do
-  Kling/Seedance entra depois do trecho parado do início (`inicio` ≥ 0,5 s, `scripts/inicio_movimento.py`); ritmo de
-  fala ~3,3 palavras/s; emendas de corte no silêncio (e antes do estalo do fim dos clipes do Seedance).
-- **Checagens em todo AD antes de mandar ao Fefo** (`modulos/07_montagem.md`): `freezedetect=n=0.008:d=0.4`,
-  `scripts/lascas.py`, quadros do vídeo × duração do áudio, Whisper nos últimos 5 s, ritmo (`scripts/ritmo.py`: nada parado
-  acima de 3 s) e imagem × fala
-  (`scripts/imagem_fala.py`). Na revisão, rode-as também na versão antiga: acham defeito que ninguém comentou.
-- Várias sessões renderizando no Drive ao mesmo tempo = timeout do ffmpeg: monte numa cópia no scratchpad e copie o MP4.
-- Intermediários (trechos, frames, testes) nunca na batch: `$TMPDIR` ou scratchpad, apagados no fim (`modulos/07_montagem.md`).
-- **Não remendar palavra colando voz** (marca, número): refazer a fala inteira — o remendo soa "estranho" para o Fefo.
-- Aprendizado novo → `_FLUXO_VSL/CALIBRACAO.md` (diário). Regra que vale para toda batch sobe para o módulo certo.
-- **Fim de toda batch:** publicar a Review Room para o Fefo (`modulos/11_review_room.md`; SendUserFile só se ele pedir) e
-  **esperar o OK no chat**; só então subir no Frame.io e mandar
-  a mensagem "Ready for view" (Visiovance/Neurobella f.io + link do Google Drive) como **texto normal, sem bloco de
-  código** (ele cola no Notion), no formato de `modulos/09_entrega.md`. Antes de subir, confira se o Frame.io já está atualizado.
-  Depois (desde 15/10/2026, com o mesmo OK, que deve citar esses passos): comentar o "Ready for view" no card da batch no
-  Notion, mudar o status para **CS NEEDS TO REVIEW**, marcar a batch como "Done - CS needs to Review" no
-  `clock.dia_json` do perfil (Fefo: `scripts/monitor/dia.json`). **Subir e mexer no Notion só no `entrega.horario`** do
-  perfil (Fefo: 18h, pedido em todas as revisões de 16/10): com o OK antes disso, agende uma tarefa única para esse
-  horário (`modulos/09_entrega.md`). Tarefa que pega o limite de uso falha e não tenta de novo (23/10): depois do
-  horário, confira se a entrega saiu.
-  A sessão não posta no Slack. No perfil do Fefo, o 🟢 CLOCK IN sai com o "pega" da sessão principal
-  (`scripts/monitor/PEGA.md`, desde 22/10/2026) e o **🔴 CLOCK OUT** sai às 19h (tarefa `clock-out-slack`), as duas no
-  thread do dia em #video-editor-report e com as mesmas batches. Sessão de batch aberta pelo "pega" já tem o Started e o
-  Clock In feitos: não repita;
-  perfil com `clock.automatico` vazio = mostrar o texto do Clock Out para a pessoa colar (detalhes em `modulos/09_entrega.md`).
+Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do motivo).
+- **ED descontinuado:** nicho de ED acabou (Cocoa ED incluso), nas duas marcas: nada de edição, revisão, review nem entrega. Card de ED na fila ou em Revisions: não pegar, avisar o Fefo.
+- **AD do Daniel sempre com música:** sem música no banco ou no card, gerar no Kie da Empire Vision (`scripts/kie.py suno` / `suno-ref`; nunca o Kie da Trendscale), com ok de crédito.
+- **VisioVance só em eye vitamin:** batch de outro nicho (pele, neuropatia, rim…) sai só Neurobella.
+- **Criador real é intocável:** UGC com bruto de criador contratado usa o vídeo e a voz originais dele. Nada de voz de IA (troca, TTS, clone) nem avatar parecido com ele. Batch com versão de IA do criador: reeditar com o original. Bruto difícil: avisar a Louise antes. Avatar novo a partir de quadro real continua, sempre pessoa diferente (`modulos/03_personagens.md`).
+- **Gerações em paralelo:** depois do ok de crédito, um `kie.py` em segundo plano por geração (~10–15 s entre disparos). Enquanto rodam, adiantar trabalho local e conferir todos de uma vez no fim, não um por um.
+- **Sempre 720p** na geração e no AD final (`modulos/07_montagem.md`).
+- **Crédito só com ok:** antes de cada lote, quantas gerações, modelo, duração e custo. Aprovar imagens não autoriza vídeos.
+- **Versões dos exports:** atual em `09_export/<p>/`, anteriores em `09_export/_old/V<k>/<p>/`, nunca pasta irmã. Antes de re-renderizar: `mkdir -p 09_export/_old/V<k> && cp -Rp 09_export/neurobella 09_export/visiovance 09_export/_old/V<k>/`. Mudar pasta de lugar no Drive = `mv` da pasta inteira (mantém ID e links).
+- **Nunca sobrescrever** arquivo do Fefo. Corte à mão em `08_auto/cortes/<clipe>.manual.json` sempre vence o automático.
+- **Caiu a conexão numa geração:** `kie.py espera <taskId> <saída>`. Nunca reenviar (cobra de novo).
+- Sem acentos/espaços em nomes novos (menos os ADs finais). IDs de geração em `08_auto/falas_ids.tsv` e `08_auto/broll_ids.tsv`.
+- **Qualidade:** personagem fotográfico com o bloco de pele realista (`modulos/03_personagens.md`); texto inventado pela IA = gerar de novo; clipe do Kling/Seedance entra depois do trecho parado do início (`inicio` ≥ 0,5 s, `scripts/inicio_movimento.py`); fala ~3,3 palavras/s; emendas no silêncio (e antes do estalo do fim do Seedance).
+- **Checagens em todo AD antes de mandar ao Fefo** (`modulos/07_montagem.md`): `freezedetect=n=0.008:d=0.4`, `scripts/lascas.py`, quadros × duração do áudio, Whisper nos últimos 5 s, `scripts/ritmo.py` (nada parado acima de 3 s) e `scripts/imagem_fala.py`. Na revisão, rodar também na versão antiga.
+- Várias sessões renderizando no Drive = timeout do ffmpeg: montar numa cópia no scratchpad e copiar o MP4. Intermediários nunca na batch: `$TMPDIR` ou scratchpad, apagados no fim.
+- **Não remendar palavra colando voz:** refazer a fala inteira.
+- **Aprendizado novo:** `python3 scripts/anotar.py "<título>" "- item"` (diário do mês em `CALIBRACAO/`). **Nunca abrir o diário para editar nem ler um mês inteiro**; consulta só com `grep -rn -i "<tema>" CALIBRACAO/`. Regra que vale para toda batch sobe para o módulo certo, sem data nem caso (isso vai para o diário).
+- **Economia de contexto:** saída de terminal curta (`ffmpeg -v error`, `| tail -20`), nunca colar JSON inteiro de geração; conferência visual por prancha (`imagem_fala.py`), não quadro a quadro; editar script grande com `grep -n` + leitura do trecho, não do arquivo inteiro. O `fluxo.py` está dividido por assunto em `scripts/fluxo_partes/` (skill, plano, status, acoes, legenda, broll, montar, xml): mexer só na parte do assunto; todas rodam juntas como um arquivo só.
+- **Fim de toda batch:** publicar a Review Room (`modulos/11_review_room.md`) e **esperar o OK no chat**. Só então, no `entrega.horario` do perfil (Fefo: 18h; OK antes disso = agendar tarefa única), subir no Frame.io, mandar o "Ready for view" como texto normal sem bloco de código, comentar no card do Notion, status **CS NEEDS TO REVIEW** e "Done - CS needs to Review" no `clock.dia_json`. O OK precisa citar esses passos. Tarefa agendada que pega o limite de uso não tenta de novo: depois do horário, conferir se saiu. A sessão não posta no Slack; Clock In sai pelo "pega" (`scripts/monitor/PEGA.md`) e Clock Out às 19h (tarefa `clock-out-slack`): sessão aberta pelo "pega" não repete. Perfil com `clock.automatico` vazio = mostrar o texto do Clock Out para colar. Detalhes em `modulos/09_entrega.md`.
 
 ## Nomes que o script espera (definidos pelo plano.json)
 - Falas: `03_avatar/hold/F01.mp4` … (com marca: `F06_neurobella.mp4` / `F06_visiovance.mp4`); hooks `03_avatar/hooks/H1.mp4`.

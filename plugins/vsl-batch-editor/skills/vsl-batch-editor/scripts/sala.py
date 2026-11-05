@@ -26,6 +26,14 @@ def timeline(B, plano, p, n, mp4, dest):
     if hk and len(ad) > len(hk) and [x[2].lower() for x in ad[:len(hk)]] == [x[2].lower() for x in hk]:
         c = round(ad[len(hk)][0], 3)
         tl["segments"] = [{"seg": "hook", "start": 0, "end": c}, {"seg": "body", "start": c, "end": round(dur, 3)}]
+    pos = f"{B}/08_auto/broll_posicoes_AD{n}_{p}.json"   # planos com origem e alternativas: timeline editável da sala
+    if os.path.exists(pos):
+        try:
+            import importlib.util as iu
+            sp = iu.spec_from_file_location("tl_sala", os.path.expanduser("~/.claude/skills/sala-de-revisao/scripts/timeline.py"))
+            m = iu.module_from_spec(sp); sp.loader.exec_module(m); tl["planos"] = m.ler_planos(pos, dur)
+        except Exception as e:
+            print("  ! planos da timeline:", e)
     os.makedirs(os.path.dirname(dest), exist_ok=True); json.dump(tl, open(dest, "w"), ensure_ascii=False)
 
 def main():

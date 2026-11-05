@@ -18,7 +18,7 @@ agendada única (`create_scheduled_task` com `fireAt` no horário do dia, prompt
 - comenta no Notion seguindo o passo 3 da seção do Notion abaixo, **copiado no prompt da tarefa**: espaço depois de cada
   URL, conferir um `<a href>` por URL antes de enviar e nunca usar cmd+a;
 - no fim manda uma notificação com o Ready for view e diz se os links do comentário ficaram clicáveis (quantos `<a>` de
-  quantos). Até o teste de 21/10/2026 dar certo, registre o resultado no `CALIBRACAO.md`.
+  quantos). Até o teste de 21/10/2026 dar certo, registre o resultado com `scripts/anotar.py`.
 Ela só roda com o app aberto (se estiver fechado às 18h, roda quando abrir). Uma tarefa por batch, sem duas tarefas
 para a mesma entrega (se houver reserva, ela confere uma trava antes de agir).
 **A tarefa agendada gasta a mesma cota de uso das sessões** (23/10/2026: as 5 entregas das 18h–18h40 caíram em 2 s com
