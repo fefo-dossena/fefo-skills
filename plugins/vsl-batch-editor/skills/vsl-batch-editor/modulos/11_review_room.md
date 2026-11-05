@@ -10,7 +10,7 @@ módulo continua valendo para os detalhes da batch.
 Arquivos: `scripts/sala.py` (monta a sala da batch, com o kit da skill), `scripts/reviewroom.py` e `scripts/reviewroom/template.html`
 (cópia antiga do kit, só de reserva).
 Cópias, página e estado ficam em `~/.vsl-batch-editor/salas/<batch>/`, nunca na batch. As checagens de `07_montagem.md`
-vêm antes da sala.
+vêm antes da sala, e depois delas o agente `revisor-de-video` (skill `sala-de-revisao`, seção 3, passo 0; Fefo, 05/11/2026).
 
 ## 1. Publicar (V1 ou versão nova)
 1. `python3 scripts/sala.py "<batch>" --nota "<o que mudou>"`. Com cortes 4:5: `--4x5`. Conserte cada linha com `!`.

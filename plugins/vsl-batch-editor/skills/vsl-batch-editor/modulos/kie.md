@@ -3,6 +3,9 @@
 `~/.vsl-batch-editor/kie_chave`, fora do Drive e do zip; nunca em `perfil.json`, nota ou módulo. Não existe MCP nem
 workspace: a chave é da conta inteira, e cada cliente tem a sua. Sem chave, pare e avise. O Higgsfield só entra com
 pedido do Fefo (`modulos/higgsfield.md`).
+**Só Empire Vision (05/11/2026):** este script lê só a chave da Empire Vision. A Trendscale tem o Kie dela, outro
+script e outra conta (`@TRENDSCALE/2026/_FLUXO/kie.py`, chave `kie_chave_ts`): nunca usar aqui. Comandos de música
+(`suno`, `suno-ref`, `suno-persona`) no cabeçalho do script.
 
 ## Comandos
 `--teste` mostra o pedido sem subir arquivo e sem gastar. Rode antes do 1º pedido de cada lote.

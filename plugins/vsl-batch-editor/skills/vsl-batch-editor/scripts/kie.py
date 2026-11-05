@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kie.ai — saldo, upload e geração de vídeo com download (gerador das batches desde 02/11/2026).
+"""Kie.ai da Empire Vision — saldo, upload e geração de vídeo com download (gerador das batches desde 02/11/2026).
 
 Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gastar):
   python3 kie.py saldo
@@ -18,20 +18,41 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
         # Só em Drama ad. Referências, sem quadro inicial: o Kie não aceita os dois juntos.
   python3 kie.py tts TEXTO.txt SAIDA.mp3 --voz ID [--speed 1]
         # ElevenLabs Multilingual v2. Só vozes prontas do catálogo, sem voz clonada.
+  python3 kie.py suno ESTILO.txt SAIDA.mp3 --titulo "Nome" [--letra LETRA.txt] [--instrumental] [--voz m|f]
+        [--dur 120] [--modelo V5_5] [--persona ID] [--sem-estilo "edm, autotune"] [--peso-estilo 0.6] [--peso-audio 0.75]
+        # Música pela API da Suno no Kie. Sai mais de uma faixa por pedido: SAIDA_1.mp3, SAIDA_2.mp3...
+        # --dur só vale em V5_5/V6. Sem --letra e sem --instrumental, a Suno escreve a letra.
+  python3 kie.py suno-ref REFERENCIA.mp3 ESTILO.txt SAIDA.mp3 --titulo "Nome" [--letra LETRA.txt] [--voz m|f]
+        [--peso-audio 0.75] [--dur 120] [--persona ID] [--modelo V6] [--instrumental] [--sem-estilo ...]
+        # Upload and Cover (12 cr): sobe a música de referência e a Suno canta a letra por cima dela.
+        # Método do Dan (Trendscale): letra com a emoção escrita no fim, ESTILO vazio ("-"), peso-audio 0.75.
+  python3 kie.py suno-persona SAIDA.mp3.task.json NUM_FAIXA "Nome" "Descrição da voz" [--de 10 --ate 40]
+        # Fixa a voz de uma faixa já gerada (suno ou suno-ref) num persona_id, para todos os hooks
+        # cantarem com a mesma voz. Use o persona_id com --persona em suno e suno-ref.
   python3 kie.py espera TASK_ID SAIDA                   # retoma uma tarefa já criada, sem cobrar de novo
+
+CONTA: este é o Kie da Empire Vision. Lê só a chave ~/.vsl-batch-editor/kie_chave e cobra só dessa conta.
+O Kie da Trendscale é outro script (@TRENDSCALE/2026/_FLUXO/kie.py), com a chave dele.
 
 O taskId sai na tela e fica em SAIDA.task.json assim que a tarefa é criada: se cair a conexão, use `espera`,
 não reenvie (cobra duas vezes). A mídia gerada some em 14 dias: baixar sempre.
-A chave fica em ~/.vsl-batch-editor/kie_chave (fora do Drive e do zip; nunca em perfil.json, nota ou módulo).
+As chaves ficam fora do Drive e do zip; nunca em perfil.json, nota ou módulo.
 """
-import json, mimetypes, os, secrets, sys, time, urllib.parse, urllib.request, urllib.error
+import json, mimetypes, re, os, secrets, sys, time, urllib.parse, urllib.request, urllib.error
 
 API = 'https://api.kie.ai'
 UPLOAD = 'https://kieai.redpandaai.co/api/file-stream-upload'   # host do exemplo dos docs
-CHAVE = os.path.expanduser('~/.vsl-batch-editor/kie_chave')
 UA = 'fefo-vsl/1.0'
 ESPERA_MAX = 1200   # s
 TESTE = '--teste' in sys.argv
+
+
+if '--conta' in sys.argv:
+    sys.exit('Sem --conta: este é o Kie da Empire Vision. Para a Trendscale, use @TRENDSCALE/2026/_FLUXO/kie.py')
+
+
+CONTA = 'ev'
+CHAVE = os.path.expanduser('~/.vsl-batch-editor/kie_chave')
 
 
 def _chave():
@@ -93,14 +114,63 @@ def espera(task, saida):
         if estado == 'fail':
             sys.exit(f'Falhou: {d.get("failCode")} {d.get("failMsg")}')
         if estado == 'success':
-            url = json.loads(d['resultJson'])['resultUrls'][0]
-            req = urllib.request.Request(url, headers={'User-Agent': UA})   # sem a chave: é outro host
-            with urllib.request.urlopen(req, timeout=300) as r, open(saida, 'wb') as f:
-                f.write(r.read())
-            print(f'{saida} · {d.get("creditsConsumed")} cr · {d.get("costTime")} s')
+            urls = _urls(d)
+            if len(urls) == 1:
+                saidas = [saida]
+            else:   # Suno: várias faixas
+                base, ext = os.path.splitext(saida)
+                saidas = [f'{base}_{i}{ext}' for i in range(1, len(urls) + 1)]
+            for url, arq in zip(urls, saidas):
+                req = urllib.request.Request(url, headers={'User-Agent': UA})   # sem a chave: é outro host
+                with urllib.request.urlopen(req, timeout=300) as r, open(arq, 'wb') as f:
+                    f.write(r.read())
+            ids = _ids_faixas(d)
+            if ids:   # Suno: guarda os ids das faixas (para suno-persona)
+                json.dump({'taskId': task, 'faixas': [{'arquivo': a, 'audio_id': i} for a, i in zip(saidas, ids)]},
+                          open(saida + '.faixas.json', 'w'), ensure_ascii=False, indent=1)
+            print(f'{", ".join(saidas)} · {d.get("creditsConsumed")} cr · {d.get("costTime")} s · conta {CONTA}')
             return d
         time.sleep(10)
     sys.exit(f'Sem resultado em {ESPERA_MAX} s. Retome com: python3 kie.py espera {task} {saida}')
+
+
+def _urls(d):
+    """URLs do resultado: resultJson.resultUrls (imagem, vídeo, tts) ou response.data[].audio_url (Suno)."""
+    try:
+        r = json.loads(d.get('resultJson') or '{}')
+    except ValueError:
+        r = {}
+    if r.get('resultUrls'):
+        return r['resultUrls']
+    faixas = (d.get('response') or r.get('response') or {}).get('data') or r.get('data') or []
+    urls = [f.get('audio_url') or f.get('audioUrl') for f in faixas if isinstance(f, dict)]
+    urls = [u for u in urls if u]
+    if not urls:
+        sys.exit('Sucesso sem URL reconhecida. Resposta: ' + json.dumps(d, ensure_ascii=False)[:800])
+    return urls
+
+
+def _ids_faixas(d):
+    try:
+        r = json.loads(d.get('resultJson') or '{}')
+    except ValueError:
+        r = {}
+    faixas = (d.get('response') or r.get('response') or {}).get('data') or r.get('data') or []
+    return [f.get('id') for f in faixas if isinstance(f, dict) and (f.get('audio_url') or f.get('audioUrl'))]
+
+
+def _suno_extras(a, entrada):
+    for opc, campo, conv in (('--voz', 'vocal_gender', str), ('--dur', 'duration', int),
+                             ('--sem-estilo', 'negative_tags', str), ('--peso-estilo', 'style_weight', float),
+                             ('--peso-audio', 'audio_weight', float)):
+        if _opcao(a, opc) is not None:
+            entrada[campo] = conv(_opcao(a, opc))
+    if _opcao(a, '--persona'):
+        entrada['persona_id'] = _opcao(a, '--persona')
+        entrada['persona_model'] = 'style_persona'
+
+
+MODELO_SUNO = 'V6' if CONTA == 'ts' else 'V5_5'   # Trendscale no V6 (05/11/2026)
 
 
 def _opcao(args, nome, padrao=None):
@@ -182,6 +252,47 @@ def main():
         voz = _opcao(a, '--voz') or sys.exit('tts pede --voz ID')
         entrada = {'text': texto, 'voice': voz, 'speed': float(_opcao(a, '--speed', '1'))}
         espera(cria('elevenlabs/text-to-speech-multilingual-v2', entrada, saida), saida)
+    elif a[0] == 'suno':
+        estilo, saida = _texto(a[1]), a[2]
+        titulo = _opcao(a, '--titulo') or sys.exit('suno pede --titulo')
+        entrada = {'custom_mode': True, 'instrumental': '--instrumental' in a,
+                   'model': _opcao(a, '--modelo', MODELO_SUNO), 'title': titulo[:80], 'style': estilo}
+        if _opcao(a, '--letra'):
+            entrada['prompt'] = _texto(_opcao(a, '--letra'))
+        _suno_extras(a, entrada)
+        espera(cria('ai-music-api/generate', entrada, saida), saida)
+    elif a[0] == 'suno-ref':
+        ref, estilo, saida = a[1], a[2], a[3]
+        titulo = _opcao(a, '--titulo') or sys.exit('suno-ref pede --titulo')
+        entrada = {'upload_url': _sobe(ref), 'instrumental': '--instrumental' in a,
+                   'model': _opcao(a, '--modelo', MODELO_SUNO), 'title': titulo[:80]}
+        if estilo != '-':
+            entrada['style'] = _texto(estilo)
+        if _opcao(a, '--letra'):
+            entrada['lyrics'] = _texto(_opcao(a, '--letra'))
+        _suno_extras(a, entrada)
+        espera(cria('ai-music-api/upload-and-cover-audio', entrada, saida), saida)
+    elif a[0] == 'suno-persona':
+        info = json.load(open(a[1].replace('.task.json', '') + '.faixas.json'))
+        faixa = info['faixas'][int(a[2]) - 1]
+        entrada = {'task_id': info['taskId'], 'audio_id': faixa['audio_id'], 'name': a[3], 'description': a[4]}
+        if _opcao(a, '--de') is not None:
+            entrada['vocal_start'] = float(_opcao(a, '--de'))
+            entrada['vocal_end'] = float(_opcao(a, '--ate'))
+        saida = a[1].replace('.task.json', '') + '.persona'
+        task = cria('ai-music-api/generate-persona', entrada, saida)
+        for _ in range(ESPERA_MAX // 5):   # persona não tem arquivo para baixar: só o id
+            d = _pede(f'{API}/api/v1/jobs/recordInfo?taskId={urllib.parse.quote(task)}')
+            if d['state'] == 'fail':
+                sys.exit(f'Falhou: {d.get("failCode")} {d.get("failMsg")}')
+            if d['state'] == 'success':
+                pid = re.search(r'"persona_?[iI]d"\s*:\s*"([^"]+)"', json.dumps(d))
+                pid = pid.group(1) if pid else None
+                open(saida + '.json', 'w').write(json.dumps({'persona_id': pid, 'nome': a[3], 'resposta': d},
+                                                             ensure_ascii=False, indent=1))
+                print(f'persona_id {pid} · {d.get("creditsConsumed")} cr · salvo em {saida}.json')
+                break
+            time.sleep(5)
     elif a[0] == 'espera':
         espera(a[1], a[2])
     else:
