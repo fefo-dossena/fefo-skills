@@ -54,7 +54,7 @@ python3 fluxo.py fazer  "<pasta da batch>"     # roda SÓ as etapas locais pende
    sai como REUSE ou NEW em `08_auto/banco_reuso.tsv`, e só o NEW entra no pedido de crédito. O `status` não cobra esta etapa.
 
 ## Módulos (leia o arquivo do módulo antes de rodá-lo)
-Modelo e esforço por etapa (economia de tokens, 05/11/2026): ao entrar numa etapa cujo modelo difere do da sessão, avise em uma linha para trocar (`/model`, `/effort`) ou abrir sessão nova. Criativo = Opus; conferir e rodar script = Sonnet; mecânico (subir, renomear, Notion/Asana, Clock) = Haiku ou Sonnet baixo.
+Modelo e esforço por etapa (economia de tokens, 05/11/2026): ao entrar numa etapa cujo modelo difere do da sessão, avise em uma linha para trocar (`/model`, `/effort`) ou abrir sessão nova. Criativo = Opus; conferir e rodar script = Sonnet; mecânico (subir, renomear, Notion/Asana, Clock) = Haiku ou Sonnet baixo. **Troca automática por agente:** passo mecânico já aprovado vai para o agente `executor-mecanico` (Haiku), com o OK do Fefo escrito na tarefa; montagem e checagens por script vão para o `montador` (Sonnet); QC visual para o `revisor-de-video` (Sonnet). A sessão principal fica com as decisões e recebe só o resumo.
 
 | Módulo | Quando | Crédito | Modelo · esforço | Arquivo |
 |---|---|---|---|---|
