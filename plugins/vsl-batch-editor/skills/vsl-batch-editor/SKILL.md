@@ -61,6 +61,7 @@ python3 fluxo.py fazer  "<pasta da batch>"     # roda SÓ as etapas locais pende
 | roteiro | chegou PDF/texto novo; ou não existe `plano.json` | não | `modulos/01_roteiro.md` |
 | referencia | início de toda batch, ou ref novo em `01_refs/` (define `estilo`) | não | `modulos/02_referencia.md` |
 | banco | **toda batch nova**, depois de `roteiro` e `referencia` e antes de gerar qualquer coisa; b-roll novo em revisão | não | `modulos/05a_banco.md` |
+| busca_avatar | avatar fotográfico de UGC novo sem quadro real escolhido | não | `modulos/03a_busca_avatar.md` |
 | personagens | plano tem personagem sem imagem aprovada | sim (custo em `modulos/kie.md`) | `modulos/03_personagens.md` |
 | falas | `status` mostra falas faltando | sim (Kling; Seedance só em Drama ad) | `modulos/04_falas.md` |
 | broll | `status` mostra b-roll faltando | sim (Sunburst + Kling) | `modulos/05_broll.md` |
@@ -85,7 +86,10 @@ Barra de linha do tempo, legenda estilo Snapchat e tela dividida já saem do `mo
 `estilo.tag_nativa`, cena `"formato": "split"`; campos em `modulos/02_referencia.md`).
 
 ## Regras fixas
-- **Uma geração por vez**: o `kie.py` espera e baixa. Paralelo só com ok do Fefo.
+- **ED descontinuado (call com a Empire Vision, 05/11/2026; suspenso desde 04/11 pela Louise):** o nicho de ED acabou, Cocoa ED incluso, na Neurobella e na VisioVance: nada de edição, revisão, review nem entrega. Card de ED na fila ou em Revisions: não pegar, avisar o Fefo.
+- **VisioVance só em eye vitamin (call, 05/11/2026):** a VisioVance fica só com o nicho de olho. Batch de outro nicho (pele, neuropatia, rim…) sai só Neurobella, mesmo sem menção no card; versão VisioVance só em batch de olho.
+- **Criador real é intocável (Louise, 04/11/2026):** em UGC com bruto de criador contratado, entram o vídeo e a voz originais dele. Nada de voz de IA no lugar da dele (troca de voz, TTS, clone) nem avatar de IA parecido com ele; ritmo, legenda, b-roll, música e hooks seguem iguais. Batch em andamento com versão de IA do criador: reeditar com o original. Bruto difícil (áudio ruim): avisar a Louise antes. Motivo: autenticidade e consentimento (o contrato com os criadores não cobre réplica de IA). Avatar novo a partir de quadro real (`modulos/03_personagens.md`) continua, sempre como pessoa diferente.
+- **Gerações em paralelo** (Fefo, 04/11/2026): depois do ok de crédito, um `kie.py` em segundo plano por geração (~10–15 s entre disparos), nunca uma fila única. Cada um espera e baixa o seu.
 - **Sempre 720p.** Vídeo gerado e AD final em 720p (720x1280), detalhe em `modulos/07_montagem.md`.
 - **Crédito só com ok.** Antes de cada lote: quantas gerações, modelo, duração, custo estimado. Aprovar imagens não autoriza vídeos.
 - **Versões dos exports (toda batch):** todas ficam dentro da pasta de exports. A atual em `09_export/<p>/`; toda versão

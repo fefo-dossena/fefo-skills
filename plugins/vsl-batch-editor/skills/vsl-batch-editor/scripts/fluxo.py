@@ -843,8 +843,8 @@ def segmentos(B, p, n):
         # sem avatar por baixo, buraco entre cenas = tela preta: a cena seguinte começa onde a anterior termina
         for k in range(1, len(out)):
             if out[k][1] > out[k - 1][2]: out[k] = (out[k][0], out[k - 1][2], out[k][2], out[k][3])
-    # PiP (cena "formato": "inset") com o avatar falando atrás: borda do PiP a até 0,15 s de uma emenda do avatar =
-    # dois cortes seguidos (lascas.py: 1-3 quadros, BATCH#3375). A borda vai para a emenda.
+    # PiP (cena "formato": "inset") com o avatar falando atrás: borda do PiP a até 0,3 s de uma emenda do avatar =
+    # dois cortes seguidos (lascas.py: 1-3 quadros, BATCH#3375; 7 quadros no S12 da 3375 V4 com 0,15). A borda vai para a emenda.
     if out and not sem_avatar and any(cen[c].get("formato") == "inset" for c, _, _, _ in out):
         em = emendas_avatar(B, plano, p, n, HD)
         perto = lambda t: min(em, key=lambda x: abs(x - t)) if em else t
@@ -853,8 +853,8 @@ def segmentos(B, p, n):
             if cen[cid].get("formato") != "inset": continue
             ea, eb = perto(a), perto(b)
             ea, eb = round(ea * 30) / 30 - 1 / 60, round(eb * 30) / 30 - 1 / 60     # meio quadro antes: o quadro da emenda já é do PiP novo
-            a2 = ea if abs(ea - a) <= 0.15 and (k == 0 or ea >= out[k - 1][2] - 1e-3) else a
-            b2 = eb if abs(eb - b) <= 0.15 and eb - a2 >= 1.0 and eb <= a2 + dur_util(B, cen[cid], f, p) - 0.05 else b
+            a2 = ea if abs(ea - a) <= 0.3 and (k == 0 or ea >= out[k - 1][2] - 1e-3) else a
+            b2 = eb if abs(eb - b) <= 0.3 and eb - a2 >= 1.0 and eb <= a2 + dur_util(B, cen[cid], f, p) - 0.05 else b
             if k + 1 < len(out): b2 = min(b2, out[k + 1][1]) if out[k + 1][1] >= a2 else b2
             out[k] = (cid, round(a2, 3), round(b2, 3), f)
         for k in range(len(out) - 1):          # PiPs encostados: o seguinte começa onde o anterior acaba
@@ -1053,7 +1053,17 @@ def montar(B, p, n):
         else:
             # quadros do b-roll meio quadro antes da grade de 30 fps: com a hold começando exatamente na grade (emenda AAC,
             # 3215) o overlay empatava por microssegundos com o quadro principal e pulava/triplicava quadros (BATCH#3214 AD2)
-            g.append(f"[{j}:v]trim={i0:.3f}:{i0+b2-a:.3f},setpts=PTS-STARTPTS,{geo},fps=30,settb=1/90000,"
+            # cena com "push_in" (zoom por segundo): b-roll com trecho parado ou clipe mais curto que a cena; o último
+            # quadro se repete e o zoom continua, em subpixel (BATCH#3825: freezedetect em 9 cenas do Kling)
+            r = float(c.get("push_in") or 0)
+            zp = ""
+            if r and oy == 0:
+                kz = f"{r}*in/30"
+                x0, y0, w, h = f"540*{kz}/(1+{kz})", f"960*{kz}/(1+{kz})", f"1080/(1+{kz})", f"1920/(1+{kz})"
+                zp = (f",tpad=stop_mode=clone:stop_duration=3,trim=end_frame={int((b2 - a) * 30) + 2},"
+                      f"perspective=x0='{x0}':y0='{y0}':x1='{x0}+{w}':y1='{y0}':x2='{x0}':y2='{y0}+{h}':"
+                      f"x3='{x0}+{w}':y3='{y0}+{h}':interpolation=cubic:eval=frame")
+            g.append(f"[{j}:v]trim={i0:.3f}:{i0+b2-a:.3f},setpts=PTS-STARTPTS,{geo},fps=30{zp},settb=1/90000,"
                      f"setpts=PTS+{round(a * 30) / 30 - 1 / 60:.6f}/TB,setsar=1[x{k}]")
         g.append(f"[{cur}][x{k}]overlay=0:{oy}:eof_action=repeat:enable='between(t,{a},{b2})'[o{k}]"); cur = f"o{k}"
     evs = ler_srt(sub); nt = lambda s: re.sub(r"[^a-z0-9% ]", "", s.lower())
@@ -1103,7 +1113,7 @@ def montar(B, p, n):
     hc = plano.get("hook_card", {}).get(str(n))
     if hc:
         import elementos_hook as EH2
-        png = f"{B}/{hc['png']}"
+        png = f"{B}/{hc['png']}".replace("{p}", p)     # "{p}" = card por marca (BATCH#3846)
         if not os.path.exists(png): EH2.hook_card(hc["linhas"], plano.get("estilo", {}).get("hook_card", {}), png)
         jc = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{HD:.3f}", "-i", png]
         g.append(f"[{cur}][{jc}:v]overlay=0:0:eof_action=pass:format=auto:enable='between(t,0,{HD:.3f})'[hcard]"); cur = "hcard"

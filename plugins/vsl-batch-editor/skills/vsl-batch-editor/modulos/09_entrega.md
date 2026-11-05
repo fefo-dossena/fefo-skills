@@ -146,7 +146,7 @@ A lista do dia fica no `clock.dia_json` do perfil, relativo à raiz (Fefo: `_FLU
    do `python3 scripts/monitor/ads_do_dia.py` (ADs da versão atual em `09_export/<produto>/`, sem `_old/` nem `4x5/`; na
    revisão, todos os ADs da versão atual). Batch sem exports (QA sem edição): a linha sai sem esse trecho:
 
-🔴CLOCK OUT - Video Editor Date: 15 Oct
+🔴 CLOCK OUT - Video Editor Date: 15 Oct
 
 1. Task: BATCH#1980 - Done - CS needs to Review - 6 ads - avg 2:22
 2. Task: BATCH#1977 - Done - CS needs to Review - 6 ads - avg 1:18

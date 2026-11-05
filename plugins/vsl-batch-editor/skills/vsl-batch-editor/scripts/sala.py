@@ -61,6 +61,9 @@ def main():
     json.dump(r, open(rj, "w"), ensure_ascii=False, indent=1)
     for f in faltam: print("  ! falta o export:", f)
     print(f"V{k} em {rj}")
-    subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "reviewroom.py"), "build", rj], check=True)
+    # O kit vive na skill sala-de-revisao (design do Fefo + montagem ao vivo); a cópia daqui fica de reserva.
+    kit = os.path.expanduser("~/.claude/skills/sala-de-revisao/scripts/reviewroom.py")
+    if not os.path.exists(kit): kit = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reviewroom.py")
+    subprocess.run([sys.executable, kit, "build", rj], check=True)
 
 if __name__ == "__main__": main()

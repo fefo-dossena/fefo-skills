@@ -3,7 +3,12 @@ Página privada no claude.ai por batch, do kit do Daniel: nota no quadro exato, 
 aprovação por AD. Substitui o envio dos exports por SendUserFile (decisão do Fefo, 30/10/2026). O cliente continua no
 Frame.io; os comentários de lá seguem `10_revisao.md`. Uma sala por batch, com o mesmo link em todas as versões.
 
-Arquivos: `scripts/sala.py` (monta a sala da batch), `scripts/reviewroom.py` e `scripts/reviewroom/template.html` (kit).
+**Desde 03/11/2026 a sala é a skill `sala-de-revisao`** (`~/.claude/skills/sala-de-revisao`): design do Fefo, montagem ao vivo
+por etapas, página central de todas as salas e varredura. Siga o `SKILL.md` de lá com o adaptador `empire-vision.md`; este
+módulo continua valendo para os detalhes da batch.
+
+Arquivos: `scripts/sala.py` (monta a sala da batch, com o kit da skill), `scripts/reviewroom.py` e `scripts/reviewroom/template.html`
+(cópia antiga do kit, só de reserva).
 Cópias, página e estado ficam em `~/.vsl-batch-editor/salas/<batch>/`, nunca na batch. As checagens de `07_montagem.md`
 vêm antes da sala.
 

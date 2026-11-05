@@ -19,7 +19,8 @@ verdade e parece real parada, mas vira cera ao animar. Vale para avatar novo; pe
 a variação partindo da imagem aprovada. Metade do esforço do avatar vai aqui, antes de qualquer vídeo.
 1. **Quadro:** still de vídeo real de criador real, gravado no celular, escolhido pela idade do público: mais novo no
    TikTok, millennial no Instagram, mais velho no Facebook (o nosso caso comum). Pinterest não serve: está cheio de IA.
-   Salve em `01_refs/avatar_quadro/`, com o link de origem.
+   Salve em `01_refs/avatar_quadro/`, com o link de origem. **Como achar e escolher o quadro: `03a_busca_avatar.md`**
+   (busca no navegador, checagem, registro e a escolha do Fefo pela sala antes do crédito).
 2. **O que olhar:** enquadramento escolhido de propósito; **nenhum branco estourado** no rosto (dê zoom: brilho com
    detalhe passa, branco puro vira cera ao animar); fundo com alguma profundidade e personalidade, sem bagunça; mãos
    naturais, de preferência as duas à vista; olhar reto para a câmera e boca fechada (`prompts.md`). Legenda queimada só
