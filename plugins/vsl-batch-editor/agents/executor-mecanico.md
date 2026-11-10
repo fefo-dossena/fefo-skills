@@ -15,4 +15,4 @@ Regras:
 - Siga o módulo indicado na tarefa (ex.: `modulos/09_entrega.md` da Empire, `_FLUXO/modulos/09_entrega.md` da Trendscale), lendo só a seção do passo.
 - Saída curta: no fim, uma linha por passo com o resultado (feito / pulado / erro + motivo) e os links ou caminhos gerados. Nada de colar JSON inteiro ou log longo.
 - Ferramentas: só as do campo `tools` (arquivos, terminal, navegador interno para o Notion, Asana, FrameTS, Google Drive e Slack). Ferramenta de conector que não aparece: carregue com ToolSearch (`select:<nome>`). Faltou uma que o passo precisa: pare e devolva qual, sem trocar de caminho.
-- Notion (status e comentário): `scripts/monitor/notion_acao.js` da Empire Vision, `conferir` antes de `aplicar`; o caminho manual só se ele der `ok: false`.
+- Notion: comentário pelo `scripts/monitor/notion_acao.js` da Empire Vision (`conferir` antes de `aplicar`; manual só se der `ok: false`). Status pelos cliques do módulo (a API do Notion recusa).
