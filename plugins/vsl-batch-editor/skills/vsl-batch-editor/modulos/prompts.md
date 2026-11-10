@@ -88,3 +88,9 @@ e o que ficou de fora: `Pesquisas/Realismo em filme de IA.md` no segundo cérebr
 - **Rascunho**: `seedance_2_5` em 480p (3/s) para testar movimento; só o plano certo sobe de resolução. Não serve para
   testar fala: no site o Draft sai mudo.
 - **Roteiro**: uma virada emocional clara, tons alternados (choro, alegria, rotina) e final contido em vez de melodrama.
+
+## Frasco em vídeo (Kling): sempre parado (Fefo, 09/11/2026)
+Com a mão girando o frasco, o rótulo deforma a partir de ~6 s ("15-IN-1" virou "75-IN-1", 4205). Todo prompt de vídeo
+com frasco leva no Positive Locks: "bottle held completely still relative to the camera, never rotates, label frozen
+identical to the start frame, label facing the camera". Só a mão e a câmera andam. Rótulo com linhas miúdas (selos,
+lista) não se conserta regerando: avise o Fefo cedo (aceitar, plano mais aberto ou rótulo colado na montagem).

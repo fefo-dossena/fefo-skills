@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------- ações locais
 def executar(B, acao):
     plano, cfg = carregar(B); k = acao[0]
-    os.makedirs(f"{B}/08_auto/cortes", exist_ok=True); os.makedirs(f"{B}/08_auto/legendas", exist_ok=True)
+    os.makedirs(f"{B}/{AUTO}/cortes", exist_ok=True); os.makedirs(f"{B}/{AUTO}/legendas", exist_ok=True)
     if k.endswith("_take"):
         import umtake; return umtake.executar(sys.modules[__name__], B, acao)
     if k == "rapido":
@@ -12,9 +12,9 @@ def executar(B, acao):
                         "-c:v", "libx264", "-crf", "16", "-preset", "medium", "-c:a", "aac", "-b:a", "192k", dst], check=True)
         return
     if k == "corte":
-        _, mp4, stem = acao; man = f"{B}/08_auto/cortes/{stem}.manual.json"
+        _, mp4, stem = acao; man = f"{B}/{AUTO}/cortes/{stem}.manual.json"
         import vsl
-        c = vsl.load_cfg(f"{B}/batch.json")
+        c = vsl.load_cfg(f"{B}/{CFG}")
         exato = False
         if os.path.exists(man):
             segs = json.load(open(man)); print(f"   (corte manual mantido: {stem})")
@@ -39,14 +39,14 @@ def executar(B, acao):
             # opcional): com a borda relativa as folgas já são justas e 0,2 s a mais deixava ~0,5 s de "deadspace" (1977).
             # No Seedance o respiro não passa do limite do estalo (sem isso voltava a "duração − 0,02", BATCH#3214 H1).
             teto = duracao(mp4) - (0.08 if eh_seedance(plano, stem) else 0.02)
-            segs[-1][1] = round(min(teto, segs[-1][1] + float(c.get("respiro_hook_s", 0.2))), 3)
+            segs[-1][1] = round(min(teto, segs[-1][1] + float(c.get("respiro_hook_s_" + stem, c.get("respiro_hook_s", 0.2)))), 3)
         json.dump(segs, open(corte(B, stem), "w"))
     elif k == "previa":
         p = acao[1]; ins, fc, n = [], [], 0
         for f in falas_hold(plano):
             segs = g30(json.load(open(corte(B, fala_stem(f, p))))); i = len(ins) // 2; ins += ["-i", fala_mp4(B, f, p)]
             for q, (s, e) in enumerate(segs):
-                fc.append(f"[{i}:v]{vtrim(s, e)[0]},scale=720:1280{punch(plano, q)},fps=30{push(f, segs, q)}{vtrim(s, e)[1]},setsar=1[v{n}];"
+                fc.append(f"[{i}:v]{vtrim(s, e)[0]},scale=720:1280{punch(plano, q, f)},fps=30{push(f, segs, q)}{vtrim(s, e)[1]},setsar=1[v{n}];"
                           f"[{i}:a]atrim={s}:{e},asetpts=PTS-STARTPTS{afade(e - s)}{ganho(f, p)},aresample=44100,aformat=channel_layouts=stereo[a{n}]"); n += 1
         fc.append("".join(f"[v{j}][a{j}]" for j in range(n)) + f"concat=n={n}:v=1:a=1[v][a]")
         sc = previa(B, p) + ".fc.txt"; open(sc, "w").write(";".join(fc))
@@ -57,7 +57,7 @@ def executar(B, acao):
         transcrever(previa(B, acao[1]), L(B, f"palavras_hold_{acao[1]}.json"))
     elif k == "transcrever_hook":
         n = acao[1]; f, pm, hs = hook_marca(plano, n, acao[2] if len(acao) > 2 else None)
-        wav = f"{B}/08_auto/legendas/_{hs}_cortado.wav"
+        wav = f"{B}/{AUTO}/legendas/_{hs}_cortado.wav"
         segs = json.load(open(corte(B, fala_stem(f, pm)))); sel = "+".join(f"between(t,{s},{e})" for s, e in segs)
         subprocess.run([FF, "-nostdin", "-v", "error", "-y", "-i", fala_mp4(B, f, pm), "-vn", "-ac", "1", "-ar", "16000",
                         "-af", f"aselect='{sel}',asetpts=N/SR/TB", wav], check=True)

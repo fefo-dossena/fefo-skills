@@ -4,12 +4,52 @@ Se `01_refs/` estiver vazio, pergunte ao Fefo qual ad seguir antes de seguir. Ca
 ref, BATCH#3214 e #3215): proponha um estilo UGC (personagem, cenário, enquadramento de cada setup, legenda) e espere o
 OK; nas duas, médico(a) falando para a câmera fixa na mesa do consultório + selfie andando nos hooks foi aprovado.
 
+## Passo 0: medir o ref antes de planejar (Fefo, 09/11/2026)
+O resumo do briefing não substitui o ad. Na 4206 o briefing dizia "5 planos de 2 s"; o ref tinha ~9 planos de 0,8–1,8 s,
+VO a ~3,7 pal/s, 2 flashes e legenda fixa no topo, e o plano teve de ser refeito. Antes do banco e do plano:
+1. Baixe o mp4 do ref (Milanote: elemento FILE, não LINK; Atria: `currentSrc` do player, `cdn.tryatria.com`; Brief Folder).
+2. Meça e anote no plano (`08_auto/ref_medidas.md`): duração, número e duração dos planos, palavras/s da VO, F0 médio da
+   voz, gênero e tom, trilha (sim/não, BPM aproximado), posição e forma do texto na tela, flashes e efeitos.
+3. Planeje e escolha voz, ritmo e cenas por essas medidas. Diga ao Fefo as medidas junto do plano.
+
 ## Régua de qualidade: BATCH#3217
 Elogiada pelo Daniel (31/10/2026: "this one bro, really good"; ele não disse o motivo). Serve para comparar o nível antes de ir ao Fefo, em especial em build de médico em PIP, **nunca como fonte de estilo**: o estilo continua vindo de `01_refs/` e do card. O que olhar em `BATCH#3217/09_export/`:
 - Voz e rosto iguais do início ao fim (Kling 4.0 com a 1ª fala aprovada como referência), fala sem palavra cortada.
 - B-roll trocando a cada 1 a 3 s, sempre casado com a fala: gente da idade do público, closes e 3D da mesma anatomia ao longo do ad; 3D nunca dois seguidos.
 - Legenda em expressões inteiras, faixa só no dado que vende (dose, garantia), frasco inteiro e rótulo nítido.
 - Os exports são de 27/10, em 1080p: a saída agora é 720p.
+
+## Referência de ofício: Reel Nova Zelândia (desde 09/11/2026)
+Escolhida pelo Fefo para montagem, cor, lettering, enquadramento e direção de arte. **Não é fonte de estilo:** `01_refs/`
+e o card decidem; ela vale onde o ref não decide e no ad sem ref. Ficha completa no segundo cérebro:
+`3 Recursos/Design/Fichas/Reel Nova Zelândia (Marina Guaragna).md` (vídeo e quadros em `Meu Drive/@refs/Nova Zelandia - Marina Guaragna`).
+- **Um plano por ideia falada, ilustrado ao pé da letra** (acidente → ambulância), corte no fim da palavra-chave, média ~1,5 s.
+- **Avatar nas viradas** e em escada: aberto → médio → close → close extremo na frase mais forte (punch-in no ápice).
+- **B-roll nativo de 9:16:** assunto vertical, linhas-guia, camadas frente/meio/fundo, escala humana; closes tão fechados
+  que viram bloco de cor para quebrar o ritmo; quase todo plano com movimento. Terço de cima livre quando há texto.
+- **Cor em registros:** pessoa natural e levemente quente; plano de "sonho/resultado" saturado; passado/problema pode mudar de registro.
+- **Paleta do figurino** casada com a do produto e um acessório-assinatura fixo. Aqui a roupa **varia** entre cenas
+  (regra de `05_broll`: a mesma roupa em tudo denuncia a IA); o que se mantém é a paleta e o acessório.
+- Lettering discreto (sans bold, minúscula, 3 a 5 palavras) só quando o ref não tiver desenho próprio de legenda.
+
+## Formato musical estilo Pixar (ref do Daniel, desde 10/11/2026)
+Quando o card pedir "estilo Pixar" / animação 3D, e o ref da batch não decidir outra coisa, seguir o
+`MD_YourFloater_H1_v3` (Neurobella, 2:13). Ficha completa no segundo cérebro:
+`3 Recursos/Design/Fichas/Musical estilo Pixar - Your Floater (Neurobella).md`; vídeo, pranchas e letra com tempos em
+`@assets/refs/Pixar musical - Your Floater/`. Prompts: `@assets/MANUAL OPERACIONAL AVANÇADO - 3D PIXAR.docx`.
+- **O problema vira personagem e canta:** vilão-diva (o floater) num número de cabaré zomba da cliente; o frasco real
+  vira a diva-heroína (rosto, coroa, estola, botas) e vence. Letra = roteiro: sintoma → mecanismo → "the part they
+  never share" → produto → uso → garantia cantada → vilão some. Refrão-marca 2x.
+- **Gancho:** cliente 60+ no espelho + balão de comentário do TikTok no topo com a pergunta, cantada e legendada.
+- **Visual:** 3D Pixar brilhante (não claymation), palco de veludo vermelho, velas, holofote, microfone vintage;
+  ~70% palco, ~30% vida real (mesma senhora e mesma roupa). Mecanismo com adereço de cena (placa, medidor, PIP
+  circular, teatro de sombras), sem motion graphic por cima. Rótulo do frasco fiel e legível.
+- **Ritmo:** 45 planos, mediana 3,5 s (0,8–5,5 s), cada plano com ação contínua de canto/dança; gancho picado.
+- **Áudio:** canção inteira cantada (voz feminina atrevida, ~134 BPM, Suno do Kie da Empire), fecho instrumental de
+  ~14 s com resultado + cartão "90-DAY MONEY BACK GUARANTEE / SHOP NOW". -18 LUFS.
+- **Legenda:** caixa alta, sans bold arredondada, branca com contorno preto, 1–4 palavras seguindo o canto, ~60% da altura.
+- **Em aberto (perguntar antes da 1ª batch):** planos > 3 s reprovam no `lint_plano` e no `ritmo` (exceção para este
+  formato?); duração-alvo (o ref tem 2:13); palavrão censurado na letra pode?; lip-sync cantado no Kling.
 
 ## Como analisar
 - Com ffmpeg: `ffmpeg -i ref.mp4 -vf "fps=1/2,scale=150:-1,tile=8x6" sheet.jpg` (prancha a cada 2 s) e, se precisar,

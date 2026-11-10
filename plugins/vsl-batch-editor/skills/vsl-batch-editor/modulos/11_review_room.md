@@ -11,6 +11,8 @@ Arquivos: `scripts/sala.py` (monta a sala da batch, com o kit da skill), `script
 (cópia antiga do kit, só de reserva).
 Cópias, página e estado ficam em `~/.vsl-batch-editor/salas/<batch>/`, nunca na batch. As checagens de `07_montagem.md`
 vêm antes da sala, e depois delas o agente `revisor-de-video` (skill `sala-de-revisao`, seção 3, passo 0; Fefo, 05/11/2026).
+Desde 09/11/2026 (Frente 1) o `revisor.py pedido` roda `fluxo.py checar <batch>` (freeze, lascas, ritmo, lint) e recusa
+a versão com falha, e manda ao revisor a hold uma vez e cada hook separado quando os ADs dividem a hold.
 
 ## 1. Publicar (V1 ou versão nova)
 1. `python3 scripts/sala.py "<batch>" --nota "<o que mudou>"`. Com cortes 4:5: `--4x5`. Conserte cada linha com `!`.
@@ -47,3 +49,13 @@ vêm antes da sala, e depois delas o agente `revisor-de-video` (skill `sala-de-r
 15 MB por arquivo (AD de ~3 min pode cair para 540 px), 256 MB por versão, e só as 2 últimas versões ficam tocáveis. A
 qualidade da sala é menor que a do export: defeito fino se confere no MP4. A sala é privada até o Fefo compartilhar; nada
 dela é entregue ao cliente.
+
+## Revisor: contexto e teto de rodadas (Fefo, 09/11/2026)
+Rodadas extras por leitura errada custaram horas (4083: corte "no meio" que era do próprio hook; 3842 e 3830: reprovou de
+novo o que já vinha da V1 e já tinha sido aceito; M1WK1B2: 5 rodadas pela voz da música).
+- **Mande ao revisor junto do vídeo:** `08_auto/ref_medidas.md` (o ref medido), `revisor/aceitos.md` (o que o Fefo já
+  dispensou ou aceitou nesta batch, com a data) e a lista do que mudou desde a última versão.
+- Item que está em `aceitos.md` não reprova de novo sozinho: o revisor só aponta se piorou.
+- **Teto de 2 rodadas por versão.** Reprovou na 2ª: não rode a 3ª. Leve ao Fefo o resumo do parecer, o que você acha
+  (inclusive se o revisor leu errado) e a recomendação, e espere a escolha.
+- Cada dispensa do Fefo entra em `revisor/aceitos.md` e em `revisor/dispensa_V<k>.txt`.

@@ -106,3 +106,16 @@
 
 - **Frasco sempre inteiro** (Fefo, BATCH#3375, 29/10/2026): em cena/PiP com o frasco, o pote aparece todo (tampa e base), sem close cortando o rótulo; card do hook e legenda não passam por cima dele (conferir também no 4:5). Close de rótulo = packshot inteiro com margem e zoom bem leve.
 - **Produto integrado à cena** (feedback do cliente, 31/10/2026): toda geração vai para o banco, e produto com luz diferente da do avatar e da cena parece falso e não será usado. No frasco, a luz vem da mesma fonte, direção, cor e contraste da cena, com o mesmo foco e grão, sem o brilho nítido de foto de estúdio. Editar a imagem aprovada do avatar ou da cena com o frasco como referência: "the bottle has the same light direction, color and contrast as the scene, and casts a natural contact shadow; keep the label readable". Rejeitar o quadro **antes de animar** se o frasco parecer colado na mão, mesmo com rótulo perfeito. Ao trocar o frasco para a outra marca por edição, conferir isto de novo nas duas versões.
+
+## Conferir o rótulo antes do revisor
+**Conferência na chegada (Frente 1, 09/11/2026):** enquanto o Kie gera, deixe rodando em segundo plano
+`python3 @CLIENTES/_FLUXO/scripts/conferir_asset.py <batch> --vigiar 60`. Cada clipe ou quadro que termina de chegar em
+`03_avatar`, `04_broll_hold`, `05_broll_hooks` e `06_elementos/quadros` passa pela visão do Mac (texto inventado ou palavra
+do plano escrita torta, nome da marca deformado, rótulo na borda) e ganha uma prancha em `08_auto/conferencia/pranchas/`.
+No fim de cada lote o script imprime um pedido para o subagente barato (`general-purpose`, `model: haiku`, prompt exato
+que ele imprime): mãos, objeto que muda, rótulo coberto, rosto que muda. A lista `08_auto/conferencia/refazer.md` diz o que
+regerar **antes da montagem**. Pasta que começa com `_` (`_rejeitadas`, `_kling_nao_usado`) fica de fora. A letra miúda do
+rótulo não é conferida pelo script (o OCR erra e o rótulo real já tem texto torto): ela fica para a prancha.
+Todo clipe com frasco: prancha com crop do rótulo a cada 2 s (início, meio, fim). Texto borrado ou trocado = refazer com a
+trava de frasco parado do `prompts.md` antes de montar. Clipe gerado vai direto para `02_brutos/` no Drive, nunca só para
+o `$TMPDIR` (disco cheio apagou os clipes da M1WK1B2 em 09/11).

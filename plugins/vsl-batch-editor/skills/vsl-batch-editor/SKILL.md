@@ -1,6 +1,6 @@
 ---
 name: vsl-batch-editor
-description: Produz batches de VSL/UGC ads de Neurobella e VisioVance de ponta a ponta, em módulos que rodam conforme a necessidade - roteiro e plano de cenas, personagens, falas do avatar com áudio nativo (Kling; Seedance só em Drama ad), b-roll (Sunburst + Kling no Kie), corte de silêncio, legendas (faster-whisper), montagem final em MP4 e timeline XML para o Premiere.
+description: Produz batches de VSL/UGC ads de Neurobella e VisioVance de ponta a ponta, em módulos que rodam conforme a necessidade - roteiro e plano de cenas, personagens, falas do avatar com áudio nativo (Kling; Seedance só em Drama ad), b-roll (Sunburst + Kling no Kie), corte de silêncio, legendas (faster-whisper) e montagem final em MP4.
 ---
 
 # VSL Batch Editor — Neurobella / VisioVance
@@ -47,18 +47,28 @@ python3 fluxo.py fazer  "<pasta da batch>"     # roda SÓ as etapas locais pende
 ```
 1. Comece toda conversa com `perfil` e `status`. Mostre o resumo em uma linha por módulo.
 2. Rode só o módulo que ele pedir, ou o próximo pendente se ele disser "segue".
-3. Módulos **locais** (sem crédito) rodam direto via `fazer`. Módulos que **gastam crédito** mostram quantas
-   gerações e o custo estimado e esperam um ok claro.
+3. Módulos **locais** (sem crédito) rodam via `fazer`, num subagente `montador` novo (a sessão principal não roda ffmpeg
+   nem abre imagem). Crédito: no começo da batch, **um OK com teto** cobre todas as gerações e refações dentro dele; pergunte
+   de novo só se for passar do teto, trocar de modelo ou for escolha criativa. Regras 1 e 2 de `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`.
 4. Depois de qualquer mudança (clipe novo, copy alterada, trilha nova), `status` → `fazer` refaz só o afetado.
 5. **Banco de conteúdo antes de gerar** (regra do Fefo, 30/10/2026): toda batch nova passa pelo módulo `banco`. Cada cena
    sai como REUSE ou NEW em `08_auto/banco_reuso.tsv`, e só o NEW entra no pedido de crédito. O `status` não cobra esta etapa.
-6. **Uma sessão por etapa grande** (economia de tokens, 05/11/2026): 1. plano e geração; 2. montagem e QC; 3. cada revisão.
-   Cada sessão começa pelo `fluxo.py status` e pelo `08_auto/ESTADO.md` da batch, não pelo histórico da anterior. Ao fechar
-   a etapa, reescrever o `ESTADO.md` (curto, até ~20 linhas: etapa feita, versão, prompts e vozes travados, o que falta) e
-   sugerir ao Fefo abrir a próxima sessão. Todas continuam no grupo EMPIRE VISION da barra lateral.
+6. **Uma thread (ou sessão) por etapa** (Fefo, 10/11/2026; antes 05/11/2026). Cortes fixos, com estes títulos:
+   - `BATCH#NNNN · 1 plano e geração`: do pega até os assets gerados e conferidos.
+   - `BATCH#NNNN · 2 montagem e entrega`: montagem, checagens, sala de revisão e entrega.
+   - `BATCH#NNNN · revisão V<k>`: cada revisão pedida pelo cliente é uma thread nova.
+   AD curto (10 a 18 s) pode ficar numa thread só, do começo à entrega.
+   **Passagem:** ao fechar a etapa, reescrever o `08_auto/ESTADO.md` (curto, até ~20 linhas: etapa feita, versão, prompts e
+   vozes travados, teto e gasto de crédito, link da sala, o que falta), terminar com um resumo de até 3 linhas que começa por `ETAPA FECHADA:` (ou `ESPERANDO O FEFO:`)
+   e **não continuar a etapa seguinte** nesta sessão. Quem abre a etapa seguinte é a **sessão mãe** da batch, que recebe
+   esse resumo (Fefo, 10/11/2026: batches em sessões no Mac, etapas aninhadas na mãe; regras em
+   `@CLIENTES/_FLUXO/SESSAO_MAE.md`). Sessão sem mãe (aberta à mão): abrir a próxima com `start_session` ou propor ao Fefo.
+   Dentro de um projeto do app, pedir a próxima ao coordenador.
+   A thread nova começa pelo `ESTADO.md` e pelo `fluxo.py status`, não pelo histórico da anterior. A sala de revisão é a
+   mesma em todas as threads da batch. Sessões continuam no grupo EMPIRE VISION da barra lateral.
 
 ## Módulos (leia o arquivo do módulo antes de rodá-lo)
-Modelo e esforço por etapa (economia de tokens, 05/11/2026): ao entrar numa etapa cujo modelo ou esforço difere do da sessão, pergunte ao Fefo em uma linha (ex.: "Montagem agora: passo para Sonnet, esforço baixo?"). Se ele disser pode, troque o modelo e o esforço da própria sessão (no app de projetos: ferramentas de trocar modelo e esforço da sessão; no Claude Code: `/model` e `/effort`). Nunca troque sem o pode dele. Na volta para etapa criativa, pergunte o mesmo para voltar ao Opus. Criativo = Opus; conferir e rodar script = Sonnet; mecânico (subir, renomear, Notion/Asana, Clock) = Haiku ou Sonnet baixo. **Troca automática por agente:** passo mecânico já aprovado vai para o agente `executor-mecanico` (Haiku), com o OK do Fefo escrito na tarefa; montagem e checagens por script vão para o `montador` (Sonnet); QC visual para o `revisor-de-video` (Sonnet). A sessão principal fica com as decisões e recebe só o resumo.
+Modelo e esforço por etapa (economia de tokens, 05/11/2026): ao entrar numa etapa cujo modelo ou esforço difere do da sessão, **troque sozinho, sem perguntar**, e diga numa linha (Fefo, 09/11/2026: "sempre siga a regra completa, exceções só quando eu falar"). Troque o modelo e o esforço da própria sessão (no app de projetos: ferramentas de trocar modelo e esforço da sessão; no Claude Code: `/model` e `/effort`). Na volta para etapa criativa (ler notas da sala, decidir correção, roteiro), volte ao Opus do mesmo jeito. Criativo = Opus; conferir e rodar script = Sonnet; mecânico (subir, renomear, Notion/Asana, Clock) = Haiku ou Sonnet baixo. **Troca automática por agente:** passo mecânico já aprovado vai para o agente `executor-mecanico` (Haiku), com o OK do Fefo escrito na tarefa; montagem e checagens por script vão para o `montador` (Sonnet); QC visual para o `revisor-de-video` (Sonnet). A sessão principal fica com as decisões e recebe só o resumo. **Sempre um subagente novo por tarefa e por versão**, nunca o mesmo continuado (regra 1 de `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`).
 
 | Módulo | Quando | Crédito | Modelo · esforço | Arquivo |
 |---|---|---|---|---|
@@ -72,10 +82,10 @@ Modelo e esforço por etapa (economia de tokens, 05/11/2026): ao entrar numa eta
 | falas | `status` mostra falas faltando | sim (Kling; Seedance só em Drama ad) | Sonnet · médio | `modulos/04_falas.md` |
 | broll | `status` mostra b-roll faltando | sim (Sunburst + Kling) | Sonnet · médio | `modulos/05_broll.md` |
 | coleta | há gerações de batch antiga no Higgsfield a baixar (o `kie.py` já baixa as dele) | não | Haiku/Sonnet · baixo | `modulos/06_coleta.md` |
-| cortes / legendas / ads / xml | `status` mostra pendente | não | Sonnet · baixo | `modulos/07_montagem.md` |
+| cortes / legendas / ads | `status` mostra pendente | não | Sonnet · baixo | `modulos/07_montagem.md` |
 | motions | pedido explícito (punch-in, CTA, legenda animada) | não | Sonnet · médio | `modulos/08_motions.md` |
 | review room | ADs conferidos, para o Fefo revisar; "apply notes"; batch aprovada na sala | não | Sonnet · baixo | `modulos/11_review_room.md` |
-| entrega | fim da batch/revisão: Frame.io (raiz → V<k>), links f.io por marca, link do Drive, "Ready for view", comentário no card do Notion + status CS NEEDS TO REVIEW, Clock Out | não | Haiku/Sonnet · baixo | `modulos/09_entrega.md` |
+| entrega | fim da batch/revisão: Frame.io (raiz → V<k>), links f.io por marca, link do Drive, "Ready for view", comentário no card do Notion + status CS NEEDS TO REVIEW, Done no dia.json (Clock Out só quando o Fefo pedir), **e por último o registro no segundo cérebro (Aprendizados das batches, diário, nota)** | não | Haiku/Sonnet · baixo | `modulos/09_entrega.md` |
 | revisao | link/comentários do Frame.io para ajustar (vale para os 6 ADs e as 2 marcas, não só o ponto); card "só QA" (vídeo pronto de outro editor, sem editar) | depende | Opus · alto para decidir; Sonnet para aplicar | `modulos/10_revisao.md` |
 
 Geração: **sempre pelo Kie** (`scripts/kie.py`; `kie.py saldo` antes de gastar crédito). Comandos, modelos, limites e custos: `modulos/kie.md`.
@@ -93,6 +103,7 @@ Barra de linha do tempo, legenda estilo Snapchat e tela dividida já saem do `mo
 
 ## Regras fixas
 Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do motivo).
+- **Regras da sessão, iguais nas duas clientes** (Fefo, 09/11/2026): `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`. Resumo: 1. a sessão principal não abre imagem nem roda ffmpeg; trabalho pesado vai para um subagente novo por tarefa, que devolve só texto. 2. Um OK com teto de crédito no começo da batch. 3. Checklist sempre com "precisa de você: sim ou não" e "próxima parada: <o quê> ~HHhMM".
 - **ED descontinuado:** nicho de ED acabou (Cocoa ED incluso), nas duas marcas: nada de edição, revisão, review nem entrega. Card de ED na fila ou em Revisions: não pegar, avisar o Fefo.
 - **AD do Daniel sempre com música:** sem música no banco ou no card, gerar no Kie da Empire Vision (`scripts/kie.py suno` / `suno-ref`; nunca o Kie da Trendscale), com ok de crédito.
 - **VisioVance só em eye vitamin:** batch de outro nicho (pele, neuropatia, rim…) sai só Neurobella.
@@ -109,13 +120,17 @@ Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do mot
 - Várias sessões renderizando no Drive = timeout do ffmpeg: montar numa cópia no scratchpad e copiar o MP4. Intermediários nunca na batch: `$TMPDIR` ou scratchpad, apagados no fim.
 - **Não remendar palavra colando voz:** refazer a fala inteira.
 - **Aprendizado novo:** `python3 scripts/anotar.py "<título>" "- item"` (diário do mês em `CALIBRACAO/`). **Nunca abrir o diário para editar nem ler um mês inteiro**; consulta só com `grep -rn -i "<tema>" CALIBRACAO/`. Regra que vale para toda batch sobe para o módulo certo, sem data nem caso (isso vai para o diário).
-- **Economia de contexto:** saída de terminal curta (`ffmpeg -v error`, `| tail -20`), nunca colar JSON inteiro de geração; conferência visual por prancha (`imagem_fala.py`), não quadro a quadro; editar script grande com `grep -n` + leitura do trecho, não do arquivo inteiro. O `fluxo.py` está dividido por assunto em `scripts/fluxo_partes/` (skill, plano, status, acoes, legenda, broll, montar, xml): mexer só na parte do assunto; todas rodam juntas como um arquivo só.
-- **Fim de toda batch:** publicar a Review Room (`modulos/11_review_room.md`) e **esperar o OK no chat**. Só então, no `entrega.horario` do perfil (Fefo: 18h; OK antes disso = agendar tarefa única), subir no Frame.io, mandar o "Ready for view" como texto normal sem bloco de código, comentar no card do Notion, status **CS NEEDS TO REVIEW** e "Done - CS needs to Review" no `clock.dia_json`. O OK precisa citar esses passos. Tarefa agendada que pega o limite de uso não tenta de novo: depois do horário, conferir se saiu. A sessão não posta no Slack; Clock In sai pelo "pega" (`scripts/monitor/PEGA.md`) e Clock Out às 19h (tarefa `clock-out-slack`): sessão aberta pelo "pega" não repete. Perfil com `clock.automatico` vazio = mostrar o texto do Clock Out para colar. Detalhes em `modulos/09_entrega.md`.
+- **Economia de contexto:** saída de terminal curta (`ffmpeg -v error`, `| tail -20`), nunca colar JSON inteiro de geração; conferência visual por prancha (`imagem_fala.py`), não quadro a quadro, e sempre num subagente; editar script grande com `grep -n` + leitura do trecho, não do arquivo inteiro. O `fluxo.py` está dividido por assunto em `scripts/fluxo_partes/` (skill, plano, status, acoes, legenda, broll, montar, xml): mexer só na parte do assunto; todas rodam juntas como um arquivo só.
+- **Passo 0 de toda batch:** baixar e medir o ref (`modulos/02_referencia.md`) antes do banco e do plano; nunca planejar só pelo resumo do briefing.
+- **Esperar o Fefo = avisar na hora** (Fefo, 09/11/2026): toda vez que a sessão para esperando ele (OK, escolha, permissão do Mac, recarga), avise na hora (na própria sessão e com `PushNotification`; dentro de um projeto, o coordenador) com o que exatamente destrava e a frase pronta ("escreve 'pode gerar' aqui"). Passou ~30 min sem resposta: lembre uma vez. Nunca fique parada calada.
+- **OK único por etapa, escrito na sessão:** O OK vale quando o Fefo escreve na sessão da batch; OK dado em outra sessão ou num chat de projeto não libera ação aqui. Peça um OK que cubra a etapa inteira (ex.: "pode gerar a etapa 2 (~X cr)"; "pode entregar" = Frame.io + Ready for view + Notion + dia.json).
+- **Crédito:** saldo contra o custo total da batch no início e reserva em `scripts/monitor/reservas.json` (`modulos/kie.md`); geração sempre em `kie.py lote`. O OK do começo leva o teto (custo + ~20%); teto e gasto ficam no `08_auto/ESTADO.md` (regra 2 de `REGRAS_DA_SESSAO.md`).
+- **Fim de toda batch:** publicar a Review Room (`modulos/11_review_room.md`) e **esperar o OK no chat**. Com o "pode entregar" escrito pelo Fefo na sessão, entregar **na hora** (sem agendar; só agende se ele pedir horário): subir no Frame.io, mandar o "Ready for view" como texto normal sem bloco de código, comentar no card do Notion, status **CS NEEDS TO REVIEW** e "Done - CS needs to Review" no `clock.dia_json`. O OK precisa citar esses passos. Clock In sai pelo "pega" (`scripts/monitor/PEGA.md`); Clock Out só quando o Fefo pedir (sem horário fixo), envio direto no thread do dia. Perfil com `clock.automatico` vazio = mostrar o texto do Clock Out para colar. Detalhes em `modulos/09_entrega.md`.
 
 ## Nomes que o script espera (definidos pelo plano.json)
 - Falas: `03_avatar/hold/F01.mp4` … (com marca: `F06_neurobella.mp4` / `F06_visiovance.mp4`); hooks `03_avatar/hooks/H1.mp4`.
 - B-roll: `04_broll_hold/geral/S05_<nome>.mp4`; produto em `04_broll_hold/<produto>/S03_<nome>.mp4` (mesmo nome nas duas); hooks `05_broll_hooks/hook1/H1-01_<nome>.mp4`.
-- Saídas: `08_auto/cortes/`, `08_auto/preview_hold_<p>.mp4`, `08_auto/legendas/`, `09_export/<p>/<título do card> - <Marca> - AD<k>.mp4` (versões anteriores em `09_export/_old/V<k>/<p>/`), `08_auto/BATCH<n>_premiere.xml`.
+- Saídas: `08_auto/cortes/`, `08_auto/preview_hold_<p>.mp4`, `08_auto/legendas/`, `09_export/<p>/<título do card> - <Marca> - AD<k>.mp4` (versões anteriores em `09_export/_old/V<k>/<p>/`). Sem XML do Premiere (Fefo, 10/11/2026).
 - **Nome dos ADs = título exato do card no Notion + marca + AD** (regra do Fefo, 23/10/2026):
   `BATCH#3215 - Thinning Shield - Macular Degeneration - L2 - Problem Aware - Daniel - Neurobella - AD1.mp4` (marca
   `Neurobella` / `VisioVance`). O título vem de `batch.json` → `card` (copie do Notion, igual ao "Título:" da fila);

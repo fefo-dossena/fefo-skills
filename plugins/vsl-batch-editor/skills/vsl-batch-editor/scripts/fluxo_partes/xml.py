@@ -115,14 +115,14 @@ def cmd_identificar(a):
         print(f"{os.path.basename(v)}\t{d[0][1] if d else '-'}\t{d[0][0]:.1f}\t{tag}")
 
 def cmd_novo_plano(a):
-    B = a.batch.rstrip("/"); r = open(f"{B}/00_roteiro/roteiro.txt").read()
+    B = a.batch.rstrip("/"); r = open(f"{B}/{ROTEIRO}/roteiro.txt").read()
     hold = [re.sub(r"^\d+\.\s*", "", l).strip() for l in r.split("HOLD", 1)[1].strip().splitlines() if re.match(r"^\d+\.", l)]
     hk = {int(m[0]): m[1].strip() for m in re.findall(r"HOOK (\d+)\s*\n([^\n]+)", r)}
     plano = {"batch": os.path.basename(B).split(" ")[0], "produtos": ["neurobella", "visiovance"],
              "marca_nome": {"neurobella": "Neurobella", "visiovance": "VisioVance"},
              "hold": [l.replace("Neurobella", "{MARCA}") for l in hold], "hooks": {str(k): v for k, v in hk.items()},
              "personagens": {}, "frascos": {}, "falas": [], "cenas": []}
-    out = f"{B}/08_auto/plano.json"
+    out = f"{B}/{AUTO}/plano.json"
     if os.path.exists(out): raise SystemExit("plano.json já existe; não sobrescrevo.")
     json.dump(plano, open(out, "w"), indent=1, ensure_ascii=False); print("ok", out)
 

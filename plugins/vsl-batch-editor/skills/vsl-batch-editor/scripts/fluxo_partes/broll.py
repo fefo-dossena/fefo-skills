@@ -67,8 +67,8 @@ def segmentos(B, p, n):
             raw.append((c, max(s - PL, 0) + HD, e - PL + HD))
     out = []
     for k, (c, s, e) in enumerate(raw):
-        a = max(0, s - 0.08) if not pos_fala(c) else s; b = e + float(c.get("fim_extra", 0.25)) if not pos_fala(c) else e   # fim_extra 0 = avatar entra na palavra seguinte (BATCH#2822)
-        if b - a < 1.4: b = a + 1.4
+        a = max(0, s - 0.08 - float(c.get("antes", 0))) if not pos_fala(c) else s; b = e + float(c.get("fim_extra", 0.25)) if not pos_fala(c) else e   # fim_extra 0 = avatar entra na palavra seguinte (BATCH#2822); antes = a cena entra N s antes da palavra (colar na emenda do avatar, 4203 V3)
+        if b - a < float(c.get("dur_min", 1.4)): b = a + float(c.get("dur_min", 1.4))   # dur_min: cena curta de propósito (ex.: "Wrong." 0,9 s)
         if k + 1 < len(raw): b = min(b, raw[k + 1][1] - (0.08 if not pos_fala(raw[k + 1][0]) else 0))
         if k > 0 and not pos_fala(c): a = max(a, out[-1][2])      # sem sobreposição com a cena anterior
         f = cena_mp4(B, c, p if tem_marca(c) else None)

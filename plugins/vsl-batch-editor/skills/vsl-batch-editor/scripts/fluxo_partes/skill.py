@@ -1,6 +1,8 @@
 # Parte do fluxo.py: perfil, empacotar, publicar, instalar. Roda no mesmo espaço de nomes do fluxo.py (não importar sozinho).
 # ---------------------------------------------------------------- perfil de quem usa (modulos/00_configurar.md)
-FLUXO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # <raiz>/_FLUXO_VSL (ou a pasta da skill)
+# <raiz>/_FLUXO_VSL (ou a pasta da skill). O atalho do cliente passa a pasta dele em FLUXO_CLIENTE; na skill empacotada o
+# fluxo.py fica em <skill>/scripts/ e a pasta da skill sai de __file__.
+FLUXO = globals().get("FLUXO_CLIENTE") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PERFIL = f"{FLUXO}/perfil.json"
 QUEM = os.path.expanduser("~/.vsl-batch-editor/raiz")                    # raiz das batches neste Mac
 REPO_SKILL = os.path.expanduser("~/repos/fefo-skills")                   # repositório do plugin, fora do Drive
@@ -33,6 +35,16 @@ def itens_da_skill():
     R = os.path.dirname(FLUXO)
     itens = [(s, os.path.relpath(s, FLUXO)) for item in DA_SKILL for s in arvore(f"{FLUXO}/{item}")
              if not s.startswith(f"{FLUXO}/scripts/monitor/") or os.path.basename(s) in MONITOR_NA_SKILL]
+    # Núcleo comum (@CLIENTES/_FLUXO, 09/11/2026): scripts/kie.py, scripts/fluxo.py, scripts/lascas.py e scripts/ritmo.py
+    # daqui são só atalhos. Na skill vão os do núcleo (kie.py, fluxo.py + fluxo_partes/, checagens) com a ficha deste cliente
+    # ao lado (scripts/clientes/), para funcionar sozinho na pasta de outra pessoa.
+    nucleo = NUCLEO_DIR_PAI if os.path.exists(f"{NUCLEO_DIR_PAI}/scripts/kie.py") else os.path.join(os.path.dirname(os.path.dirname(R)), "_FLUXO")
+    if os.path.exists(f"{nucleo}/scripts/kie.py"):
+        troca = {"scripts/kie.py": f"{nucleo}/scripts/kie.py", "scripts/fluxo.py": f"{nucleo}/scripts/fluxo.py",
+                 "scripts/lascas.py": f"{nucleo}/scripts/checagens/lascas.py", "scripts/ritmo.py": f"{nucleo}/scripts/checagens/ritmo.py"}
+        itens = [(troca.get(rel, s), rel) for s, rel in itens if not rel.startswith("scripts/fluxo_partes/")]
+        itens += [(s, "scripts/fluxo_partes/" + os.path.relpath(s, f"{nucleo}/scripts/fluxo_partes")) for s in arvore(f"{nucleo}/scripts/fluxo_partes")]
+        itens.append((f"{nucleo}/clientes/empire-vision.json", "scripts/clientes/empire-vision.json"))
     return itens + [(s, "modelo/_BATCH_MODELO/" + os.path.relpath(s, f"{R}/_BATCH_MODELO")) for s in arvore(f"{R}/_BATCH_MODELO")
                     if s.endswith((".md", ".txt", ".json"))]
 

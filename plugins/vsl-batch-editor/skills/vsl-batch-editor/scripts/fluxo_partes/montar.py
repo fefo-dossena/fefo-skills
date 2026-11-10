@@ -2,6 +2,16 @@
 # ---------------------------------------------------------------- montagem final
 # Regra do Fefo (02/11/2026): export sempre em 720p. A composição continua em 1080x1920 (posições em px de 1920)
 # e só a saída desce; usado também em cartao.py e umtake.py.
+def _silencio_real(mp4, ini=0.0, dur=None, db=-42):
+    """[(inicio, fim|None)] dos silêncios do áudio (silencedetect), no tempo do trecho lido."""
+    cmd = [FF, "-nostats", "-hide_banner"] + (["-ss", f"{ini:.3f}"] if ini else []) + (["-t", f"{dur:.3f}"] if dur else []) + ["-i", mp4, "-af", f"silencedetect=n={db}dB:d=0.05", "-vn", "-f", "null", "-"]
+    err = subprocess.run(cmd, capture_output=True, text=True).stderr
+    out, aberto = [], None
+    for m in re.finditer(r"silence_(start|end): (-?[\d.]+)", err):
+        if m.group(1) == "start": aberto = max(0.0, float(m.group(2)))
+        else: out.append((aberto if aberto is not None else 0.0, float(m.group(2)))); aberto = None
+    if aberto is not None: out.append((aberto, None))
+    return out
 SAIDA_720 = "[vout]scale=720:1280:flags=lanczos,setsar=1[v720]"
 # O estilo vem SEMPRE de plano.json -> "estilo", definido a partir de 01_refs/ da batch (módulo referencia).
 ESTILOS = {
@@ -23,6 +33,9 @@ ESTILOS = {
     # branca_fina legível: negrito, 30% maior, contorno preto grosso + sombra; mesma posição, sem caixa, linha longa
     # quebra sozinha em 2 ("hard to read" na branca_fina sobre fundo cartoon vermelho, Zane, BATCH#2481 V2)
     "branca_legivel":   "FontName=Helvetica Neue,Bold=1,FontSize=13,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H99000000,BorderStyle=1,Outline=1.8,Shadow=0.9",
+    # branca_legivel sem a sombra deslocada (a sombra semitransparente "sujava" a letra: Daniel, BATCH#3831 V2, 06/11/2026):
+    # mesma fonte e tamanho, só contorno preto
+    "branca_limpa":     "FontName=Helvetica Neue,Bold=1,FontSize=13,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=1.5,Shadow=0",
     # palavra por vez, caixa alta, branca com brilho (ref Dr. Kegel, BATCH_2078). No layout "cartao" vira ASS próprio.
     "palavra_brilho":   "FontName=Helvetica Neue Medium,FontSize=14,PrimaryColour=&H00FFFFFF,OutlineColour=&H60000000,BorderStyle=1,Outline=1,Shadow=0",
     # caixa arredondada por linha, 1-2 linhas, estilo texto do Instagram (ref Paleovalley, BATCH#2824). Desenhada em PNG
@@ -60,7 +73,8 @@ def ass_textos(B, plano, plan, HD, out, n=None, sem_header=False):
         for k, parte in enumerate(hh):
             ln = textwrap.wrap(esc(parte), plano.get("estilo", {}).get("hook_header_quebra", 24))   # 3214: 32 (24 deixava "vision" sozinha)
             txt = "\\N".join(ln)
-            ev.append(f"Dialogue: 0,{t(0)},{t(HD)},{'HookBranco' if k == 0 else 'HookVermelho'},,0,0,{y},,{txt}")
+            hdur = plano.get("estilo", {}).get("hook_header_dur")   # header só nos primeiros N s (ref: "banner first 5 s", 3855)
+            ev.append(f"Dialogue: 0,{t(0)},{t(min(HD, hdur) if hdur else HD)},{'HookBranco' if k == 0 else 'HookVermelho'},,0,0,{y},,{txt}")
             y += 74 * len(ln) + 6
     th = plano.get("titulo_hook", {}).get(str(n)) if n is not None else None   # título que muda por hook (BATCH#3214: "Eye doctor")
     if th:
@@ -144,7 +158,7 @@ def montar(B, p, n):
     subprocess.run([FF, "-nostdin", "-v", "error", "-y", "-i", fala_mp4(B, f, pm), "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
                     "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-b:a", "192k", hook], check=True)
     plan, HD = segmentos(B, p, n)
-    json.dump(plan, open(f"{B}/08_auto/broll_posicoes_AD{n}_{p}.json", "w"), indent=1)
+    json.dump(plan, open(f"{B}/{AUTO}/broll_posicoes_AD{n}_{p}.json", "w"), indent=1)
     sub = f"{tmp}/AD{n}_{p}.srt"; shutil.copy(L(B, f"AD{n}_{p}.srt"), sub)
     if plano.get("estilo", {}).get("legenda", {}).get("caixa_alta"):      # legenda em caixa alta (ref BATCH#2480)
         escrever_srt([(a, b, t.upper()) for a, b, t in ler_srt(sub)], sub)
@@ -156,8 +170,16 @@ def montar(B, p, n):
     # o AAC do hook completa o último pacote (1024 amostras): o áudio saía até 23 ms mais longo que o vídeo, o concat
     # começava a hold depois dele e o AD pulava 2 quadros na emenda hook -> hold (hooks 1 e 3, BATCH#3215)
     hq = sum(int((e - s) * 30 + 1e-6) for s, e in segs) / 30
-    g = [f"[0:v]scale=720:1280,fps=30,setsar=1[hv];[0:a]atrim=end={hq:.6f}[ha];[1:v]trim=start={PL:.6f},setpts=PTS-STARTPTS,scale=720:1280,fps=30,setsar=1[pv];[1:a]atrim=start={PL:.6f},asetpts=PTS-STARTPTS[pa];[hv][ha][pv][pa]concat=n=2:v=1:a=1[av0][aa0]",
-         f"[av0]null{pad}[av];[aa0]anull{apad}[aa]"]
+    # Silêncio REAL entre o fim da fala do hook e a 1ª palavra da hold (o ruído do clipe do Kling, -38 a -45 dB, enchia a pausa e o
+    # envelope mostrava ~0,1 s, V2 da 4083): o áudio do hook cai a zero 40 ms depois da última palavra e a hold só entra 30 ms antes da
+    # 1ª palavra. Total medido impresso abaixo; meta >= 0,30 s (`respiro_hook_s_<hook>` no batch.json aumenta o fim do hook).
+    sh = _silencio_real(hook); ts = sh[-1][0] if sh and (sh[-1][1] is None or sh[-1][1] >= hq - 0.12) else hq
+    ts = min(ts, hq)
+    sp = _silencio_real(previa(B, p), PL, 1.5); tl = next((e for a0, e in sp if a0 < 0.05 and e is not None), 0.0)
+    sil = (hq - ts - 0.04) + max(tl - 0.03, 0)
+    print(f"   hook {n}: silêncio real hook→hold {sil:.2f} s (fala do hook acaba em {ts:.2f}, hold entra em {tl:.2f})" + ("  AVISO < 0,30 s" if sil < 0.30 else ""))
+    g = [f"[0:v]scale=720:1280,fps=30,setsar=1[hv];[0:a]atrim=end={hq:.6f},afade=t=out:st={ts:.3f}:d=0.04[ha];[1:v]trim=start={PL:.6f},setpts=PTS-STARTPTS,scale=720:1280,fps=30,setsar=1[pv];[1:a]atrim=start={PL:.6f},asetpts=PTS-STARTPTS,afade=t=in:st={max(tl - 0.03, 0):.3f}:d=0.03[pa];[hv][ha][pv][pa]concat=n=2:v=1:a=1[av0][aa0]",
+         f"[av0]null{pad}[av];[aa0]anull{apad}" + (",asplit=2[aa][voz]" if os.environ.get("DUMP_VOZ") else "[aa]")]
     if est["pip"]: g.append("[av]split[avb][avp]")      # avp = o médico na janela (picture-in-picture, BATCH#3217)
     g.append(f"[{'avb' if est['pip'] else 'av'}]scale=1080:1920" + (",hue=s=0,eq=contrast=1.08" if est["pb"] else "") + "[b0]")
     if est["layout"] == "metade_baixo": geo, oy = "scale=1080:-2,crop=1080:960:0:(ih-960)/2", 960
@@ -190,15 +212,17 @@ def montar(B, p, n):
             # 3215) o overlay empatava por microssegundos com o quadro principal e pulava/triplicava quadros (BATCH#3214 AD2)
             # cena com "push_in" (zoom por segundo): b-roll com trecho parado ou clipe mais curto que a cena; o último
             # quadro se repete e o zoom continua, em subpixel (BATCH#3825: freezedetect em 9 cenas do Kling)
-            r = float(c.get("push_in") or 0)
+            r = float(c.get("push_in") or 0); z0 = float(c.get("zoom") or 0)   # "zoom": 0.18 = enquadramento 1,18x fixo (corte em punch-in no 2º corte do mesmo clipe)
             zp = ""
-            if r and oy == 0:
-                kz = f"{r}*in/30"
+            if (r or z0) and oy == 0:
+                kz = f"({z0}+{r}*in/30)"
                 x0, y0, w, h = f"540*{kz}/(1+{kz})", f"960*{kz}/(1+{kz})", f"1080/(1+{kz})", f"1920/(1+{kz})"
                 zp = (f",tpad=stop_mode=clone:stop_duration=3,trim=end_frame={int((b2 - a) * 30) + 2},"
                       f"perspective=x0='{x0}':y0='{y0}':x1='{x0}+{w}':y1='{y0}':x2='{x0}':y2='{y0}+{h}':"
                       f"x3='{x0}+{w}':y3='{y0}+{h}':interpolation=cubic:eval=frame")
-            g.append(f"[{j}:v]trim={i0:.3f}:{i0+b2-a:.3f},setpts=PTS-STARTPTS,{geo},fps=30{zp},settb=1/90000,"
+            rc = c.get("recorte")    # [x, y, w, h] em fração do clipe: recorte antes do enquadramento (ex.: organizador sem o frasco)
+            rec = f"crop=trunc(iw*{rc[2]}/2)*2:trunc(ih*{rc[3]}/2)*2:iw*{rc[0]}:ih*{rc[1]}," if rc else ""
+            g.append(f"[{j}:v]trim={i0:.3f}:{i0+b2-a:.3f},setpts=PTS-STARTPTS,{rec}{geo},fps=30{zp},settb=1/90000,"
                      f"setpts=PTS+{round(a * 30) / 30 - 1 / 60:.6f}/TB,setsar=1[x{k}]")
         g.append(f"[{cur}][x{k}]overlay=0:{oy}:eof_action=repeat:enable='between(t,{a},{b2})'[o{k}]"); cur = f"o{k}"
     evs = ler_srt(sub); nt = lambda s: re.sub(r"[^a-z0-9% ]", "", s.lower())
@@ -287,7 +311,7 @@ def montar(B, p, n):
         g.append(f"[{cur}]subtitles={sub}:force_style='{est['sub']}'[vs];[vs]subtitles={ass}[vout]")
     else:
         g.append(f"[{cur}]subtitles={sub}:force_style='{est['sub']}'[vout]")
-    trilha = sorted(glob.glob(f"{B}/02_audio/trilha/*.mp3") + glob.glob(f"{B}/02_audio/trilha/*.wav"))
+    trilha = sorted(glob.glob(f"{B}/{AUDIO}/trilha/*.mp3") + glob.glob(f"{B}/{AUDIO}/trilha/*.wav"))
     lufs = cfg.get("audio", {}).get("loudness_lufs", -20)
     if trilha:
         vol = cfg.get("audio", {}).get("trilha_volume_db", -22); it = ins.count("-i"); ins += ["-stream_loop", "-1", "-i", trilha[0]]
@@ -296,6 +320,7 @@ def montar(B, p, n):
             T, v1, v2 = HD + DP, 10 ** (vol / 20), 10 ** (fim_db / 20)
             gv = f"volume='{v1:.5f}+({v2 - v1:.5f})*clip((t-{T:.3f})/0.5,0,1)':eval=frame"
         else: gv = f"volume={vol}dB"
+        gv += f",volume=0.25:enable='between(t,{ts + 0.04:.3f},{hq + max(tl - 0.03, 0):.3f})'"   # trilha cai ~12 dB no silêncio hook -> hold (a pausa aparece no mix)
         g.append(f"[{it}:a]{gv},aresample=44100,aformat=channel_layouts=stereo[tr];[aa][tr]amix=inputs=2:duration=first:normalize=0[mx]")
         g.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
     else:
@@ -303,7 +328,9 @@ def montar(B, p, n):
     g.append(SAIDA_720)
     sc = f"{tmp}/fc_AD{n}_{p}.txt"; open(sc, "w").write(";".join(g))
     out = export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
-    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[v720]", "-map", "[aout]",
+    vz = os.environ.get("DUMP_VOZ")     # pasta: grava a trilha de VOZ isolada (antes da música/loudnorm) para medir pausas
+    extra = ["-map", "[voz]", "-c:a", "pcm_s16le", f"{vz}/voz_AD{n}_{p}.wav"] if vz else []
+    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, *extra, "-map", "[v720]", "-map", "[aout]",
                     "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                     "-movflags", "+faststart", out], check=True)
     shutil.rmtree(tmp, ignore_errors=True); tira_export_antigo(B, plano, p, n)

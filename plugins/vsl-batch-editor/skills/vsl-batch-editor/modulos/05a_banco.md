@@ -4,6 +4,10 @@ em 30/10/2026, com QA e busca por campos). **Regra do Fefo (30/10/2026): nenhuma
 Roda depois de `roteiro` e `referencia`, porque precisa das cenas e do `estilo`, e antes de `personagens`, `falas` e `broll`.
 Vale também para b-roll novo numa revisão. Fala do avatar não vem do banco.
 
+**Só depois do passo 0 do `02_referencia.md`** (ref baixado e medido): o banco é buscado pelos planos reais do ref, não
+pelo resumo do briefing. Todo candidato a REUSE passa por: rótulo e cápsula conferidos no quadro (o campo `brand` erra;
+cápsula certa = laranja de pó), `freezedetect=n=0.008:d=0.4` e olhar em quadro grande (manuscrito e rótulo inventado).
+
 ## Como acessar
 1. **Chave** em `~/.vsl-batch-editor/banco_chave` (fora do Drive e do zip; nunca em `perfil.json`, nota ou módulo):
    `GET /agent/search?q=<palavras>&qa=pass&limit=20` com o header `X-Agent-Key`, nunca na URL. `GET /agent` mostra a ajuda.

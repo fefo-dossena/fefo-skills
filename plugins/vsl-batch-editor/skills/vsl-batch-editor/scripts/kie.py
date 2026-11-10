@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Kie.ai da Empire Vision — saldo, upload e geração de vídeo com download (gerador das batches desde 02/11/2026).
+"""Kie.ai — saldo, upload e geração com download. Um script só para todos os clientes (núcleo, 09/11/2026).
+
+CLIENTE E CONTA: cada cliente tem a sua conta do Kie e a sua chave. A ficha do cliente (../clientes/<cliente>.json)
+diz onde está a chave, a pasta dele e o que não pode. O script define o cliente assim:
+  1. `--cliente ev|ts` (ou KIE_CLIENTE). Os kie.py das pastas dos clientes são atalhos que já passam isso.
+  2. Sem isso, pela pasta da SAIDA (@EMPIRE VISION → ev, @TRENDSCALE → ts).
+E recusa o cruzamento: saída na pasta de um cliente com a conta de outro não roda. Também recusa quando duas
+contas têm a mesma chave, quando a chave de um cliente é a registrada para outro, e quando a chave mudou sem
+`registrar-chave`. Toda geração imprime a conta que pagou e grava o cliente no SAIDA.task.json.
+  python3 kie.py contas [--saldo]                       # clientes, chave presente, impressão conferida (não gasta)
+  python3 kie.py --cliente ts registrar-chave           # depois de trocar a chave de um cliente (confirmar com o Fefo)
 
 Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gastar):
   python3 kie.py saldo
@@ -30,22 +40,21 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
         # Fixa a voz de uma faixa já gerada (suno ou suno-ref) num persona_id, para todos os hooks
         # cantarem com a mesma voz. Use o persona_id com --persona em suno e suno-ref.
   python3 kie.py espera TASK_ID SAIDA                   # retoma uma tarefa já criada, sem cobrar de novo
-  python3 kie.py lote PEDIDOS.json [--teste] [--intervalo 12]
+  python3 kie.py lote PEDIDOS.json [--teste] [--intervalo 0.6]
         # Várias gerações num comando só (depois do ok de crédito). PEDIDOS.json = lista de
         # {"cmd": "kling4", "args": ["P.txt", "S.mp4", "--dur", "5", "--imagem", "A.png"]}: args na mesma ordem
         # do subcomando (posicionais primeiro). Opcional "saida" quando o script não acha sozinho.
-        # Dispara um kie.py por pedido, ~12 s entre disparos, espera todos e imprime uma linha por pedido
+        # Dispara um kie.py por pedido, em paralelo (0,6 s entre disparos; o Kie aceita 20 a cada 10 s), espera
+        # todos e imprime uma linha por pedido
         # (saída, status ok/erro/barrado, taskId, cr). Resumo em PEDIDOS.resultado.tsv, logs em PEDIDOS.logs/.
         # Pedido com SAIDA.task.json já existente vira `espera` (não cobra de novo). --teste repassa --teste.
 
-CONTA: este é o Kie da Empire Vision. Lê só a chave ~/.vsl-batch-editor/kie_chave e cobra só dessa conta.
-O Kie da Trendscale é outro script (@TRENDSCALE/2026/_FLUXO/kie.py), com a chave dele.
-
 O taskId sai na tela e fica em SAIDA.task.json assim que a tarefa é criada: se cair a conexão, use `espera`,
 não reenvie (cobra duas vezes). A mídia gerada some em 14 dias: baixar sempre.
-As chaves ficam fora do Drive e do zip; nunca em perfil.json, nota ou módulo.
+As chaves ficam fora do Drive e do zip; nunca em perfil.json, ficha, nota ou módulo. A impressão (12 caracteres
+do SHA-256) também fica só no Mac, em ~/.vsl-batch-editor/kie_impressoes.json.
 """
-import json, mimetypes, re, os, secrets, sys, time, urllib.parse, urllib.request, urllib.error
+import hashlib, json, mimetypes, re, os, secrets, sys, time, urllib.parse, urllib.request, urllib.error
 
 API = 'https://api.kie.ai'
 UPLOAD = 'https://kieai.redpandaai.co/api/file-stream-upload'   # host do exemplo dos docs
@@ -54,19 +63,202 @@ ESPERA_MAX = 1200   # s
 TESTE = '--teste' in sys.argv
 
 
+AQUI = os.path.dirname(os.path.abspath(__file__))
+IMPRESSOES = os.path.expanduser('~/.vsl-batch-editor/kie_impressoes.json')   # só no Mac, nunca no Drive
+
 if '--conta' in sys.argv:
-    sys.exit('Sem --conta: este é o Kie da Empire Vision. Para a Trendscale, use @TRENDSCALE/2026/_FLUXO/kie.py')
+    sys.exit('Sem --conta. A conta vem do cliente: --cliente ev|ts, ou o kie.py da pasta do cliente.')
 
 
-CONTA = 'ev'
-CHAVE = os.path.expanduser('~/.vsl-batch-editor/kie_chave')
+def _fichas():
+    """Fichas de cliente: <núcleo>/clientes/*.json (ou scripts/clientes/ quando o script vai dentro de uma skill)."""
+    for pasta in (os.path.join(AQUI, '..', 'clientes'), os.path.join(AQUI, 'clientes')):
+        if not os.path.isdir(pasta):
+            continue
+        fichas = {}
+        for nome in sorted(os.listdir(pasta)):
+            if nome.endswith('.json'):
+                f = json.load(open(os.path.join(pasta, nome), encoding='utf-8'))
+                if f.get('id') and (f.get('kie') or {}).get('chave'):
+                    f['_arquivo'] = nome[:-5]
+                    fichas[f['id']] = f
+        if fichas:
+            return fichas
+    sys.exit(f'Sem ficha de cliente em {os.path.normpath(os.path.join(AQUI, "..", "clientes"))}')
+
+
+def _tira_opcao(nome):
+    """Tira `nome VALOR` do sys.argv e devolve VALOR."""
+    if nome not in sys.argv:
+        return None
+    i = sys.argv.index(nome)
+    if i + 1 >= len(sys.argv):
+        sys.exit(f'{nome} pede um valor')
+    valor = sys.argv[i + 1]
+    del sys.argv[i:i + 2]
+    return valor
+
+
+FICHAS = _fichas()
+PEDIDO = _tira_opcao('--cliente') or os.environ.get('KIE_CLIENTE')   # cliente dito por quem chamou
+CONTA = FICHA = CHAVE = None                                          # definidos em _trava_cliente()
+_CHAVE_OK = None
+
+
+def _acha_cliente(nome):
+    n = nome.strip().lower()
+    for f in FICHAS.values():
+        if n in (f['id'].lower(), f['_arquivo'].lower(), f.get('nome', '').lower()):
+            return f['id']
+    sys.exit(f'Cliente {nome!r} sem ficha. Clientes: {", ".join(FICHAS)}')
+
+
+def _cliente_do_caminho(caminho):
+    """id do cliente dono da pasta onde o caminho está; None fora das pastas de cliente."""
+    partes = os.path.abspath(caminho).split(os.sep)
+    for f in FICHAS.values():
+        if f.get('pasta') and f['pasta'] in partes:
+            return f['id']
+    return None
+
+
+def _nome(cid):
+    return FICHAS[cid].get('nome', cid)
+
+
+def _trava_cliente(caminhos=()):
+    """Define o cliente (CONTA, FICHA, CHAVE) e recusa cruzar a conta de um cliente com a pasta de outro."""
+    global CONTA, FICHA, CHAVE
+    donos = {}
+    for c in caminhos:
+        dono = _cliente_do_caminho(c)
+        if dono:
+            donos.setdefault(dono, c)
+    if len(donos) > 1:
+        sys.exit('RECUSADO: o pedido mistura pastas de clientes diferentes: '
+                 + '; '.join(f'{_nome(d)} → {c}' for d, c in donos.items()))
+    da_pasta = next(iter(donos), None)
+    pedido = _acha_cliente(PEDIDO) if PEDIDO else None
+    if pedido and da_pasta and pedido != da_pasta:
+        sys.exit(f'RECUSADO: a conta pedida é a de {_nome(pedido)}, mas a saída fica na pasta de {_nome(da_pasta)} '
+                 f'({donos[da_pasta]}). Cada cliente paga na sua conta do Kie: use o kie.py da pasta de '
+                 f'{_nome(da_pasta)} ou --cliente {da_pasta}.')
+    if CONTA and (pedido or da_pasta) and (pedido or da_pasta) != CONTA:
+        sys.exit(f'RECUSADO: este processo já está na conta de {_nome(CONTA)}; saída de outro cliente.')
+    if not CONTA:
+        CONTA = (pedido or da_pasta or (next(iter(FICHAS)) if len(FICHAS) == 1 else None)
+                 or _cliente_do_caminho(os.getcwd()))
+    if not CONTA:
+        sys.exit(f'Diga o cliente: --cliente {"|".join(FICHAS)} (a saída está fora das pastas de cliente).')
+    FICHA = FICHAS[CONTA]
+    CHAVE = os.path.expanduser(FICHA['kie']['chave'])
+
+
+def _le_chave(cid):
+    try:
+        return open(os.path.expanduser(FICHAS[cid]['kie']['chave'])).read().strip()
+    except OSError:
+        return ''
+
+
+def _impressao(chave):
+    return hashlib.sha256(chave.encode()).hexdigest()[:12]
+
+
+def _impressoes():
+    try:
+        return json.load(open(IMPRESSOES))
+    except (OSError, ValueError):
+        return {}
+
+
+def _grava_impressao(cid, imp):
+    reg = _impressoes()
+    reg[cid] = imp
+    os.makedirs(os.path.dirname(IMPRESSOES), exist_ok=True)
+    json.dump(reg, open(IMPRESSOES, 'w'), indent=1)
+    try:
+        os.chmod(IMPRESSOES, 0o600)
+    except OSError:
+        pass
+
+
+def _confere_chave(cid, registrar=False):
+    """Devolve a chave do cliente, depois de conferir que ela é dele e só dele."""
+    chave = _le_chave(cid)
+    arq = FICHAS[cid]['kie']['chave']
+    if not chave:
+        sys.exit(f'Sem chave do Kie de {_nome(cid)} em {arq}. Não use a chave de outro cliente: avise o Fefo.')
+    imp, reg = _impressao(chave), _impressoes()
+    for outro in FICHAS:
+        if outro == cid:
+            continue
+        if _le_chave(outro) == chave:
+            sys.exit(f'RECUSADO: a chave em {arq} ({_nome(cid)}) é igual à de {_nome(outro)}. '
+                     'Duas contas com a mesma chave: uma delas está errada. Avise o Fefo.')
+        if reg.get(outro) == imp:
+            sys.exit(f'RECUSADO: a chave em {arq} ({_nome(cid)}) é a que está registrada para {_nome(outro)}. '
+                     'Arquivos de chave trocados? Avise o Fefo.')
+    if registrar or cid not in reg:
+        _grava_impressao(cid, imp)
+        print(f'Chave de {_nome(cid)} registrada (impressão {imp}).', file=sys.stderr, flush=True)
+    elif reg[cid] != imp:
+        sys.exit(f'RECUSADO: a chave de {_nome(cid)} em {arq} mudou (registrada {reg[cid]}, agora {imp}). '
+                 f'Se o Fefo trocou a chave dessa conta, confirme com ele e rode: kie.py --cliente {cid} registrar-chave')
+    return chave
 
 
 def _chave():
-    try:
-        return open(CHAVE).read().strip()
-    except FileNotFoundError:
-        sys.exit(f'Sem chave em {CHAVE}')
+    global _CHAVE_OK
+    if not CONTA:
+        _trava_cliente()
+    if _CHAVE_OK is None:
+        _CHAVE_OK = _confere_chave(CONTA)
+    return _CHAVE_OK
+
+
+RES_IMAGEM = {'1K': 1, '2K': 2, '4K': 3}
+RES_VIDEO = {'480p': 1, '720p': 2, '1080p': 3, '2K': 4, '4K': 5}
+
+
+def _res(a, tipo):
+    """--res do pedido, com o padrão e o teto da ficha do cliente (tipo = 'imagem' ou 'video')."""
+    k = FICHA['kie']
+    escala = RES_IMAGEM if tipo == 'imagem' else RES_VIDEO
+    res = _opcao(a, '--res', k.get(f'{tipo}_res_padrao', '2K' if tipo == 'imagem' else '720p'))
+    teto = k.get(f'{tipo}_res_max')
+    if teto and escala.get(res, 0) > escala.get(teto, 99):
+        sys.exit(f'RECUSADO: --res {res} passa do teto de {FICHA["nome"]} ({tipo}: {teto}).')
+    return res
+
+
+def contas(com_saldo=False):
+    """Lista os clientes e confere as chaves, sem gastar."""
+    global CONTA, FICHA, CHAVE, _CHAVE_OK
+    reg = _impressoes()
+    for cid, f in FICHAS.items():
+        chave = _le_chave(cid)
+        if not chave:
+            estado = 'SEM CHAVE'
+        else:
+            imp = _impressao(chave)
+            iguais = [_nome(o) for o in FICHAS if o != cid and _le_chave(o) == chave]
+            trocada = [_nome(o) for o in FICHAS if o != cid and reg.get(o) == imp]
+            if iguais:
+                estado = f'ERRO: mesma chave de {", ".join(iguais)}'
+            elif trocada:
+                estado = f'ERRO: chave registrada para {", ".join(trocada)}'
+            elif cid not in reg:
+                estado = f'sem registro (impressão {imp}; registra no primeiro uso)'
+            elif reg[cid] != imp:
+                estado = f'MUDOU (registrada {reg[cid]}, agora {imp}): registrar-chave depois de confirmar'
+            else:
+                estado = f'ok (impressão {imp})'
+        linha = f'{cid:4} {f.get("nome", ""):15} pasta {f.get("pasta", "-"):16} chave {f["kie"]["chave"]} · {estado}'
+        if com_saldo and estado.startswith('ok'):
+            CONTA, FICHA, CHAVE, _CHAVE_OK = cid, f, os.path.expanduser(f['kie']['chave']), None
+            linha += f' · saldo {saldo()}'
+        print(linha)
 
 
 def _pede(url, corpo=None, tipo='application/json'):
@@ -104,13 +296,25 @@ def cria(modelo, entrada, saida):
         sys.exit(json.dumps({'model': modelo, 'input': entrada}, ensure_ascii=False, indent=1))
     corpo = json.dumps({'model': modelo, 'input': entrada}).encode()
     task = _pede(f'{API}/api/v1/jobs/createTask', corpo)['taskId']
-    json.dump({'taskId': task, 'model': modelo, 'input': entrada},
+    json.dump({'taskId': task, 'cliente': CONTA, 'model': modelo, 'input': entrada},
               open(saida + '.task.json', 'w'), ensure_ascii=False, indent=1)
     print(f'taskId {task}', flush=True)
     return task
 
 
+def _confere_tarefa(saida):
+    """A tarefa guardada em SAIDA.task.json é de outro cliente? Então não é desta conta."""
+    try:
+        dono = json.load(open(saida + '.task.json')).get('cliente')
+    except (OSError, ValueError):
+        return
+    if dono and dono != CONTA:
+        sys.exit(f'RECUSADO: {saida}.task.json é uma tarefa da conta de {_nome(dono) if dono in FICHAS else dono}, '
+                 f'e este pedido está na conta de {_nome(CONTA)}.')
+
+
 def espera(task, saida):
+    _confere_tarefa(saida)
     fim = time.time() + ESPERA_MAX
     estado = None
     while time.time() < fim:
@@ -135,7 +339,7 @@ def espera(task, saida):
             if ids:   # Suno: guarda os ids das faixas (para suno-persona)
                 json.dump({'taskId': task, 'faixas': [{'arquivo': a, 'audio_id': i} for a, i in zip(saidas, ids)]},
                           open(saida + '.faixas.json', 'w'), ensure_ascii=False, indent=1)
-            print(f'{", ".join(saidas)} · {d.get("creditsConsumed")} cr · {d.get("costTime")} s · conta {CONTA}')
+            print(f'{", ".join(saidas)} · {d.get("creditsConsumed")} cr · {d.get("costTime")} s · conta {CONTA} ({FICHA["nome"]})')
             return d
         time.sleep(10)
     sys.exit(f'Sem resultado em {ESPERA_MAX} s. Retome com: python3 kie.py espera {task} {saida}')
@@ -177,7 +381,8 @@ def _suno_extras(a, entrada):
         entrada['persona_model'] = 'style_persona'
 
 
-MODELO_SUNO = 'V6' if CONTA == 'ts' else 'V5_5'   # Trendscale no V6 (05/11/2026)
+def _modelo_suno():
+    return FICHA['kie'].get('suno_modelo', 'V5_5')   # Trendscale no V6 (05/11/2026)
 
 
 def _opcao(args, nome, padrao=None):
@@ -205,12 +410,20 @@ BARRADO = re.compile(r'sensitive|moderat|policy|nsfw|inappropriate|prohibit|viol
                      r'celebrit|public figure', re.I)
 
 
-def lote(caminho, intervalo=12.0):
+def _excecao(cmd, saidas):
+    """Exceção por job a um modelo proibido (ficha: kie.excecoes.<cmd>.pastas). Toda saída precisa estar numa pasta liberada."""
+    ex = (FICHA['kie'].get('excecoes') or {}).get(cmd) or {}
+    pastas = ex.get('pastas') or []
+    return bool(saidas) and all(any(p in os.path.abspath(s) for p in pastas) for s in saidas)
+
+
+def lote(caminho, intervalo=0.6):
     """Dispara cada pedido como um kie.py próprio (subprocesso), em paralelo, e resume no fim."""
     import subprocess
     pedidos = json.load(open(caminho, encoding='utf-8'))
     if not isinstance(pedidos, list) or not pedidos:
         sys.exit('lote: o JSON precisa ser uma lista de pedidos')
+    proibidos = FICHA['kie'].get('proibidos') or {}
     base = os.path.splitext(caminho)[0]
     logs = base + '.logs'
     os.makedirs(logs, exist_ok=True)
@@ -226,6 +439,10 @@ def lote(caminho, intervalo=12.0):
         if saida in vistas:
             sys.exit(f'lote: saída repetida {saida} (pedido {n})')
         vistas.add(saida)
+        if cmd in proibidos and not _excecao(cmd, [saida]):
+            sys.exit(f'RECUSADO: pedido {n}: {cmd} não roda em {FICHA["nome"]}: {proibidos[cmd]}')
+        _trava_cliente([saida])     # todas as saídas na pasta do mesmo cliente da conta
+        _confere_tarefa(saida)
         if not TESTE and os.path.exists(saida + '.task.json'):   # já criada: só espera e baixa, sem cobrar
             task = json.load(open(saida + '.task.json')).get('taskId')
             cmd, args = 'espera', [task, saida]
@@ -233,14 +450,17 @@ def lote(caminho, intervalo=12.0):
             args = args + ['--teste']
         itens.append({'n': n, 'cmd': cmd, 'args': args, 'saida': saida,
                       'log': os.path.join(logs, f'{n:02d}_{os.path.basename(saida)}.log')})
-    print(f'{len(itens)} pedidos' + (' (teste, nada é enviado)' if TESTE else f', ~{intervalo:g} s entre disparos'),
-          flush=True)
+    if not TESTE:
+        _chave()                    # confere a chave uma vez, antes de disparar
+    print(f'{len(itens)} pedidos na conta {CONTA} ({FICHA["nome"]})'
+          + (' (teste, nada é enviado)' if TESTE else f', ~{intervalo:g} s entre disparos'), flush=True)
     for i, it in enumerate(itens):
         if i and not TESTE:
             time.sleep(intervalo)
         it['arq'] = open(it['log'], 'w')
         it['proc'] = subprocess.Popen([sys.executable, script, it['cmd']] + it['args'],
-                                      stdout=it['arq'], stderr=subprocess.STDOUT)
+                                      stdout=it['arq'], stderr=subprocess.STDOUT,
+                                      env={**os.environ, 'KIE_LOTE': '1', 'KIE_CLIENTE': CONTA})
         print(f'  {it["n"]:02d} {it["cmd"]} → {it["saida"]}', flush=True)
     linhas = []
     for it in itens:
@@ -269,41 +489,82 @@ def lote(caminho, intervalo=12.0):
         print(f'{st:8} {s} · {t or "-"} · {c + " cr" if c else "-"}' + (f' · {m}' if m else ''))
     total = sum(float(c) for *_, c, _ in linhas if c.replace('.', '', 1).isdigit())
     ok = sum(1 for l in linhas if l[1] in ('ok', 'teste'))
-    print(f'{ok}/{len(linhas)} ok · {total:g} cr · resumo em {base}.resultado.tsv · logs em {logs}/')
+    print(f'{ok}/{len(linhas)} ok · {total:g} cr · conta {CONTA} ({FICHA["nome"]}) · resumo em {base}.resultado.tsv · logs em {logs}/')
     if TESTE:
         print(f'O pedido montado de cada um está no log ({logs}/).')
+
+
+def _aviso_fora_do_lote(cmd):
+    """Geração avulsa (fora do `lote`): se já houve outra nos últimos 2 min, avisa para usar o lote (Fefo, 09/11/2026)."""
+    if TESTE or os.environ.get('KIE_LOTE') or cmd in ('lote', 'saldo', 'upload', 'espera', 'suno-persona'):
+        return
+    reg = os.path.expanduser(f'~/.vsl-batch-editor/kie_avulsos_{CONTA}.log')
+    agora = time.time()
+    try:
+        antes = [float(x) for x in open(reg).read().split() if agora - float(x) < 120]
+    except (OSError, ValueError):
+        antes = []
+    try:
+        open(reg, 'w').write(' '.join(str(x) for x in antes + [agora]))
+    except OSError:
+        pass
+    if antes:
+        print(f'AVISO: {len(antes) + 1} gerações avulsas em 2 min. Regra do Fefo: tudo em paralelo pelo '
+              '`kie.py lote PEDIDOS.json` (até 20 pedidos por 10 s), nunca um a um.', file=sys.stderr, flush=True)
 
 
 def main():
     a = sys.argv[1:]
     if not a:
         sys.exit(__doc__)
+    if a[0] == 'contas':
+        return contas('--saldo' in a)
+    if a[0] == 'registrar-chave':
+        if not PEDIDO:
+            sys.exit('registrar-chave pede o cliente: kie.py --cliente ev|ts registrar-chave')
+        _trava_cliente()
+        return _confere_chave(CONTA, registrar=True) and None
+    # caminhos que dizem de quem é o pedido: a saída de cada subcomando, o PEDIDOS.json do lote, o arquivo do upload
+    pos = {'upload': 1, 'suno-persona': 1}.get(a[0], POS_SAIDA.get(a[0], -1) + 1)
+    caminhos = [a[pos]] if 0 < pos < len(a) and not a[pos].startswith('--') else []
+    if a[0] == 'lote':
+        caminhos = [x for x in a[1:] if not x.startswith('--') and x != _opcao(a, '--intervalo')][:1]
+        try:   # as saídas de dentro do PEDIDOS.json também dizem de quem é o lote
+            for p in json.load(open(caminhos[0], encoding='utf-8')):
+                args, i = [str(x) for x in p.get('args', [])], POS_SAIDA.get(p.get('cmd'), 99)
+                caminhos.append(p.get('saida') or (args[i] if len(args) > i else caminhos[0]))
+        except (IndexError, OSError, ValueError, AttributeError):
+            pass
+    _trava_cliente(caminhos)
+    if a[0] in (FICHA['kie'].get('proibidos') or {}) and not _excecao(a[0], [a[POS_SAIDA[a[0]]+1]] if len(a) > POS_SAIDA.get(a[0], 99)+1 else []):
+        sys.exit(f'RECUSADO: {a[0]} não roda em {FICHA["nome"]}: {FICHA["kie"]["proibidos"][a[0]]}')
+    _aviso_fora_do_lote(a[0])
     if a[0] == 'lote':
         arq = next((x for x in a[1:] if not x.startswith('--') and x != _opcao(a, '--intervalo')), None)
         if not arq:
             sys.exit('lote pede PEDIDOS.json')
-        lote(arq, float(_opcao(a, '--intervalo', '12')))
+        lote(arq, float(_opcao(a, '--intervalo', '0.6')))
     elif a[0] == 'saldo':
-        print(saldo())
+        print(saldo(), f'· conta {CONTA} ({FICHA["nome"]})')
     elif a[0] == 'upload':
         print(upload(a[1]))
     elif a[0] == 'sunburst':
         prompt, saida = _texto(a[1]), a[2]
         refs = _opcoes(a, '--ref')
-        entrada = {'prompt': prompt, 'aspect_ratio': _opcao(a, '--ratio', '9:16'), 'resolution': _opcao(a, '--res', '2K')}
+        entrada = {'prompt': prompt, 'aspect_ratio': _opcao(a, '--ratio', '9:16'), 'resolution': _res(a, 'imagem')}
         if refs:
             entrada['input_urls'] = [_sobe(r) for r in refs]
         tipo = 'image-to-image' if refs else 'text-to-image'
         espera(cria(f'gpt-image-2-5-sunburst-{tipo}', entrada, saida), saida)
     elif a[0] == 'nanopro':
         prompt, saida = _texto(a[1]), a[2]
-        entrada = {'prompt': prompt, 'aspect_ratio': _opcao(a, '--ratio', '9:16'), 'resolution': _opcao(a, '--res', '2K'),
+        entrada = {'prompt': prompt, 'aspect_ratio': _opcao(a, '--ratio', '9:16'), 'resolution': _res(a, 'imagem'),
                    'output_format': 'png', 'image_input': [_sobe(r) for r in _opcoes(a, '--ref')]}
         espera(cria('nano-banana-pro', entrada, saida), saida)
     elif a[0] == 'omni':
         prompt, imagem, saida = _texto(a[1]), a[2], a[3]
         entrada = {'prompt': prompt, 'image_urls': [_sobe(imagem)], 'duration': _opcao(a, '--dur', '8'),
-                   'aspect_ratio': '9:16', 'resolution': _opcao(a, '--res', '720p')}
+                   'aspect_ratio': '9:16', 'resolution': _res(a, 'video')}
         espera(cria('gemini-omni-video', entrada, saida), saida)
     elif a[0] == 'kling3':
         prompt, imagem, saida = _texto(a[1]), a[2], a[3]
@@ -316,7 +577,7 @@ def main():
         espera(cria('kling-3.0/video', entrada, saida), saida)
     elif a[0] == 'kling4':
         prompt, saida = _texto(a[1]), a[2]
-        entrada = {'prompt': prompt, 'duration': int(_opcao(a, '--dur', '5')), 'resolution': _opcao(a, '--res', '720p'),
+        entrada = {'prompt': prompt, 'duration': int(_opcao(a, '--dur', '5')), 'resolution': _res(a, 'video'),
                    'aspect_ratio': '9:16'}
         if _opcoes(a, '--video'):
             entrada['video_urls'] = [_sobe(v) for v in _opcoes(a, '--video')]
@@ -328,7 +589,7 @@ def main():
         espera(cria('kling-4.0/reference-to-video', entrada, saida), saida)
     elif a[0] == 'seedance':
         prompt, saida = _texto(a[1]), a[2]
-        entrada = {'prompt': prompt, 'duration': int(_opcao(a, '--dur', '5')), 'resolution': _opcao(a, '--res', '720p'),
+        entrada = {'prompt': prompt, 'duration': int(_opcao(a, '--dur', '5')), 'resolution': _res(a, 'video'),
                    'aspect_ratio': '9:16', 'generate_audio': '--sem-som' not in a}
         if _opcoes(a, '--imagem'):
             entrada['reference_image_urls'] = [_sobe(i) for i in _opcoes(a, '--imagem')]
@@ -344,7 +605,7 @@ def main():
         estilo, saida = _texto(a[1]), a[2]
         titulo = _opcao(a, '--titulo') or sys.exit('suno pede --titulo')
         entrada = {'custom_mode': True, 'instrumental': '--instrumental' in a,
-                   'model': _opcao(a, '--modelo', MODELO_SUNO), 'title': titulo[:80], 'style': estilo}
+                   'model': _opcao(a, '--modelo', _modelo_suno()), 'title': titulo[:80], 'style': estilo}
         if _opcao(a, '--letra'):
             entrada['prompt'] = _texto(_opcao(a, '--letra'))
         _suno_extras(a, entrada)
@@ -353,7 +614,7 @@ def main():
         ref, estilo, saida = a[1], a[2], a[3]
         titulo = _opcao(a, '--titulo') or sys.exit('suno-ref pede --titulo')
         entrada = {'upload_url': _sobe(ref), 'instrumental': '--instrumental' in a,
-                   'model': _opcao(a, '--modelo', MODELO_SUNO), 'title': titulo[:80]}
+                   'model': _opcao(a, '--modelo', _modelo_suno()), 'title': titulo[:80]}
         if estilo != '-':
             entrada['style'] = _texto(estilo)
         if _opcao(a, '--letra'):

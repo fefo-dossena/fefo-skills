@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------- grafo de dependências
 def itens(B):
     """Lista de (etapa, alvo, deps, acao, rotulo). acao=None -> etapa que gasta crédito (só listar)."""
-    plano, cfg = carregar(B); P = plano["produtos"]; PL = f"{B}/08_auto/plano.json"; out = []
+    plano, cfg = carregar(B); P = plano["produtos"]; PL = f"{B}/{AUTO}/plano.json"; out = []
     if plano.get("one_take"):                              # AD = um take contínuo por marca (umtake.py)
         import umtake; return umtake.itens(sys.modules[__name__], B, plano)
     for f in plano["falas"]:
@@ -11,7 +11,7 @@ def itens(B):
             if fala_vel(f, p) != 1:
                 out.append(("cortes", fala_mp4(B, f, p), [fala_orig(B, f, p)],
                             ("rapido", fala_orig(B, f, p), fala_mp4(B, f, p), fala_vel(f, p)), fala_stem(f, p) + " acelerada"))
-            m = f"{B}/08_auto/cortes/{fala_stem(f, p)}.manual.json"
+            m = f"{B}/{AUTO}/cortes/{fala_stem(f, p)}.manual.json"
             out.append(("cortes", corte(B, fala_stem(f, p)), [fala_mp4(B, f, p)] + ([m] if os.path.exists(m) else []),
                         ("corte", fala_mp4(B, f, p), fala_stem(f, p)), fala_stem(f, p)))
     for c in plano["cenas"]:
@@ -41,15 +41,14 @@ def itens(B):
             out.append(("legendas", L(B, f"AD{n}_{p}.srt"), [L(B, f"HOLD_{p}.srt"), L(B, f"{hs}.srt"), corte(B, fala_stem(f, pm))],
                         ("srt_ad", p, n), f"legenda AD{n} {p}"))
             dep = [previa(B, p), L(B, f"AD{n}_{p}.srt"), L(B, f"palavras_hold_{p}.json"), L(B, f"palavras_{hs}.json"),
-                   fala_mp4(B, f, pm), corte(B, fala_stem(f, pm)), PL, f"{B}/batch.json"]
+                   fala_mp4(B, f, pm), corte(B, fala_stem(f, pm)), PL, f"{B}/{CFG}"]
             dep += sorted({cena_mp4(B, c, p if tem_marca(c) else None) for c in plano["cenas"]
                            if c["tipo"] != "hook" or int(c["hook"]) == n})
             dep += sorted({clipe_direita(B, c, p) for c in plano["cenas"] if clipe_direita(B, c, p)
                            and (c["tipo"] != "hook" or int(c["hook"]) == n)})
-            dep += sorted(glob.glob(f"{B}/02_audio/trilha/*.mp3") + glob.glob(f"{B}/02_audio/trilha/*.wav"))
+            dep += sorted(glob.glob(f"{B}/{AUDIO}/trilha/*.mp3") + glob.glob(f"{B}/{AUDIO}/trilha/*.wav"))
             out.append(("ads", export(B, plano, p, n), dep, ("montar", p, n), f"AD{n}_{p}"))
-    dx = [corte(B, fala_stem(f, p)) for f in plano["falas"] for p in (P if f.get("marca") else [None])]
-    out.append(("xml", xmlpath(B, plano), dx + [PL], ("xml",), "XML Premiere"))
+    # XML do Premiere saiu do fazer/status (Fefo, 10/11/2026: sem utilidade na EV e na TS). Só por `fluxo.py xml <batch>`.
     return out
 
 def estado(alvo, deps):
@@ -60,10 +59,10 @@ def estado(alvo, deps):
         if os.path.getmtime(d) > t + 1: return "desatualizado"
     return "ok"
 
-ORDEM = ["falas", "broll", "cortes", "previas", "legendas", "ads", "xml"]
+ORDEM = ["falas", "broll", "cortes", "previas", "legendas", "ads"]
 NOMES = {"falas": "Falas do avatar (Kling, gasta crédito)", "broll": "B-roll (quadros + Kling, gasta crédito)",
          "cortes": "Cortes de silêncio", "previas": "Prévias da hold", "legendas": "Transcrição e legendas",
-         "ads": "ADs finais (09_export)", "xml": "XML para o Premiere"}
+         "ads": f"ADs finais ({EXPORT})", "xml": "XML para o Premiere"}
 
 PICO_MIN_DB = -20
 

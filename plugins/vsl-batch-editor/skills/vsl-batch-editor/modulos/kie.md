@@ -3,9 +3,14 @@
 `~/.vsl-batch-editor/kie_chave`, fora do Drive e do zip; nunca em `perfil.json`, nota ou módulo. Não existe MCP nem
 workspace: a chave é da conta inteira, e cada cliente tem a sua. Sem chave, pare e avise. O Higgsfield só entra com
 pedido do Fefo (`modulos/higgsfield.md`).
-**Só Empire Vision (05/11/2026):** este script lê só a chave da Empire Vision. A Trendscale tem o Kie dela, outro
-script e outra conta (`@TRENDSCALE/2026/_FLUXO/kie.py`, chave `kie_chave_ts`): nunca usar aqui. Comandos de música
-(`suno`, `suno-ref`, `suno-persona`) no cabeçalho do script.
+**Só Empire Vision (05/11/2026):** este script usa só a chave da Empire Vision. A Trendscale tem o Kie dela, outra
+conta e outra chave (`@TRENDSCALE/2026/_FLUXO/kie.py`, chave `kie_chave_ts`): nunca usar aqui. Comandos de música
+(`suno`, `suno-ref`, `suno-persona`): `python3 kie.py` sem argumentos mostra todos.
+**Núcleo (09/11/2026):** o `scripts/kie.py` é um atalho para `@CLIENTES/_FLUXO/scripts/kie.py`, o mesmo motor dos dois
+clientes, já preso à conta da Empire Vision. Comandos e saídas não mudaram. O motor recusa: saída na pasta de outro
+cliente, lote com pastas de dois clientes, chave igual à de outro cliente ou trocada sem registro, e vídeo acima de
+720p. `kie.py contas` confere as contas sem gastar. Chave trocada pelo Fefo: `kie.py registrar-chave`, depois de
+confirmar com ele. Detalhe: `@CLIENTES/_FLUXO/LEIA-ME.md`.
 
 ## Comandos
 `--teste` mostra o pedido sem subir arquivo e sem gastar. Rode antes do 1º pedido de cada lote.
@@ -44,9 +49,19 @@ Depois do ok de crédito, todas as gerações aprovadas num comando só, com um 
 - `08_auto/pedidos_<etapa>.json`: lista de `{"cmd": "kling4", "args": ["P.txt", "S.mp4", "--dur", "5", "--imagem", "A.png"]}`.
   `args` na mesma ordem do subcomando (posicionais primeiro, opções depois). `"saida"` opcional, se não for a de sempre.
 - `kie.py lote pedidos.json --teste` mostra o pedido de cada um no log, sem subir nada nem gastar. Depois, sem `--teste`,
-  em segundo plano (`run_in_background`); `--intervalo 12` é o padrão entre disparos.
+  em segundo plano (`run_in_background`); `--intervalo 0.6` é o padrão (Fefo, 09/11: disparar tudo junto, até o limite de 20 pedidos por 10 s).
 - Cada pedido roda como um `kie.py` próprio; o lote espera todos baixarem e imprime uma linha por pedido: status
   (`ok`, `erro`, `barrado` = recusa de conteúdo), saída, taskId, crédito. Resumo em `pedidos.resultado.tsv`, logs em
   `pedidos.logs/`. Ler só o resumo; o log, só do que deu erro.
 - Rodar de novo o mesmo JSON é seguro: pedido que já tem `<saída>.task.json` vira `espera` (baixa sem cobrar). Para gerar
   de novo uma saída de propósito, apagar o `.task.json` dela ou usar outro nome.
+
+## Saldo e reservas (Fefo, 09/11/2026)
+- **No início da batch**, `kie.py saldo` contra o custo **total** previsto (todas as etapas, não só a próxima). Se não
+  cobre com 20% de folga, avise o Fefo antes de começar, com o valor da recarga.
+- Batches em paralelo dividem a conta: grave a sua reserva em `scripts/monitor/reservas.json`
+  (`{"BATCH#NNNN": {"cr": <previsto>, "desde": "AAAA-MM-DDTHH:MM"}}`) e some as reservas das outras antes de dizer que o
+  saldo dá. No fim da geração, tire a sua linha.
+- Na Trendscale vale o mesmo com o `kie.py` e a chave dela; chave recusada = avisar o Fefo na hora (a chave muda).
+- Geração avulsa fora do `lote`: o `kie.py` avisa no stderr quando há duas em 2 min. Falas, b-roll, TTS e Suno de uma
+  etapa vão todos no mesmo `lote`.

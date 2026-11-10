@@ -8,24 +8,15 @@ libera a entrega. Na mesma pergunta, diga tudo o que o OK libera:
 "Posso subir no Frame.io, comentar o Ready for view no card do Notion e mudar o status para CS NEEDS TO REVIEW?"
 
 Ordem depois do OK: 1) Frame.io e links; 2) Google Drive; 3) mensagem "Ready for view"; 4) Notion (comentário +
-status); 5) marcar Done no `dia.json` (o Clock Out sai sozinho às 19h). Cada passo está numa seção abaixo.
+status); 5) marcar Done no `dia.json` (o Clock Out sai quando o Fefo pedir). Cada passo está numa seção abaixo.
 
-**Horário: subir e mexer no Notion só no `entrega.horario` do perfil** (`null` = logo depois do OK; Fefo: 18h, pedido
-em todas as 7 revisões de 16/10/2026). Com o OK antes do horário, pergunte se é para agendar e, se for, crie uma tarefa
-agendada única (`create_scheduled_task` com `fireAt` no horário do dia, prompt autossuficiente com os 5 passos acima, pasta da batch, card do Notion e link do Drive). A tarefa:
-- confere antes o tamanho em bytes dos 6 arquivos contra os aprovados; se algum mudou, não sobe nada e avisa o Fefo;
-- para e avisa se o login do Frame.io expirou;
-- comenta no Notion seguindo o passo 3 da seção do Notion abaixo, **copiado no prompt da tarefa**: espaço depois de cada
-  URL, conferir um `<a href>` por URL antes de enviar e nunca usar cmd+a;
-- no fim manda uma notificação com o Ready for view e diz se os links do comentário ficaram clicáveis (quantos `<a>` de
-  quantos). Até o teste de 21/10/2026 dar certo, registre o resultado com `scripts/anotar.py`.
-Ela só roda com o app aberto (se estiver fechado às 18h, roda quando abrir). Uma tarefa por batch, sem duas tarefas
-para a mesma entrega (se houver reserva, ela confere uma trava antes de agir).
-**A tarefa agendada gasta a mesma cota de uso das sessões** (23/10/2026: as 5 entregas das 18h–18h40 caíram em 2 s com
-"You've hit your session limit · resets 7pm"). Tarefa única que falha fica desligada e não tenta de novo depois do
-reset. Depois do horário, confira `list_task_runs` de cada entrega agendada; a que falhou, faça à mão na sessão da batch,
-criando antes a trava (ex.: `entrega_18h40.lock`) para a tarefa não repetir. Várias entregas no mesmo dia: 5–10 min
-entre uma e outra (18h00, 18h10…), porque disputam o navegador do Notion.
+**Horário: com o "pode entregar" (ou OK que cite a entrega), entregar na hora, na própria sessão** (Fefo, 09/11/2026;
+`entrega.horario: null` no perfil). Nada de agendar às 18h: tarefa agendada travava em permissão e ficava offline (06/11).
+Agendar só se o Fefo pedir um horário; aí vale `create_scheduled_task` único com `fireAt`, prompt autossuficiente com os
+5 passos, conferência de bytes dos arquivos aprovados antes de subir e trava `entrega_<hora>.lock` contra repetição.
+Várias entregas seguidas: uma de cada vez, porque disputam o navegador do Notion.
+**O OK tem de ser escrito pelo Fefo dentro desta thread/sessão:** OK dado no chat do projeto não libera a ação aqui.
+Peça um OK único que cubra tudo o que falta ("pode entregar" = Frame.io + Ready for view + Notion + dia.json).
 
 ## Onde fica no Frame.io
 Conta "Umut's Account" → projeto **Hike Balance Brand** → pasta de quem usa → `BATCH_<n>/`. Nos comandos abaixo,
@@ -86,6 +77,17 @@ https://drive.google.com/drive/folders/<id>?usp=sharing
 Só com `notion.usar: true` no perfil; senão pule esta seção (a pessoa cola a mensagem à mão).
 Faça depois do OK do Fefo e da mensagem acima, com o mesmo texto. Use o navegador interno (`mcp__Claude_Browser__*`,
 já logado no Notion com a conta de quem usa).
+
+**Comentário: `scripts/monitor/notion_acao.js`** (uma chamada, URLs já como link, com conferência; testado no card 1969
+em 09/11/2026). Quem faz é o `executor-mecanico` (subagente novo, com o OK escrito na tarefa). Numa aba do Notion aberta
+com `preview_start` (qualquer página logada), troque o bloco `PEDIDO` e rode o arquivo inteiro com `javascript_tool`:
+`CARD` = link do card, `STATUS: null`, `COMENTARIO` = a mensagem "Ready for view" acima, com `\n` entre as linhas (as URLs
+viram link sozinhas, sem espaço extra). Primeiro `MODO: 'conferir'` (mostra o status atual e os links previstos), depois
+`'aplicar'`. Pronto com `ok: true`, `comentario_confere: true` e `links_no_comentario` = 3. `ok: false` ou `erro`: não
+rode de novo; olhe o card e, se o comentário não estiver lá, use o caminho manual do passo 3.
+**Status:** pela API o Notion recusa; continua pelos cliques do passo 4.
+
+Caminho manual (clicar e digitar):
 1. **Card da batch:** o link está em `00_roteiro/briefing.md` ("Card no Notion"). Sem link: abra o `notion.board` do
    perfil, rode `scripts/monitor/notion_cards.js` com `javascript_tool` (com `RESP` = `notion.responsavel`) e pegue em
    `meus` o card com o número da batch. Grave o link no briefing.md para a próxima vez.
@@ -126,17 +128,18 @@ já logado no Notion com a conta de quem usa).
 Só com `clock.usar: true` no perfil; senão pule esta seção.
 **O CLOCK OUT tem exatamente as mesmas batches do CLOCK IN do dia, na mesma ordem.** No perfil do Fefo, quem posta os
 dois no Slack (#video-editor-report, no thread do dia): o 🟢 CLOCK IN sai com o "pega" da sessão principal, quando o
-Fefo abre as batches da fila (`scripts/monitor/PEGA.md`, desde 22/10/2026), e o 🔴 CLOCK OUT sai **sempre às 19h**
-(tarefa `clock-out-slack`). A sessão da batch **não posta nada
-no Slack**. Perfil com `clock.automatico` vazio: no passo 3, diga "Marcada como Done; texto do Clock Out para você colar:".
+Fefo abre as batches da fila (`scripts/monitor/PEGA.md`, desde 22/10/2026), e o 🔴 CLOCK OUT sai **só quando o Fefo pedir**
+("manda meu clock out"; Fefo, 09/11/2026: "deixa que eu aviso"), com envio direto (`slack_send_message`, `SLACK.md`) no
+thread do dia. Não há horário fixo nem tarefa automática. A sessão da batch não manda Clock Out por conta própria.
+Conector não edita mensagem: lista mudou depois do envio = nova resposta no thread com a lista inteira. Perfil com `clock.automatico` vazio: no passo 3, diga "Marcada como Done; texto do Clock Out para você colar:".
 A lista do dia fica no `clock.dia_json` do perfil, relativo à raiz (Fefo: `_FLUXO_VSL/scripts/monitor/dia.json`), no formato
 `{"AAAA-MM-DD": {"clock_in": "HH:MM", "batches": {"BATCH#NNNN": "<situação>"}, "fora_do_clock_in": [...], ...}}`.
 1. Depois do passo do Notion, em `batches` do dia de hoje, troque a situação da sua batch para
    "Done - CS needs to Review". Não acrescente nem tire nenhuma outra batch. Leia o arquivo, mude só a sua chave e salve.
 2. **Sua batch não está na lista de hoje** (ou o dia ainda não existe): acrescente-a no fim de `batches` e também na
-   lista `fora_do_clock_in` do dia (se for revisão, também na lista `revisoes`). A tarefa das 19h posta antes um CLOCK IN
+   lista `fora_do_clock_in` do dia (se for revisão, também na lista `revisoes`). Quem mandar o Clock Out posta antes um CLOCK IN
    corrigido, para os dois baterem.
-3. Diga ao Fefo em uma linha: "Marcada como Done no dia.json; entra no Clock Out das 19h." Mostre como vai ficar o Clock
+3. Diga ao Fefo em uma linha: "Marcada como Done no dia.json; entra no Clock Out quando você pedir." Mostre como vai ficar o Clock
    Out, com as batches de `batches` do dia, em texto normal e sem bloco de código. **Todas saem como "Done - CS needs to
    Review"**, qualquer que seja a situação gravada (regra do Fefo, 23/10/2026). Tasks novas primeiro, depois uma linha em
    branco e as revisões (lista `revisoes` do dia ou situação "Revision …"), numeração contínua; **a revisão leva
@@ -155,3 +158,6 @@ A lista do dia fica no `clock.dia_json` do perfil, relativo à raiz (Fefo: `_FLU
 
    Batch que ainda não está como Done no `dia.json`: sai como Done no Clock Out do mesmo jeito, mas avise o Fefo para
    conferir se a entrega dela saiu.
+
+## Passo fixo no fim: registrar no segundo cérebro (Fefo, 09/11/2026)
+Depois de entregar (inclusive revisão), antes de encerrar, sem o Fefo pedir: acrescentar a entrada da batch em `Meu Drive/@segundo cérebro/3 Recursos/Aprendizados das batches.md` (seção Empire Vision: o que foi, o que se aprendeu, o que se otimizou, custo se houve), uma linha no diário do dia e a Situação da nota/área ([[Batches VSL]]) conforme `@segundo cérebro/CLAUDE.md`. Otimização do fluxo que vale para todas vai na seção "Otimizações do fluxo". Modelo: Sonnet baixo basta.

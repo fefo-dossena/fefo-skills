@@ -1,8 +1,8 @@
 # Parte do fluxo.py: plano.json e caminhos de arquivos. Roda no mesmo espaço de nomes do fluxo.py (não importar sozinho).
 # ---------------------------------------------------------------- plano e caminhos
 def carregar(B):
-    plano = json.load(open(f"{B}/08_auto/plano.json"))
-    cfg = json.load(open(f"{B}/batch.json")) if os.path.exists(f"{B}/batch.json") else {}
+    plano = json.load(open(f"{B}/{AUTO}/plano.json"))
+    cfg = json.load(open(f"{B}/{CFG}")) if os.path.exists(f"{B}/{CFG}") else {}
     return plano, cfg
 
 def marca_nome(plano, p): return plano.get("marca_nome", {}).get(p, p.capitalize())
@@ -25,9 +25,9 @@ def fala_vel(f, p=None):
 def fala_mp4(B, f, p=None):
     """Clipe usado na montagem: o original, ou a cópia acelerada em 08_auto/rapido/ quando a fala tem 'velocidade'."""
     v = fala_vel(f, p)
-    return fala_orig(B, f, p) if v == 1 else f"{B}/08_auto/rapido/{fala_stem(f, p)}_x{v:g}.mp4"
+    return fala_orig(B, f, p) if v == 1 else f"{B}/{AUTO}/rapido/{fala_stem(f, p)}_x{v:g}.mp4"
 
-def corte(B, stem): return f"{B}/08_auto/cortes/{stem}.json"
+def corte(B, stem): return f"{B}/{AUTO}/cortes/{stem}.json"
 def falas_hold(plano): return [f for f in plano["falas"] if f["tipo"] == "hold"]
 def eh_seedance(plano, stem):
     """Clipe do Seedance (estalo no fim): pelo `modelo_clip` da fala (texto, ou {marca: texto}) quando a batch mistura
@@ -64,6 +64,7 @@ def clipe_direita(B, c, p=None):
 def dur_util(B, c, f, p=None):
     """Segundos usáveis da cena a partir do 'inicio' (split: o mais curto dos dois clipes, sem congelar nenhum lado)."""
     d = duracao(f) - cena_inicio(c); r = clipe_direita(B, c, p)
+    if c.get("dur_max"): d = min(d, float(c["dur_max"]) + 0.05)   # trecho limpo do clipe (antes de um pulo/objeto estranho)
     return min(d, duracao(r) - float(c.get("inicio_direita", 0))) if r else d
 
 def pos_fala(c): return c.get("copy", "").startswith("(")    # ex.: "(tela final)" entra depois da última fala
@@ -80,12 +81,12 @@ def hook_stems(plano, n):
 def texto_hook(plano, n, p):
     return fala_hook(plano, n)["texto"].replace("{MARCA}", marca_nome(plano, p) if p else "")
 
-def L(B, nome): return f"{B}/08_auto/legendas/{nome}"
-def previa(B, p): return f"{B}/08_auto/preview_hold_{p}.mp4"
-def punch(plano, i):
+def L(B, nome): return f"{B}/{AUTO}/legendas/{nome}"
+def previa(B, p): return f"{B}/{AUTO}/preview_hold_{p}.mp4"
+def punch(plano, i, fala=None):
     """Punch-in alternado a cada corte de silêncio dentro da fala (disfarça o pulo do rosto; Frame.io BATCH_2080).
     plano.estilo.avatar.punch_in = [1.0, 1.12] e crop_y (0 = topo, 0.5 = centro) para manter o rosto no quadro."""
-    av = plano.get("estilo", {}).get("avatar", {}); zs = av.get("punch_in") or [1.0]; z = zs[i % len(zs)]
+    av = plano.get("estilo", {}).get("avatar", {}); zs = (fala or {}).get("punch_in") or av.get("punch_in") or [1.0]; z = zs[i % len(zs)]   # falas[i].punch_in vence o do estilo
     if z == 1: return ""
     return f",crop=iw/{z}:ih/{z}:(iw-iw/{z})/2:(ih-ih/{z})*{av.get('crop_y', 0.3)},scale=720:1280"
 def vtrim(s, e):
@@ -117,12 +118,12 @@ def push(f, segs, q, cy=0.3):
 def card(B, plano):
     """Título exato do card no Notion: batch.json → "card"; sem ele, "BATCH#<n> - <titulo>" (é o card nas batches novas).
     Só troca o que não pode em nome de arquivo (/ : * ? " < > | \\) por "-"."""
-    cfg = json.load(open(f"{B}/batch.json")) if os.path.exists(f"{B}/batch.json") else {}
+    cfg = json.load(open(f"{B}/{CFG}")) if os.path.exists(f"{B}/{CFG}") else {}
     t = (cfg.get("card") or "").strip()
     if not t and (cfg.get("titulo") or "").strip() and not cfg["titulo"].startswith("Nome do Ad"):
         t = f"BATCH#{num(plano)} - {cfg['titulo'].strip()}"
     return re.sub(r'[\\/:*?"<>|]', "-", t)
-def export_antigo(B, plano, p, n): return f"{B}/09_export/{p}/BATCH{num(plano)}_AD{n}_{p}.mp4"
+def export_antigo(B, plano, p, n): return f"{B}/{EXPORT}/{p}/BATCH{num(plano)}_AD{n}_{p}.mp4"
 def export(B, plano, p, n):
     """Nome do AD = título do card + marca + AD (regra do Fefo, 23/10/2026):
     "BATCH#3215 - Thinning Shield - Macular Degeneration - L2 - Problem Aware - Daniel - Neurobella - AD1.mp4".
@@ -130,7 +131,7 @@ def export(B, plano, p, n):
     c = card(B, plano)
     if not c: return export_antigo(B, plano, p, n)
     m = plano.get("marca_nome", {}).get(p) or {"neurobella": "Neurobella", "visiovance": "VisioVance"}.get(p, p.capitalize())
-    return f"{B}/09_export/{p}/{c} - {m} - AD{n}.mp4"
+    return f"{B}/{EXPORT}/{p}/{c} - {m} - AD{n}.mp4"
 def tira_export_antigo(B, plano, p, n):
     """Depois de renderizar com o nome do card, o arquivo do nome antigo é o mesmo AD desatualizado: sai, para não subir
     duplicado no Frame.io (a versão anterior de uma revisão já foi guardada em 09_export/_old/V<k>/)."""
@@ -144,5 +145,5 @@ def cmd_renomear(a):
         for n in range(1, 10):
             de, para = export_antigo(B, plano, p, n), export(B, plano, p, n)
             if os.path.exists(de) and not os.path.exists(para): os.rename(de, para); print(f"ok {os.path.basename(para)}")
-def xmlpath(B, plano): return f"{B}/08_auto/BATCH{num(plano)}_premiere.xml"
+def xmlpath(B, plano): return f"{B}/{AUTO}/BATCH{num(plano)}_premiere.xml"
 

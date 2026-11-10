@@ -102,6 +102,8 @@ compare com o Kling numa fala com "Vizzy-oh Vance" antes de confiar. Voz entre f
   sequência) e mande ao Fefo antes de montar.
 
 ## Depois de gerar
+- **Conferência na chegada (Frente 1, 09/11/2026):** as falas entram no `conferir_asset.py <batch> --vigiar` do b-roll
+  (`05_broll.md`): prancha com um quadro por segundo, mãos e rosto para o subagente barato, antes de cortar.
 - Faça 2–3 clipes primeiro e peça ao Fefo para ouvir (voz igual?). Depois **um pedido por vez** (~10–15 s de intervalo).
 - **Prancha de quadros de TODO take** procurando texto/legenda inventada pelo modelo e mão deformada — refazer se houver.
   Mão na faixa de baixo (y > 78%) dá para achar com um detector simples de pele.
@@ -116,3 +118,10 @@ compare com o Kling numa fala com "Vizzy-oh Vance" antes de confiar. Voz entre f
   `03_avatar/_antigos/`.
 - Depois: `fluxo.py fazer` (cortes → prévias → legendas → ADs). Peça ao Fefo para ouvir a prévia; ajuste de corte
   vai em `08_auto/cortes/<clipe>.manual.json` (ex.: `[[0, 3.32]]`; em fala com `velocidade`, no tempo da cópia acelerada).
+
+## VO por TTS no ritmo do ref (Fefo, 09/11/2026)
+- Alvo de ritmo e tom = medidas do ref (`02_referencia.md`, passo 0). Gemini TTS sai a ~2,6–3,0 pal/s.
+- Gere **3 takes em paralelo** (vozes ou estilos diferentes; pace "Rapid Fire" quando o ref passa de ~3,5 pal/s) e escolha
+  pelo F0 e pelo ritmo mais perto do ref. Mande ao Fefo os takes com o trecho do ref ao lado.
+- Para chegar no ritmo: primeiro corte as pausas; depois acelere **no máximo ~1,2x** (Leda x1,20 aprovada na 4205;
+  Aoede e Autonoe a 1,3–1,4x foram recusadas, soaram aceleradas). Precisa de mais: gere de novo com pace mais rápido.

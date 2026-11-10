@@ -58,14 +58,21 @@
    `estilo.tag_nativa` (legenda estilo Snapchat nos ~2 s iniciais) e cena `"formato": "split"` + `clipe_direita` (tela
    dividida). Campos em `02_referencia.md`. Conferir os quadros da troca de marco, da faixa e do split antes de mandar.
    Sem `estilo` no plano o `montar` para e pede o módulo referencia.
-5. **xml** — `08_auto/BATCH<n>_premiere.xml`: uma sequência por AD (falas cortadas em V1/A1, b-roll em V2 com escala,
-   centro e crop). Ainda não validado no Premiere: se o b-roll vier fora de posição, ajuste no Effect Controls.
+5. ~~xml~~ — fora do fluxo (Fefo, 10/11/2026): não gerar XML nem script de import para o Premiere. `fluxo.py xml` só se o Fefo pedir.
 Opções: `--ate legendas` (para antes dos ADs), `--so AD2_neurobella`, `--forcar`.
 ## Resolução
 Regra do Fefo (02/11/2026): vídeo gerado e AD final sempre em **720p** (720x1280). `fluxo.py`, `cartao.py` e `umtake.py` compõem em
-1080x1920 (por isso posições e overlays seguem em px de 1920) e descem na saída. O XML do Premiere continua em 1080x1920: exportar de lá em 720x1280.
+1080x1920 (por isso posições e overlays seguem em px de 1920) e descem na saída.
 
 ## Conferência antes de mandar ao Fefo
+**Trava antes do render final (Frente 1, 09/11/2026):** depois do `fluxo.py fazer <batch> --ate legendas` e antes do `fazer`
+final, rode `python3 @CLIENTES/_FLUXO/scripts/lint_plano.py <batch>`. Ele monta a linha do tempo de cada AD pela mesma
+conta da montagem, sem renderizar, e **sai com 1** quando acha: 3D seguido ou acima de 2,5 s; pausa hook→hold abaixo de
+0,30 s; AD do Daniel sem trilha; trecho acima de 3 s sem troca; legenda ou header em cima do rosto ou do rótulo (visão do
+Mac no quadro do clipe). Corrija no `plano.json` (`dur_max`, avatar entre os 3D, `respiro_hook_s_H<n>`, `legenda_y`) e rode
+de novo até sair 0. Aviso (`!`) não trava: é o que o script não conseguiu ler. Versão já exportada:
+`lint_plano.py <batch> --export <AD.mp4>` (lê o vídeo e casa cada trecho com o clipe de origem; ~1,5 min por AD).
+O pedido ao revisor roda `fluxo.py checar <batch>` (freeze, lascas, ritmo e lint, pela ficha) e recusa com falha.
 - Prancha `ffmpeg -i AD.mp4 -vf "fps=1/6,scale=180:-1,tile=8x2" s.jpg` (prancha com fps+tile pode mostrar quadro preto
   falso — conferir com `-ss`); loudness `-af ebur128`.
 - Emendas internas de voz < −50 dB; respiro hook → hold ≥ 0,2 s; ritmo de cada fala ~3,3 pal/s.
@@ -145,3 +152,10 @@ Regra do Fefo (02/11/2026): vídeo gerado e AD final sempre em **720p** (720x128
   (o que parece lento ali arrasta em 1x); um texto na tela por vez; produto nunca coberto por legenda ou texto; no
   ingrediente ou item citado, mostrar o próprio; close do produto nas pausas do avatar.
 - Mande os 6 ADs ao Fefo (SendUserFile) e espere o OK antes da entrega.
+
+## Fim e emendas da voz (checagem fixa, Fefo, 09/11/2026)
+- **Fim do AD:** a última palavra ganha +0,45 s de cauda no recorte e fade de 0,3 s na voz; depois, 1,4 s de cauda com fade
+  de trilha e de vídeo. Corte seco no fim foi nota do Fefo na 4205.
+- **Entre frases** (VO única cortada em trechos): emenda com crossfade curto (10–20 ms), nunca corte seco com a voz soando.
+- **Confira:** Whisper do AD inteiro contra o roteiro, palavra a palavra (palavra fraca no fim some: "breakfast", "flow"),
+  e os últimos 5 s isolados.

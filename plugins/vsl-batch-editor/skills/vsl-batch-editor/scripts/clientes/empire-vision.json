@@ -1,0 +1,41 @@
+{
+ "id": "ev",
+ "nome": "Empire Vision",
+ "pasta": "@EMPIRE VISION",
+ "geracao": {
+  "principal": "kie",
+  "secundario": null,
+  "regra": "Tudo pelo Kie desde 02/11/2026. Higgsfield (HiggsEV) só com pedido do Fefo."
+ },
+ "motor": "plano",
+ "pastas": {
+  "config": "batch.json",
+  "auto": "08_auto",
+  "export": "09_export",
+  "roteiro": "00_roteiro",
+  "refs": "01_refs",
+  "audio": "02_audio",
+  "elementos": "06_elementos",
+  "projeto": "07_premiere",
+  "brutos": [
+   "03_avatar",
+   "04_broll_hold",
+   "05_broll_hooks"
+  ]
+ },
+ "scripts_cliente": "@EMPIRE VISION/2026/_FLUXO_VSL/scripts",
+ "checagens": [
+  "freeze",
+  "lascas",
+  "ritmo",
+  "lint"
+ ],
+ "kie": {
+  "chave": "~/.vsl-batch-editor/kie_chave",
+  "suno_modelo": "V5_5",
+  "imagem_res_padrao": "2K",
+  "video_res_max": "720p",
+  "proibidos": {}
+ },
+ "obs": "Seedance só em Drama ad (ordem do cliente, 30/10/2026): o script não sabe o formato, a regra fica com a sessão."
+}
