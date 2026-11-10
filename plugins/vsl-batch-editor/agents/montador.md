@@ -1,6 +1,7 @@
 ---
 name: montador
 description: Roda a parte local e com script de um job ou batch - fluxo.py status/fazer, montar.py, cortes, legendas, exports, e as checagens antes de mandar ao Fefo (freezedetect, lascas, ritmo, imagem x fala, conferir_quadros, loudness, 720p). Use depois que o plano e os assets estão decididos; devolve o resultado das checagens para a sessão principal julgar.
+tools: Read, Bash, Grep, Glob, Write, Edit
 model: sonnet
 effort: medium
 ---
