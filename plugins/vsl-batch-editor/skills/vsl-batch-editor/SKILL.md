@@ -103,6 +103,7 @@ Barra de linha do tempo, legenda estilo Snapchat e tela dividida já saem do `mo
 
 ## Regras fixas
 Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do motivo).
+- **Prévia rápida, render final só depois do aprovado** (Fefo, 11/11/2026): versão para o revisor e para a sala sai com `PREVIA=1`; arquivo com `.PREVIA.txt` ao lado nunca é entregue; depois do aprovado, render sem `PREVIA` e entrega. Detalhe em `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`.
 - **Regras da sessão, iguais nas duas clientes** (Fefo, 09/11/2026): `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`. Resumo: 1. a sessão principal não abre imagem nem roda ffmpeg; trabalho pesado vai para um subagente novo por tarefa, que devolve só texto. 2. Um OK com teto de crédito no começo da batch. 3. Checklist sempre com "precisa de você: sim ou não" e "próxima parada: <o quê> ~HHhMM".
 - **ED descontinuado:** nicho de ED acabou (Cocoa ED incluso), nas duas marcas: nada de edição, revisão, review nem entrega. Card de ED na fila ou em Revisions: não pegar, avisar o Fefo.
 - **AD do Daniel sempre com música:** sem música no banco ou no card, gerar no Kie da Empire Vision (`scripts/kie.py suno` / `suno-ref`; nunca o Kie da Trendscale), com ok de crédito.

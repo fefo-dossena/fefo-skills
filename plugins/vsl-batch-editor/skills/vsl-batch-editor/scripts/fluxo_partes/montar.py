@@ -2,6 +2,23 @@
 # ---------------------------------------------------------------- montagem final
 # Regra do Fefo (02/11/2026): export sempre em 720p. A composição continua em 1080x1920 (posições em px de 1920)
 # e só a saída desce; usado também em cartao.py e umtake.py.
+
+# Prévia rápida (Fefo, 11/11/2026): com PREVIA=1 o encode final usa o chip do Mac (h264_videotoolbox, ~2,5 Mbps), que sai
+# em segundos e quase não ocupa o processador. Serve para a sala e para o revisor julgarem corte, ritmo, legenda e som.
+# O arquivo ganha um marcador "<saída>.PREVIA.txt" ao lado: enquanto ele existir, o vídeo NÃO é de entrega. O render
+# normal (sem PREVIA) apaga o marcador. Entrega só de arquivo sem marcador.
+def _codec_final(normal):
+    if os.environ.get("PREVIA") == "1":
+        return ["-c:v", "h264_videotoolbox", "-b:v", "2500k", "-maxrate", "3500k", "-bufsize", "5M"]
+    return normal
+
+def _marca_previa(saida):
+    m = saida + ".PREVIA.txt"
+    if os.environ.get("PREVIA") == "1":
+        open(m, "w").write("Prévia rápida (PREVIA=1): não entregar. Rode o render sem PREVIA depois do aprovado.\n")
+    elif os.path.exists(m):
+        os.remove(m)
+
 def _silencio_real(mp4, ini=0.0, dur=None, db=-42):
     """[(inicio, fim|None)] dos silêncios do áudio (silencedetect), no tempo do trecho lido."""
     cmd = [FF, "-nostats", "-hide_banner"] + (["-ss", f"{ini:.3f}"] if ini else []) + (["-t", f"{dur:.3f}"] if dur else []) + ["-i", mp4, "-af", f"silencedetect=n={db}dB:d=0.05", "-vn", "-f", "null", "-"]
@@ -331,8 +348,9 @@ def montar(B, p, n):
     vz = os.environ.get("DUMP_VOZ")     # pasta: grava a trilha de VOZ isolada (antes da música/loudnorm) para medir pausas
     extra = ["-map", "[voz]", "-c:a", "pcm_s16le", f"{vz}/voz_AD{n}_{p}.wav"] if vz else []
     subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, *extra, "-map", "[v720]", "-map", "[aout]",
-                    "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
+                    *_codec_final(["-c:v", "libx264", "-preset", "medium", "-crf", "20"]), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                     "-movflags", "+faststart", out], check=True)
+    _marca_previa(out)
     shutil.rmtree(tmp, ignore_errors=True); tira_export_antigo(B, plano, p, n)
     print(f"   ok {os.path.basename(out)} (hook {HD:.2f}s, {len(plan)} b-rolls{', com trilha' if trilha else ''})")
 
