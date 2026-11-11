@@ -3,13 +3,15 @@
 # Regra do Fefo (02/11/2026): export sempre em 720p. A composição continua em 1080x1920 (posições em px de 1920)
 # e só a saída desce; usado também em cartao.py e umtake.py.
 
-# Prévia rápida (Fefo, 11/11/2026): com PREVIA=1 o encode final usa o chip do Mac (h264_videotoolbox, ~2,5 Mbps), que sai
-# em segundos e quase não ocupa o processador. Serve para a sala e para o revisor julgarem corte, ritmo, legenda e som.
+# Prévia rápida (Fefo, 11/11/2026): com PREVIA=1 o encode final usa o chip de vídeo (h264_videotoolbox no Mac,
+# h264_nvenc da RTX 3060 Ti no PC Windows; ~2,5 Mbps), que sai em segundos e quase não ocupa o processador. Serve para a
+# sala e para o revisor julgarem corte, ritmo, legenda e som.
 # O arquivo ganha um marcador "<saída>.PREVIA.txt" ao lado: enquanto ele existir, o vídeo NÃO é de entrega. O render
 # normal (sem PREVIA) apaga o marcador. Entrega só de arquivo sem marcador.
 def _codec_final(normal):
     if os.environ.get("PREVIA") == "1":
-        return ["-c:v", "h264_videotoolbox", "-b:v", "2500k", "-maxrate", "3500k", "-bufsize", "5M"]
+        chip = ["-c:v", "h264_nvenc", "-preset", "p4"] if os.name == "nt" else ["-c:v", "h264_videotoolbox"]
+        return chip + ["-b:v", "2500k", "-maxrate", "3500k", "-bufsize", "5M"]
     return normal
 
 def _marca_previa(saida):

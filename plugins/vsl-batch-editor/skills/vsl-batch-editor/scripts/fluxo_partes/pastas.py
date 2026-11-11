@@ -210,7 +210,8 @@ def pj_qc(B, mp4, loc):
     ass = pj_acha_ass(B, mp4)
     if not ass: return None, f"sem .ass do export em {AUTO}/ nem ao lado do vídeo (qc_export precisa da legenda)"
     saida = os.path.join(tempfile.gettempdir(), "qc_" + re.sub(r"[^A-Za-z0-9]+", "_", os.path.splitext(os.path.basename(mp4))[0]))
-    fila = os.path.expanduser("~/bin/fila"); cmd = ([fila] if os.path.exists(fila) else []) + [sys.executable, s, loc, ass, "--saida", saida]
+    fila = os.path.expanduser("~/bin/fila.py" if os.name == "nt" else "~/bin/fila")     # no PC Windows a fila é um .py
+    cmd = (([sys.executable] if os.name == "nt" else []) + [fila] if os.path.exists(fila) else []) + [sys.executable, s, loc, ass, "--saida", saida]
     voz = os.path.join(os.path.dirname(ass), "dialogo16k.wav")
     if os.path.exists(voz): cmd += ["--voz", voz]
     rc, texto = pj_roda(cmd); linhas = [l.strip() for l in texto.strip().splitlines() if l.strip()]
