@@ -28,7 +28,7 @@ cd "<raiz>/_FLUXO_VSL/scripts" && python3 fluxo.py perfil      # quem usa, conta
 
 ## Onde está tudo
 - Raiz: a pasta de batches de quem usa (`~/.vsl-batch-editor/raiz`). A do Fefo é
-  `/Users/escala/Library/CloudStorage/GoogleDrive-fefo.dossena@gmail.com/Meu Drive/@CLIENTES/@EMPIRE VISION/2026`.
+  `/Users/escala/Library/CloudStorage/GoogleDrive-<conta do perfil>/Meu Drive/@CLIENTES/@EMPIRE VISION/2026`.
 - `_BATCH_MODELO/` = estrutura de uma batch nova (copiar e renomear). `_FLUXO_VSL/` = esta skill, `scripts/`, `modulos/`, `CALIBRACAO.md`.
 - Versões antigas da skill (zips anteriores e backup de arquivo antes de mudar) vão para `_FLUXO_VSL/old/`; na raiz fica só o zip atual.
   Zip novo: `python3 fluxo.py empacotar` (leva `SKILL.md`, `modulos/`, `scripts/` com só os scripts de navegador do `monitor/`, e o
@@ -103,6 +103,9 @@ Barra de linha do tempo, legenda estilo Snapchat e tela dividida já saem do `mo
 
 ## Regras fixas
 Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do motivo).
+- **Checklist da Louise antes de toda entrega, sem dispensa** (call de 13/11/2026; Fefo: "tem que ser aplicado sempre"): vale para batch nova e para revisão, nas duas marcas. Item que falha bloqueia a entrega; dispensa do Fefo não vale para estes itens. (1) Todo texto dentro do 4:5 em todo quadro (legenda, header, banner, CTA), salvo pedido escrito no brief. (2) Texto legível no padrão TikTok: legenda sempre na pílula TikTok Sans Medium (regra abaixo); header e textos sem 3D, sombra pesada, degradê nem extrusão. (3) VO limpa: ouvir a VO inteira (e a transcrição contra o roteiro), sem palavra errada, repetida, cortada nem pausa longa. (4) Música abaixo da VO: voz sempre clara (trilha ~15 dB abaixo, `PADRAO.md` do revisor). (5) Imagem firme e nítida: nada tremido, borrado, de baixa qualidade nem com artefato de IA; clipe fraco é refeito ou trocado. (6) Revisão: toda nota da versão anterior marcada como feita e conferida na versão nova (`modulos/10_revisao.md`, passo 1b). **Trava automática** (Frente 4, 13/11/2026): `fluxo.py checar` roda os 6 itens e grava `08_auto/checklist_V<k>.json`; com item vermelho o revisor não recebe o pedido, a sala não aprova e o `frameio.py` não sobe (`modulos/07_montagem.md`, `09_entrega.md`). Notas que já voltaram: `preferencias_daniel.md` (o plano lê antes de planejar).
+- **Legenda SEMPRE TikTok Sans Medium em pílula** (Fefo, 13/11/2026, EV e TS: "padronizar o estilo de legenda em TODAS AS TAREFAS"): texto preto, pílula branca de ponta redonda, nas proporções do PSD `@CLIENTES/_FLUXO/legenda/EXEMPLO LEGENDA.psd`. Desenho único em `@CLIENTES/_FLUXO/scripts/pilula.py`; regra completa no `@CLIENTES/_FLUXO/LEIA-ME.md`. O `montar` recusa outro estilo; job antigo em revisão só com `estilo.legenda.manter_antigo` e ok do Fefo. Legenda SEMPRE dentro do 4:5 central, nunca fora (Fefo, 13/11/2026), em todo quadro: no 9:16 = y 285–1635 em 1920 (190–1090 em 720p). O `pilula.py` empurra a pílula para dentro e avisa.
+- **Legenda em y 0,63 em todo AD** (Fefo, 13/11/2026, depois do "literally didnt fix what i asked" do Daniel na 4083 V5): `estilo.legenda.y` = 0,63 em todo plano novo, nas duas marcas (Neurobella e VisioVance), qualquer ref. Nenhuma legenda abaixo de 0,65, nem por cena (0,80 dentro do 4:5 em pixels foi reprovado). Cena que cobre frasco, rótulo ou rosto: `legenda_y` só **para cima** (entre o queixo e a tampa, ~0,40, ou topo 0,20), nunca para baixo. Antes de mandar: prancha 1 fps com a caixa 4:5 (y 190–1090 em 720p).
 - **Prévia rápida, render final só depois do aprovado** (Fefo, 11/11/2026): versão para o revisor e para a sala sai com `PREVIA=1`; arquivo com `.PREVIA.txt` ao lado nunca é entregue; depois do aprovado, render sem `PREVIA` e entrega. Detalhe em `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`.
 - **Regras da sessão, iguais nas duas clientes** (Fefo, 09/11/2026): `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`. Resumo: 1. a sessão principal não abre imagem nem roda ffmpeg; trabalho pesado vai para um subagente novo por tarefa, que devolve só texto. 2. Um OK com teto de crédito no começo da batch. 3. Checklist sempre com "precisa de você: sim ou não" e "próxima parada: <o quê> ~HHhMM".
 - **ED descontinuado:** nicho de ED acabou (Cocoa ED incluso), nas duas marcas: nada de edição, revisão, review nem entrega. Card de ED na fila ou em Revisions: não pegar, avisar o Fefo.
@@ -111,12 +114,14 @@ Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do mot
 - **Criador real é intocável:** UGC com bruto de criador contratado usa o vídeo e a voz originais dele. Nada de voz de IA (troca, TTS, clone) nem avatar parecido com ele. Batch com versão de IA do criador: reeditar com o original. Bruto difícil: avisar a Louise antes. Avatar novo a partir de quadro real continua, sempre pessoa diferente (`modulos/03_personagens.md`).
 - **Gerações em paralelo:** depois do ok de crédito, montar `08_auto/pedidos_<etapa>.json` e rodar `kie.py lote` em segundo plano (um comando, um resumo; `modulos/kie.md`, seção Lote), em vez de um `kie.py` por geração conferido um por um. Enquanto roda, adiantar trabalho local; no fim, ler só o resumo.
 - **Sempre 720p** na geração e no AD final (`modulos/07_montagem.md`).
+- **Formatos de Black Friday e promos (comunicado da EV, 11/11/2026):** além do vertical, entregar **horizontal 1,91:1** (o aviso diz "200 x 628", deve ser 1200 x 628) e **quadrado 1:1** (1200 x 1200). **Só para batches novas** (Louise, 11/11/2026); as já entregues ficam como estão. Em aberto: vale para vídeo ou só estático, e se o vídeo sai nesses pixels ou no 720p (1376x720 e 720x720). Até ele responder, perguntar antes de exportar uma batch BF.
 - **Crédito só com ok:** antes de cada lote, quantas gerações, modelo, duração e custo. Aprovar imagens não autoriza vídeos.
 - **Versões dos exports:** atual em `09_export/<p>/`, anteriores em `09_export/_old/V<k>/<p>/`, nunca pasta irmã. Antes de re-renderizar: `mkdir -p 09_export/_old/V<k> && cp -Rp 09_export/neurobella 09_export/visiovance 09_export/_old/V<k>/`. Mudar pasta de lugar no Drive = `mv` da pasta inteira (mantém ID e links).
 - **Nunca sobrescrever** arquivo do Fefo. Corte à mão em `08_auto/cortes/<clipe>.manual.json` sempre vence o automático.
 - **Caiu a conexão numa geração:** `kie.py espera <taskId> <saída>`. Nunca reenviar (cobra de novo).
 - Sem acentos/espaços em nomes novos (menos os ADs finais). IDs de geração em `08_auto/falas_ids.tsv` e `08_auto/broll_ids.tsv`.
 - **Qualidade:** personagem fotográfico com o bloco de pele realista (`modulos/03_personagens.md`); texto inventado pela IA = gerar de novo; clipe do Kling/Seedance entra depois do trecho parado do início (`inicio` ≥ 0,5 s, `scripts/inicio_movimento.py`); fala ~3,3 palavras/s; emendas no silêncio (e antes do estalo do fim do Seedance).
+- **Sem selo de IA no AD** (Umut e Louise, 12/11/2026): nenhum rótulo, sticker ou marca d'água de IA ("AI generated", logo ou marca d'água de gerador) visível no AD final, mesmo se o briefing pedir. Conferir os cantos e as bordas dos quadros nas checagens abaixo e na revisão. AD já entregue com selo: corrigir e subir de novo.
 - **Checagens em todo AD antes de mandar ao Fefo** (`modulos/07_montagem.md`): `freezedetect=n=0.008:d=0.4`, `scripts/lascas.py`, quadros × duração do áudio, Whisper nos últimos 5 s, `scripts/ritmo.py` (nada parado acima de 3 s) e `scripts/imagem_fala.py`. Na revisão, rodar também na versão antiga.
 - Várias sessões renderizando no Drive = timeout do ffmpeg: montar numa cópia no scratchpad e copiar o MP4. Intermediários nunca na batch: `$TMPDIR` ou scratchpad, apagados no fim.
 - **Não remendar palavra colando voz:** refazer a fala inteira.
@@ -140,6 +145,9 @@ Origem e data de cada regra: `historico_regras.md` (só abrir se precisar do mot
   (sem renderizar); o `montar` já apaga o do nome antigo quando renderiza o novo.
 
 ## Estilo do ad: sempre o da pasta `01_refs/` da batch atual
+- **O brief vem antes do ref** (Louise, 13/11/2026): o ad de referência é guia e inspiração. Instrução escrita do
+  estrategista no brief ou no card vence o ref. Estilo de texto: o do checklist (padrão TikTok, sem 3D), mesmo que o
+  ref use outro, salvo pedido escrito no brief.
 - O estilo **não** vem de batch anterior nem desta skill. Cada batch segue o(s) ad(s) de referência em `01_refs/`
   (e o canvas/brief em `00_roteiro/`), mesmo que seja diferente do que foi feito da última vez.
 - O módulo `referencia` analisa o ref e grava o resultado em `plano.json` → `estilo` (formato do avatar, onde e como

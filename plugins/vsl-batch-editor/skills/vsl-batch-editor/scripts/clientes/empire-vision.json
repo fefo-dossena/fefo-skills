@@ -37,5 +37,43 @@
   "video_res_max": "720p",
   "proibidos": {}
  },
- "obs": "Seedance só em Drama ad (ordem do cliente, 30/10/2026): o script não sabe o formato, a regra fica com a sessão."
+ "obs": "Seedance só em Drama ad (ordem do cliente, 30/10/2026): o script não sabe o formato, a regra fica com a sessão.",
+ "checklist": {
+  "ativo": true,
+  "desde": "2026-11-13",
+  "motivo": "Checklist da Louise (call 1:1 de 13/11/2026). Fefo: vale sempre, sem dispensa.",
+  "itens": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "area_segura": {
+   "nome": "4:5",
+   "y0": 0.1484,
+   "y1": 0.8516,
+   "x0": 0.0,
+   "x1": 1.0,
+   "tolerancia": 0.006
+  },
+  "legenda_centro_max": 0.65,
+  "estilos_legenda": [
+   "pilula"
+  ],
+  "vo": {
+   "pausa_max_s": 0.45
+  },
+  "musica": {
+   "margem_ok_db": 15,
+   "margem_min_db": 12,
+   "lufs": -20.0,
+   "lufs_tol": 1.0
+  },
+  "preferencias": "@EMPIRE VISION/2026/_FLUXO_VSL/preferencias_daniel.md",
+  "estilos_obs": "Lista do montar: só pílula (Fefo, 13/11/2026). Outro estilo só com estilo.legenda.pedido_brief. No export, o checklist aceita a família da Louise: pílula ou branca com contorno fino; reprova sombra/borda pesada (3D) e cor.",
+  "ligado": "13/11/2026, depois da calibração da Frente 4 (até ~1 falso positivo por AD nas versões de teste)",
+  "posicao": "Do PSD só o estilo; a pílula fica SEMPRE dentro do 4:5 central, y 0,63 e centro nunca abaixo de 0,65 (Fefo, 13/11/2026)."
+ }
 }

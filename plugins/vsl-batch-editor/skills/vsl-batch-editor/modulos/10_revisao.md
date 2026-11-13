@@ -3,13 +3,25 @@ Quando o Fefo manda um link do Frame.io ou pede "faz os comentários".
 **Seedance só em Drama ad** (30/10/2026, `04_falas.md`): as correções com Seedance neste módulo são histórico; fora de
 Drama ad, refaça no Kling.
 
-1. **Ler**: `python3 frameio.py comentarios "<frameio.pasta do perfil>/BATCH_<n>"` (Fefo: `Hike Balance Brand/FEFO`; ou abrir o link no navegador).
+1. **Ler**: `python3 frameio.py comentarios "<frameio.pasta do perfil>/BATCH_<n>"` (Fefo: `Hike Balance Brand/FEFO`; ou abrir o link no navegador). No PC: `py ~/.vsl-batch-editor/frameio_ev.py` (login do time; `09_entrega.md`).
    O número entre [] é o QUADRO na fps do vídeo (exports a 30 fps → segundos = n/30; conferido na BATCH#2820).
    **Batch exportada do Premiere pode estar a 24 fps** (2086: q110 = 4,6 s, não 3,7): confira a fps do MP4 com
    `ffmpeg -i` antes de converter. Card sem pedido escrito no Notion = os pedidos estão nos comentários do Frame.io.
    **Antes de concluir que o card não tem pedido, leia a discussão inteira do card** (`javascript_tool` com o innerText de
    `.notion-page-view-discussion` ou dos `[data-block-id]`): o comentário do estrategista pode vir logo abaixo dos
    "Ready for view" (selo "Novo") e o `get_page_text` corta a lista (BATCH#2481 V2, 23/10: pedido de legenda do Zane).
+1b. **Lista de notas** (checklist da Louise, 13/11/2026; item 6, com trava): gere a lista dos comentários do Frame.io
+   com `py ~/.vsl-batch-editor/frameio_ev.py comentarios "<pasta>/BATCH_<n>" --revisao "<batch>"` (só os vídeos da raiz;
+   grava `00_roteiro/revisao_V<k>.md`, k = a versão nova). Uma linha por nota:
+   `- [ ] AD1 0:07.07 · "deadspace" · vou mudar: ? · mudei: ? · prova:`. Acrescente à mão as notas do card do Notion
+   (mesmo formato, `card` no lugar do AD). Nota vaga ("still", "deadspace", "fix the text"): ache a causa no passo 2 e
+   escreva a leitura em "vou mudar". Nota marcada **JÁ APARECEU** (está em `preferencias_daniel.md`): além de corrigir,
+   vira checagem ou regra fixa nesta revisão. Antes de mandar ao Fefo, confira cada nota **na versão nova exportada**,
+   troque `[ ]` por `[x]`, diga o que mudou em "mudei:" e ponha em "prova:" o quadro da versão nova (caminho relativo à
+   batch, ex. `08_auto/prova/AD1_0m07.jpg`, tirado por subagente). Linha sem `[x]` ou sem prova deixa o item 6
+   vermelho: a sala não aprova e o `frameio.py` não sobe. Na entrega, `notas_revisao.py respostas "<batch>" --versao <k>`
+   escreve a resposta de cada nota (em inglês); postar no Frame.io só com ok do Fefo. Depois passe o checklist inteiro
+   (`fluxo.py checar`): revisão também passa por ele, sem dispensa.
 2. **Comentário parecido já apareceu?** `grep -n -i "<palavra do comentário>" modulos/10b_casos_revisao.md` e leia só a linha achada (tabela de causas e correções de revisões antigas; não abrir o arquivo inteiro).
    **Card "só QA"** (vídeo pronto de outro editor): `modulos/10c_so_qa.md`. **Trocar trecho direto no MP4** (batch do Premiere, sem fontes): seção no fim de `10b_casos_revisao.md`.
 2b. **Localizar**: extrair quadros no ponto e em volta (prancha) e a fala (faster-whisper) para entender o que o revisor viu.

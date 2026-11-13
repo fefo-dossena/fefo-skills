@@ -158,19 +158,9 @@ def cmd_prancha(a):
     for i, im in enumerate(ims): sheet.paste(im, ((i % c) * W, (i // c) * H))
     sheet.save(a.out, quality=88); print("ok", a.out)
 
-def _cuda_ok():
-    # PC Windows do Fefo (RTX 3060 Ti, 11/11/2026): as DLLs CUDA vêm do pip (nvidia-cublas-cu12, nvidia-cudnn-cu12).
-    # Põe as pastas no caminho e confere se carregam. No Mac não há CUDA: fica na CPU como antes.
-    import os, glob, ctypes
-    if os.name != "nt": return False
-    for b in glob.glob(os.path.join(os.environ.get("APPDATA", ""), "Python", "Python3*", "site-packages", "nvidia", "*", "bin")):
-        os.add_dll_directory(b); os.environ["PATH"] = b + os.pathsep + os.environ["PATH"]
-    try: ctypes.WinDLL("cublas64_12.dll"); ctypes.WinDLL("cudnn64_9.dll"); return True
-    except OSError: return False
-
 def cmd_transcrever(a):
     from faster_whisper import WhisperModel
-    m = WhisperModel(a.modelo, device="cuda", compute_type="float16") if _cuda_ok() else WhisperModel(a.modelo, device="cpu", compute_type="int8")
+    m = WhisperModel(a.modelo, device="cpu", compute_type="int8")
     segs, _ = m.transcribe(a.midia, language=a.lang, word_timestamps=True, vad_filter=True)
     w = [{"w": x.word.strip(), "s": round(x.start, 3), "e": round(x.end, 3)} for sg in segs for x in (sg.words or [])]
     json.dump(w, open(a.out, "w"), ensure_ascii=False); print(len(w), "palavras ->", a.out)

@@ -3,15 +3,13 @@
 # Regra do Fefo (02/11/2026): export sempre em 720p. A composição continua em 1080x1920 (posições em px de 1920)
 # e só a saída desce; usado também em cartao.py e umtake.py.
 
-# Prévia rápida (Fefo, 11/11/2026): com PREVIA=1 o encode final usa o chip de vídeo (h264_videotoolbox no Mac,
-# h264_nvenc da RTX 3060 Ti no PC Windows; ~2,5 Mbps), que sai em segundos e quase não ocupa o processador. Serve para a
-# sala e para o revisor julgarem corte, ritmo, legenda e som.
+# Prévia rápida (Fefo, 11/11/2026): com PREVIA=1 o encode final usa o chip do Mac (h264_videotoolbox, ~2,5 Mbps), que sai
+# em segundos e quase não ocupa o processador. Serve para a sala e para o revisor julgarem corte, ritmo, legenda e som.
 # O arquivo ganha um marcador "<saída>.PREVIA.txt" ao lado: enquanto ele existir, o vídeo NÃO é de entrega. O render
 # normal (sem PREVIA) apaga o marcador. Entrega só de arquivo sem marcador.
 def _codec_final(normal):
     if os.environ.get("PREVIA") == "1":
-        chip = ["-c:v", "h264_nvenc", "-preset", "p4"] if os.name == "nt" else ["-c:v", "h264_videotoolbox"]
-        return chip + ["-b:v", "2500k", "-maxrate", "3500k", "-bufsize", "5M"]
+        return ["-c:v", "h264_nvenc" if sys.platform == "win32" else "h264_videotoolbox", "-b:v", "2500k", "-maxrate", "3500k", "-bufsize", "5M"]
     return normal
 
 def _marca_previa(saida):
@@ -55,12 +53,17 @@ ESTILOS = {
     # branca_legivel sem a sombra deslocada (a sombra semitransparente "sujava" a letra: Daniel, BATCH#3831 V2, 06/11/2026):
     # mesma fonte e tamanho, só contorno preto
     "branca_limpa":     "FontName=Helvetica Neue,Bold=1,FontSize=13,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=1.5,Shadow=0",
+    # branca_limpa para o PC Windows (sem Helvetica Neue Bold: o libass caía na HelveticaNeue-Italic). Arial Bold 11 cabe
+    # 33 caracteres em 1 linha. Contorno 0.6 ("contorno fino", nota do Fefo na sala da 3855 V2). "looks 3d and hard to read" (Frame.io, BATCH#3855 V2, 12/11/2026; escolha do Fefo):
+    "branca_limpa_arial": "FontName=Arial,Bold=1,FontSize=11,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=0.6,Shadow=0",
     # palavra por vez, caixa alta, branca com brilho (ref Dr. Kegel, BATCH_2078). No layout "cartao" vira ASS próprio.
     "palavra_brilho":   "FontName=Helvetica Neue Medium,FontSize=14,PrimaryColour=&H00FFFFFF,OutlineColour=&H60000000,BorderStyle=1,Outline=1,Shadow=0",
-    # caixa arredondada por linha, 1-2 linhas, estilo texto do Instagram (ref Paleovalley, BATCH#2824). Desenhada em PNG
-    # por pilula.py (o header do hook vai junto, no mesmo estilo); não usa o filtro subtitles.
+    # PADRÃO ÚNICO desde 13/11/2026 (regra do Fefo, EV e TS): TikTok Sans Medium preta em pílula branca, nas proporções do
+    # PSD _FLUXO/legenda/EXEMPLO LEGENDA.psd. Desenhada em PNG por _FLUXO/scripts/pilula.py (o header do hook vai junto,
+    # no mesmo desenho); não usa o filtro subtitles. Os estilos acima ficam só para job antigo com manter_antigo (ok do Fefo).
     "pilula":           None,
 }
+LEGENDA_PADRAO = "pilula"
 POSICOES = {"divisao": "Alignment=2,MarginV=150", "centro_baixo": "Alignment=2,MarginV=100", "centro": "Alignment=10,MarginV=0",   # 10 = meio (numeração antiga); 5 caía no topo (BATCH#3378)
             "meio_alto": "Alignment=6,MarginV=65",
             "peito_alto": "Alignment=2,MarginV=96",     # linha centrada em ~64% da altura (ref BATCH#2480)
@@ -89,6 +92,7 @@ def ass_textos(B, plano, plan, HD, out, n=None, sem_header=False):
     if hh:
         import textwrap
         y = plano.get("estilo", {}).get("hook_header_y", 120)   # topo do bloco (px de 1920); 2820: terço inferior
+        y = plano.get("estilo", {}).get("hook_header_y_hook", {}).get(str(n), y)   # outra altura só num hook (BATCH#3829 H2: lente do marido)
         for k, parte in enumerate(hh):
             ln = textwrap.wrap(esc(parte), plano.get("estilo", {}).get("hook_header_quebra", 24))   # 3214: 32 (24 deixava "vision" sozinha)
             txt = "\\N".join(ln)
@@ -141,7 +145,22 @@ def estilo_do_plano(plano, cfg):
     if not e:
         raise SystemExit("plano.json não tem 'estilo'. Rode o módulo referencia (analisa 01_refs/ desta batch) antes de montar.")
     leg = e.get("legenda", {})
-    nome = leg.get("estilo") or cfg.get("legenda", {}).get("estilo", "amarelo_contorno")
+    # legenda SEMPRE pílula TikTok Sans Medium (regra do Fefo, 13/11/2026): o estilo da ficha/config não vale mais;
+    # outro estilo no plano só passa com estilo.legenda.manter_antigo = true (job já em revisão, com ok do Fefo)
+    nome = leg.get("estilo") or LEGENDA_PADRAO
+    # checklist da Louise (Frente 4, 13/11/2026): lista fechada da ficha (checklist.estilos_legenda); fora dela, só com
+    # estilo.legenda.pedido_brief = "<frase do brief que pede>". O ok do Fefo (manter_antigo) não vale com o checklist ligado.
+    ck = FICHA.get("checklist", {})
+    if ck.get("ativo"):
+        lista_ok = ck.get("estilos_legenda", [LEGENDA_PADRAO])
+        if nome not in lista_ok and not str(leg.get("pedido_brief", "")).strip():
+            raise SystemExit(f"plano.json pede a legenda '{nome}', fora da lista do checklist da Louise ({', '.join(lista_ok)}). "
+                             "Outro estilo só com o pedido escrito no brief: estilo.legenda.pedido_brief = \"<frase do brief>\". "
+                             "Dispensa do Fefo não vale para este item.")
+    elif nome != LEGENDA_PADRAO and not leg.get("manter_antigo"):
+        raise SystemExit(f"plano.json pede a legenda '{nome}'. Desde 13/11/2026 a legenda é SEMPRE pílula TikTok Sans Medium "
+                         "(regra do Fefo, EV e TS): troque estilo.legenda.estilo para \"pilula\" ou tire o campo. Job já em "
+                         "revisão com o estilo antigo: só com ok do Fefo, estilo.legenda.manter_antigo = true.")
     if nome not in ESTILOS: raise SystemExit(f"Estilo de legenda '{nome}' ainda não existe em ESTILOS (fluxo.py): implemente antes.")
     av = e.get("avatar", {})
     return {"pb": bool(av.get("pb", False)),
@@ -163,6 +182,45 @@ def pip_pngs(w, h, raio, borda, pasta, s=12):
     ImageDraw.Draw(fr).rounded_rectangle([s, s, W - s - 1, H - s - 1], raio + borda, fill=(255, 255, 255, 255))
     mk.save(f"{pasta}/pip_mascara.png"); fr.save(f"{pasta}/pip_moldura.png")
     return f"{pasta}/pip_mascara.png", f"{pasta}/pip_moldura.png", s
+
+def srt_com_altura(sub, out, evs, alt, div=()):
+    """SRT -> ASS (conversão do ffmpeg, mesma PlayRes 384x288 do SRT) com \\an5\\pos nas falas cuja altura mudou.
+    alt = [(ini, fim, y)]; y <= 1 = fração da altura, > 1 = px de 1920; y = centro da legenda. Mesma regra da pílula
+    (a primeira entrada que cobre o início da fala vale)."""
+    subprocess.run([FF, "-nostdin", "-v", "error", "-y", "-i", sub, out], check=True)
+    ls = open(out, encoding="utf-8").read().split("\n"); k = 0
+    for i, l in enumerate(ls):
+        if not l.startswith("Dialogue:") or k >= len(evs): continue
+        ini = evs[k][0]; k += 1
+        y = next((yy for s, f, yy in alt if s - 0.05 <= ini < f), None)
+        if y is None: continue
+        y = float(y); y = y if y > 1 else y * 1920
+        a, b = l.split(",,0,0,0,,", 1)
+        pos = lambda yy: "{\\an5\\pos(192,%.1f)}" % ((yy if yy > 1 else yy * 1920) * 288 / 1920)
+        ls[i] = f"{a},,0,0,0,,{pos(float(y))}{b}"
+        for s0, f0, cut, y2 in div:       # fala que cruza a troca de cena: 2ª parte em outra altura
+            if abs(ini - s0) < 0.01 and ini < cut < evs[k - 1][1]:
+                h = a.split(",")                       # Dialogue: layer,start,end,style
+                t = lambda x: "%d:%02d:%05.2f" % (x // 3600, x % 3600 // 60, x % 60)
+                ls[i] = ",".join([h[0], h[1], t(cut), *h[3:]]) + f",,0,0,0,,{pos(float(y))}{b}"
+                ls[i] += "\n" + ",".join([h[0], t(cut), h[2], *h[3:]]) + f",,0,0,0,,{pos(float(y2))}{b}"
+    open(out, "w", encoding="utf-8").write("\n".join(ls))
+    return out
+
+def _lado():
+    """Módulo comum (núcleo, checagens/lado_montagem.py) que grava mix e camadas para o checklist; o mesmo da Trendscale."""
+    d = os.path.join(AQUI, "checagens")
+    if d not in sys.path: sys.path.insert(0, d)
+    import lado_montagem
+    return lado_montagem
+
+def _digital(path): return _lado().digital(path)
+
+def _grava_lado(B, nome, dg, dados): return _lado().grava(f"{B}/{AUTO}", nome, dg, dados)
+
+def _mede_mix(voz, trilha): return _lado().mede_mix(voz, trilha)
+
+def _camadas_pilula(lista, y_leg, alt=()): return _lado().camadas_pilula(lista, [y_leg] + [x[2] for x in alt])
 
 def montar(B, p, n):
     if carregar(B)[0].get("one_take"):
@@ -198,7 +256,7 @@ def montar(B, p, n):
     sil = (hq - ts - 0.04) + max(tl - 0.03, 0)
     print(f"   hook {n}: silêncio real hook→hold {sil:.2f} s (fala do hook acaba em {ts:.2f}, hold entra em {tl:.2f})" + ("  AVISO < 0,30 s" if sil < 0.30 else ""))
     g = [f"[0:v]scale=720:1280,fps=30,setsar=1[hv];[0:a]atrim=end={hq:.6f},afade=t=out:st={ts:.3f}:d=0.04[ha];[1:v]trim=start={PL:.6f},setpts=PTS-STARTPTS,scale=720:1280,fps=30,setsar=1[pv];[1:a]atrim=start={PL:.6f},asetpts=PTS-STARTPTS,afade=t=in:st={max(tl - 0.03, 0):.3f}:d=0.03[pa];[hv][ha][pv][pa]concat=n=2:v=1:a=1[av0][aa0]",
-         f"[av0]null{pad}[av];[aa0]anull{apad}" + (",asplit=2[aa][voz]" if os.environ.get("DUMP_VOZ") else "[aa]")]
+         f"[av0]null{pad}[av];[aa0]anull{apad}" + (",asplit=3[aa][voz][vzm]" if os.environ.get("DUMP_VOZ") else ",asplit=2[aa][vzm]")]
     if est["pip"]: g.append("[av]split[avb][avp]")      # avp = o médico na janela (picture-in-picture, BATCH#3217)
     g.append(f"[{'avb' if est['pip'] else 'av'}]scale=1080:1920" + (",hue=s=0,eq=contrast=1.08" if est["pb"] else "") + "[b0]")
     if est["layout"] == "metade_baixo": geo, oy = "scale=1080:-2,crop=1080:960:0:(ih-960)/2", 960
@@ -309,27 +367,34 @@ def montar(B, p, n):
         g.append(f"[{jt}:v]fps=30,format=rgba[tn];[{cur}][tn]overlay=0:{yt}:eof_action=pass:format=auto:"
                  f"enable='between(t,{ta:.3f},{tb:.3f})'[tno]"); cur = "tno"
     ass = f"{tmp}/textos_AD{n}_{p}.ass"
+    alt = [(a, b, cen[cid]["legenda_y"]) for cid, a, b, _ in plan if "legenda_y" in cen.get(cid, {})]; div = []
+    # trecho de fala (sem cena de b-roll) com a legenda em outra altura, achado pelo texto da legenda:
+    # estilo.legenda.y_trechos = [{"de": "...", "ate": "...", "y": 0.8}] (BATCH#2822: placa "68% OFF" na mão do avatar)
+    for t in plano.get("estilo", {}).get("legenda", {}).get("y_trechos", []):
+        i = next((k for k, e in enumerate(evs) if nt(t["de"]) in nt(e[2])), None)
+        j = next((k for k in range(i or 0, len(evs)) if nt(t.get("ate", t["de"])) in nt(evs[k][2])), None)
+        if i is None or j is None: raise SystemExit(f"y_trechos: não achei {t} na legenda AD{n}_{p}")
+        alt.insert(0, (evs[i][0], evs[j][1], t["y"]))
+        # y_depois + cena: a fala cruza a troca de cena e muda de altura na troca (BATCH#3829: "even on empty bottles", mão -> frasco vazio)
+        if t.get("y_depois") is not None:
+            cut = next((a0 for cid, a0, b0, _ in plan if cid == t.get("cena_depois")), None)
+            if cut is not None: div.append((evs[i][0], evs[j][1], cut, t["y_depois"]))
     if est["pilula"]:
         import pilula
-        alt = [(a, b, cen[cid]["legenda_y"]) for cid, a, b, _ in plan if "legenda_y" in cen.get(cid, {})]
-        # trecho de fala (sem cena de b-roll) com a legenda em outra altura, achado pelo texto da legenda:
-        # estilo.legenda.y_trechos = [{"de": "...", "ate": "...", "y": 0.8}] (BATCH#2822: placa "68% OFF" na mão do avatar)
-        for t in plano.get("estilo", {}).get("legenda", {}).get("y_trechos", []):
-            i = next((k for k, e in enumerate(evs) if nt(t["de"]) in nt(e[2])), None)
-            j = next((k for k in range(i or 0, len(evs)) if nt(t.get("ate", t["de"])) in nt(evs[k][2])), None)
-            if i is None or j is None: raise SystemExit(f"y_trechos: não achei {t} na legenda AD{n}_{p}")
-            alt.insert(0, (evs[i][0], evs[j][1], t["y"]))
         # header_pilula.y_hook = {"3": 960}: outra altura do header num hook (BATCH#3465: no topo cobria o rosto do H3-01)
         hp = plano.get("estilo", {}).get("header_pilula", {}); hy = hp.get("y_hook", {}).get(str(n))
         pl = plano if hy is None else {**plano, "estilo": {**plano["estilo"], "header_pilula": {**hp, "y": hy}}}
         lista = pilula.gerar(evs, plano.get("header"), HD, total, f"{tmp}/pilula", pl, alt)
         jc = ins.count("-i"); ins += ["-f", "concat", "-safe", "0", "-i", lista]
         g.append(f"[{jc}:v]fps=30,format=rgba[cap];[{cur}][cap]overlay=0:0:eof_action=pass:format=auto[pl]")
-        g.append(f"[pl]subtitles={ass}[vout]" if ass_textos(B, plano, plan, HD, ass, n, sem_header=True) else "[pl]null[vout]")
-    elif ass_textos(B, plano, plan, HD, ass, n):
-        g.append(f"[{cur}]subtitles={sub}:force_style='{est['sub']}'[vs];[vs]subtitles={ass}[vout]")
+        g.append(f"[pl]subtitles={fpath(ass)}[vout]" if ass_textos(B, plano, plan, HD, ass, n, sem_header=True) else "[pl]null[vout]")
     else:
-        g.append(f"[{cur}]subtitles={sub}:force_style='{est['sub']}'[vout]")
+        if alt:   # legenda ASS/subtitles com altura por cena (legenda_y) ou trecho (y_trechos); sem o campo, nada muda (BATCH#3829)
+            sub = srt_com_altura(sub, f"{tmp}/AD{n}_{p}_leg.ass", evs, alt, div)
+        if ass_textos(B, plano, plan, HD, ass, n):
+            g.append(f"[{cur}]subtitles={fpath(sub)}:force_style='{est['sub']}'[vs];[vs]subtitles={fpath(ass)}[vout]")
+        else:
+            g.append(f"[{cur}]subtitles={fpath(sub)}:force_style='{est['sub']}'[vout]")
     trilha = sorted(glob.glob(f"{B}/{AUDIO}/trilha/*.mp3") + glob.glob(f"{B}/{AUDIO}/trilha/*.wav"))
     lufs = cfg.get("audio", {}).get("loudness_lufs", -20)
     if trilha:
@@ -340,7 +405,7 @@ def montar(B, p, n):
             gv = f"volume='{v1:.5f}+({v2 - v1:.5f})*clip((t-{T:.3f})/0.5,0,1)':eval=frame"
         else: gv = f"volume={vol}dB"
         gv += f",volume=0.25:enable='between(t,{ts + 0.04:.3f},{hq + max(tl - 0.03, 0):.3f})'"   # trilha cai ~12 dB no silêncio hook -> hold (a pausa aparece no mix)
-        g.append(f"[{it}:a]{gv},aresample=44100,aformat=channel_layouts=stereo[tr];[aa][tr]amix=inputs=2:duration=first:normalize=0[mx]")
+        g.append(f"[{it}:a]{gv},aresample=44100,aformat=channel_layouts=stereo,atrim=end={total + 0.5:.3f},asplit=2[tr][trm];[aa][tr]amix=inputs=2:duration=first:normalize=0[mx]")
         g.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
     else:
         g.append(f"[aa]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
@@ -349,10 +414,25 @@ def montar(B, p, n):
     out = export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
     vz = os.environ.get("DUMP_VOZ")     # pasta: grava a trilha de VOZ isolada (antes da música/loudnorm) para medir pausas
     extra = ["-map", "[voz]", "-c:a", "pcm_s16le", f"{vz}/voz_AD{n}_{p}.wav"] if vz else []
-    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, *extra, "-map", "[v720]", "-map", "[aout]",
+    # stems para o checklist da Louise (item 4, Frente 4): voz e trilha antes do loudnorm, só no tmp
+    # -t em cada stem: a trilha entra com -stream_loop -1 e o ramo dela não passa pelo amix (duration=first); sem o -t o
+    # stem não acaba nunca (teste de 13/11/2026 na cópia da 4083: 30 GB antes de ser parado)
+    extra += ["-map", "[vzm]", "-t", f"{total + 0.5:.3f}", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", f"{tmp}/stem_voz.wav"]
+    if trilha: extra += ["-map", "[trm]", "-t", f"{total + 0.5:.3f}", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", f"{tmp}/stem_trilha.wav"]
+    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, FCS, sc, *extra, "-map", "[v720]", "-map", "[aout]",
                     *_codec_final(["-c:v", "libx264", "-preset", "medium", "-crf", "20"]), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                     "-movflags", "+faststart", out], check=True)
     _marca_previa(out)
+    try:      # lado do checklist da Louise: voz x trilha pelos stems e posição das camadas de texto (por impressão digital)
+        dg = _digital(out)
+        _grava_lado(B, f"mix_AD{n}_{p}", dg, _mede_mix(f"{tmp}/stem_voz.wav", f"{tmp}/stem_trilha.wav" if trilha else None))
+        if est["pilula"]:
+            _grava_lado(B, f"camadas_AD{n}_{p}", dg, {"estilo_legenda": "pilula",
+                        "camadas": _camadas_pilula(lista, plano.get("estilo", {}).get("legenda", {}).get("y", 0.63), alt)})
+        else:
+            _grava_lado(B, f"camadas_AD{n}_{p}", dg, {"estilo_legenda": plano.get("estilo", {}).get("legenda", {}).get("estilo"), "camadas": []})
+    except Exception as e:
+        print(f"   aviso: não gravei mix/camadas do checklist ({e}); o checklist estima pelo vídeo")
     shutil.rmtree(tmp, ignore_errors=True); tira_export_antigo(B, plano, p, n)
     print(f"   ok {os.path.basename(out)} (hook {HD:.2f}s, {len(plan)} b-rolls{', com trilha' if trilha else ''})")
 

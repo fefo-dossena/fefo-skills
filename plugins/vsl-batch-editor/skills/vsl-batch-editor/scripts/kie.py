@@ -16,6 +16,8 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
   python3 kie.py upload ARQ.png                         # devolve a URL (o Kie apaga em 24 h)
   python3 kie.py sunburst PROMPT.txt SAIDA.png [--ref A.png --ref B.png] [--res 2K] [--ratio 9:16]
         # GPT Image 2.5 Sunburst. Com --ref (até 16), edita ou usa referências; sem --ref, só texto.
+  python3 kie.py seedream PROMPT.txt SAIDA.png [--ref A.png ...] [--res 1K] [--ratio 9:16]
+        # Seedream 5.5 (ByteDance, 09/11/2026), 3,6 cr em 1K. Com --ref (até 10), image-to-image. Imagem, não é o Seedance.
   python3 kie.py nanopro PROMPT.txt SAIDA.png --ref QUADRO.png [--ref B.png] [--res 2K] [--ratio 9:16]
         # Nano Banana Pro (até 8 --ref). Avatar a partir de quadro real de UGC: ver modulos/03_personagens.md.
   python3 kie.py omni PROMPT.txt IMAGEM SAIDA.mp4 --dur 8 [--res 720p]
@@ -51,8 +53,8 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
 
 O taskId sai na tela e fica em SAIDA.task.json assim que a tarefa é criada: se cair a conexão, use `espera`,
 não reenvie (cobra duas vezes). A mídia gerada some em 14 dias: baixar sempre.
-As chaves ficam fora do Drive e do zip; nunca em perfil.json, ficha, nota ou módulo. A impressão (12 caracteres
-do SHA-256) também fica só no Mac, em ~/.vsl-batch-editor/kie_impressoes.json.
+As chaves e a impressão (12 caracteres do SHA-256) moram em @CLIENTES/_CHAVES/ (Fefo, 11/11/2026); o script lê
+~/.vsl-batch-editor/, que tem atalhos para lá (_CHAVES/ligar_chaves.sh). Nunca no zip, perfil.json, ficha, nota ou módulo.
 """
 import hashlib, json, mimetypes, re, os, secrets, sys, time, urllib.parse, urllib.request, urllib.error
 
@@ -64,7 +66,7 @@ TESTE = '--teste' in sys.argv
 
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-IMPRESSOES = os.path.expanduser('~/.vsl-batch-editor/kie_impressoes.json')   # só no Mac, nunca no Drive
+IMPRESSOES = os.path.expanduser('~/.vsl-batch-editor/kie_impressoes.json')   # atalho para @CLIENTES/_CHAVES/
 
 if '--conta' in sys.argv:
     sys.exit('Sem --conta. A conta vem do cliente: --cliente ev|ts, ou o kie.py da pasta do cliente.')
@@ -404,7 +406,7 @@ def _texto(caminho):
 
 
 # Posição da SAIDA entre os args de cada subcomando (args = o que vem depois do nome do subcomando).
-POS_SAIDA = {'sunburst': 1, 'nanopro': 1, 'omni': 2, 'kling3': 2, 'kling4': 1, 'seedance': 1, 'tts': 1,
+POS_SAIDA = {'sunburst': 1, 'nanopro': 1, 'seedream': 1, 'omni': 2, 'kling3': 2, 'kling4': 1, 'seedance': 1, 'tts': 1,
              'suno': 1, 'suno-ref': 2, 'espera': 1}
 BARRADO = re.compile(r'sensitive|moderat|policy|nsfw|inappropriate|prohibit|violat|safety|copyright|'
                      r'celebrit|public figure', re.I)
@@ -556,6 +558,15 @@ def main():
             entrada['input_urls'] = [_sobe(r) for r in refs]
         tipo = 'image-to-image' if refs else 'text-to-image'
         espera(cria(f'gpt-image-2-5-sunburst-{tipo}', entrada, saida), saida)
+    elif a[0] == 'seedream':
+        prompt, saida = _texto(a[1]), a[2]
+        refs = _opcoes(a, '--ref')
+        entrada = {'prompt': prompt, 'aspect_ratio': _opcao(a, '--ratio', '9:16'), 'size': _res(a, 'imagem'),
+                   'output_format': 'png'}
+        if refs:
+            entrada['image_urls'] = [_sobe(r) for r in refs]
+        tipo = 'image-to-image' if refs else 'text-to-image'
+        espera(cria(f'seedream/5-5-{tipo}', entrada, saida), saida)
     elif a[0] == 'nanopro':
         prompt, saida = _texto(a[1]), a[2]
         entrada = {'prompt': prompt, 'aspect_ratio': _opcao(a, '--ratio', '9:16'), 'resolution': _res(a, 'imagem'),
@@ -599,6 +610,10 @@ def main():
     elif a[0] == 'tts':
         texto, saida = _texto(a[1]), a[2]
         voz = _opcao(a, '--voz') or sys.exit('tts pede --voz ID')
+        tag = re.search(r'\[[^\[\]\n]{1,40}\]', texto)
+        if tag:   # Multilingual v2 não entende tag de áudio e lê em voz alta (13/11/2026)
+            sys.exit(f'RECUSADO: o tts do Kie é o Multilingual v2, que leria {tag.group(0)} em voz alta. '
+                     'Tire as tags ou gere no v3/v4 (Trendscale: elevenlabs.py).')
         entrada = {'text': texto, 'voice': voz, 'speed': float(_opcao(a, '--speed', '1'))}
         espera(cria('elevenlabs/text-to-speech-multilingual-v2', entrada, saida), saida)
     elif a[0] == 'suno':

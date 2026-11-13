@@ -50,7 +50,7 @@ def executar(B, acao):
                           f"[{i}:a]atrim={s}:{e},asetpts=PTS-STARTPTS{afade(e - s)}{ganho(f, p)},aresample=44100,aformat=channel_layouts=stereo[a{n}]"); n += 1
         fc.append("".join(f"[v{j}][a{j}]" for j in range(n)) + f"concat=n={n}:v=1:a=1[v][a]")
         sc = previa(B, p) + ".fc.txt"; open(sc, "w").write(";".join(fc))
-        subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, "-filter_complex_script", sc, "-map", "[v]", "-map", "[a]",
+        subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, FCS, sc, "-map", "[v]", "-map", "[a]",
                         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-b:a", "160k", previa(B, p)], check=True)
         os.remove(sc)
     elif k == "transcrever_hold":

@@ -13,7 +13,7 @@ HN = f"{FONTES}/HelveticaNeue.ttc"          # 10 = Medium, 1 = Bold
 PADRAO = {
     "avatar": {"quadro": [0, 285, 1080, 1350], "crop_y": 0.25, "punch_in": [1.0, 1.12], "vinheta": True},
     "broll": {"cartao": [43, 460, 994, 1000], "cartao_borda": 3, "inset": [551, 609, 454, 454], "inset_borda": 8},
-    "legenda": {"y": 1335, "tamanho": 74, "caixa_alta": True},
+    "legenda": {"y": 1335, "caixa_alta": False},     # pílula padrão (_FLUXO/scripts/pilula.py); y = centro em px
     "hook_banner": {"texto": "", "y": 1065, "tamanho": 44, "largura_max": 900},
     "cta": {"cena": None, "titulo": "", "rodape": ""},
 }
@@ -115,7 +115,7 @@ def cta_packshot_pngs(titulo, marca, rodape, foto, pre, topo=1290):
 # ---------------------------------------------------------------- legenda palavra por vez
 def ass_palavras(palavras, out, est, fim=None):
     """palavras = [(texto, s, e)] já na linha do tempo do AD."""
-    L = est["legenda"]; y, tam = L["y"], L["tamanho"]
+    L = est["legenda"]; y, tam = L["y"], L.get("tamanho", 74)      # .ass só para o QC: o vídeo usa a pílula
     cab = ("[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\n\n[V4+ Styles]\n"
            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
            f"Style: G,Helvetica Neue Medium,{tam},&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,0,0,0,0,100,100,0,0,1,5,0,5,0,0,0,1\n"
@@ -224,9 +224,17 @@ def montar(F, B, p, n):
     # legenda palavra por vez (texto do roteiro, tempos do whisper)
     hk = F.alinhar(json.load(open(F.L(B, f"palavras_H{n}.json"))), f["texto"])
     hd = F.alinhar(json.load(open(F.L(B, f"palavras_hold_{p}.json"))), F.texto_hold(plano, p))
-    ass = f"{tmp}/AD{n}_{p}.ass"; ass_palavras(hk + [(w, s + HD, e + HD) for w, s, e in hd], ass, est, fim_leg)
+    pal = hk + [(w, s + HD, e + HD) for w, s, e in hd]
+    ass = f"{tmp}/AD{n}_{p}.ass"; ass_palavras(pal, ass, est, fim_leg)      # o .ass fica para o QC (texto e tempos)
     shutil.copy(ass, f"{B}/08_auto/legendas/AD{n}_{p}.ass")
-    g.append(f"[{cur}]subtitles={ass}:fontsdir={FONTES}[vout]")
+    # legenda SEMPRE pílula TikTok Sans Medium (regra do Fefo, 13/11/2026): frases curtas em pílula no lugar da palavra
+    # por vez com brilho; altura do layout (estilo.legenda.y em px) continua valendo
+    import pilula
+    L = est["legenda"]; cx = (lambda t: t.upper()) if L.get("caixa_alta") else (lambda t: t)
+    evs = [(a, b, cx(t)) for a, b, t in pilula.agrupar(pal, fim=fim_leg)]
+    lista = pilula.gerar(evs, None, 0, total, f"{tmp}/pilula_{n}_{p}", {"estilo": {"legenda": {"y": L["y"]}}})
+    j = ins.count("-i"); ins += ["-f", "concat", "-safe", "0", "-i", lista]
+    g.append(f"[{j}:v]fps=30,format=rgba[cap];[{cur}][cap]overlay=0:0:eof_action=pass:format=auto[vout]")
     # áudio
     import glob
     trilha = sorted(glob.glob(f"{B}/02_audio/trilha/*.mp3") + glob.glob(f"{B}/02_audio/trilha/*.wav"))

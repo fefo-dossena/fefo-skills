@@ -18,6 +18,19 @@ Várias entregas seguidas: uma de cada vez, porque disputam o navegador do Notio
 **O OK tem de ser escrito pelo Fefo dentro desta thread/sessão:** OK dado no chat do projeto não libera a ação aqui.
 Peça um OK único que cubra tudo o que falta ("pode entregar" = Frame.io + Ready for view + Notion + dia.json).
 
+## Trava: checklist da Louise verde, sem dispensa (13/11/2026)
+Antes de subir qualquer arquivo (batch nova e revisão), no MP4 **final** (sem `.PREVIA.txt`):
+```
+py -X utf8 "@CLIENTES/_FLUXO/scripts/fluxo.py" checar "<batch>"                       # roda os 6 itens e grava 08_auto/checklist_V<k>.json
+py -X utf8 "@CLIENTES/_FLUXO/scripts/checagens/checklist.py" entrega "<batch>"        # 0 = pode entregar
+```
+- O `frameio.py nova` e `versao` chamam a mesma trava e **recusam** vídeo sem checklist verde para aquele arquivo
+  (mesma impressão digital) ou de prévia. O "pode entregar" e a dispensa do Fefo não valem para estes itens: item
+  vermelho se corrige e roda de novo.
+- Revisão: o item 6 só fica verde com `00_roteiro/revisao_V<k>.md` todo `[x]` e com prova (`10_revisao.md`, passo 1b).
+  Depois de subir, gere o texto das respostas (`notas_revisao.py respostas "<batch>" --versao <k>`) e poste no
+  Frame.io só com ok do Fefo.
+
 ## Onde fica no Frame.io
 Conta "Umut's Account" → projeto **Hike Balance Brand** → pasta de quem usa → `BATCH_<n>/`. Nos comandos abaixo,
 `<pasta>` = `frameio.pasta` do perfil (Fefo: `Hike Balance Brand/FEFO`).
@@ -33,6 +46,8 @@ python3 frameio.py nova "<pasta>/BATCH_<n>" <arquivos.mp4>           # raiz → 
 python3 frameio.py links "<pasta>/BATCH_<n>"                     # 1 link f.io público por marca
 python3 frameio.py comentarios "<pasta>/BATCH_<n>"               # comentários de revisão
 ```
+**No PC Windows:** troque `python3 frameio.py` por `py ~/.vsl-batch-editor/frameio_ev.py` (login do time,
+o da conta de time abaixo) e rode com `PYTHONIOENCODING=utf-8`. Nunca `frameio_fefo.py` (conta pessoal) para a EV.
 Os ADs sobem com o nome do card: `<título exato do card> - <Marca> - AD<k>.mp4` (regra do Fefo, 23/10/2026). Antes de
 subir, confira os nomes contra o título do card; algum ainda em `BATCH<n>_AD<k>_<p>.mp4` → `python3 fluxo.py renomear
 "<batch>"`. O `links` separa as marcas pela última marca do nome (o título pode citar "(VisioVance)" antes).
@@ -52,11 +67,20 @@ Login: o acesso fica em `~/.frameio/tokens.json` (no Mac de cada pessoa) e renov
 localhost (Cmd+L, Cmd+C) — o script lê da área de transferência. Nunca peça para colar o código no chat. App da Adobe:
 projeto do Developer Console do Fefo com Frame.io API, "OAuth Single-Page App", redirect `https://localhost/callback`;
 o e-mail Adobe de cada pessoa precisa estar em **Beta users** (o Fefo adiciona; `modulos/00_configurar.md`).
+**Conta de time (Umut, 12/11/2026):** a Empire Vision tem limite de 15 contas no Frame.io e passou a usar uma conta
+compartilhada por várias pessoas. O Umut tirou o acesso da Adobe pessoal do Fefo e pôs o e-mail do time.
+O login do Frame.io da EV é o **e-mail do time** (está no `frameio_ev.py`; acesso passado pela Louise; convidado no Hike Balance Brand,
+pasta `FEFO`). No PC: `py ~/.vsl-batch-editor/frameio_ev.py` (token `~/.frameio/EV_empire_vision_tokens.json`). No Mac,
+o `tokens.json` tem de ser refeito com esse login. A conta pessoal do Fefo (`frameio_fefo.py`, projeto "Empire Vision")
+foi só um desvio de 12/11: não usar para a EV.
+Uso pela API não conta como atividade: no painel de usuários do Umut (12/11), a conta pessoal do Fefo aparecia com "Last active
+15 days ago", embora tenha entregado pelo `frameio.py` em 09, 10 e 11/11. Foi esse o motivo da remoção. O e-mail do time
+entra como convidado do projeto (`/invited_projects`), não como um dos 15 usuários da conta.
 Armadilhas: o firewall do Frame.io dá 403 para o User-Agent padrão do Python (o script manda o próprio); o projeto é
 de convidado → os projetos vêm de `/invited_projects`; arquivo 85 MB+ não passa pelo upload do Claude in Chrome (10 MB).
 
 ## Google Drive
-Conector do Google Drive na conta do perfil (`drive.conta`; Fefo: **fefo.dossena@gmail.com**). Raiz fora do Drive
+Conector do Google Drive na conta do perfil (`drive.conta` do `perfil.json`). Raiz fora do Drive
 (`drive.conta` vazio) = a mensagem vai sem o bloco do Google Drive. A raiz (no Fefo, a pasta `@EMPIRE VISION`) está como "qualquer pessoa
 com o link → Leitor" (tudo dentro herda). Link = a pasta de exports da batch
 (`09_export/`; nas batches antigas `View/`, `view/`, `export/`), com a versão atual na raiz e as anteriores em `_old/V<k>/`

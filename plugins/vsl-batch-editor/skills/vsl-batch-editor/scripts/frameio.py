@@ -12,10 +12,15 @@ Uso:
         # padrão de pastas: o que está solto na pasta da batch vai para V<n> e os novos entram na raiz
   python3 frameio.py links "Hike Balance Brand/FEFO/BATCH_1971"   # 1 link f.io público por marca (vídeos da raiz)
   python3 frameio.py comentarios "Hike Balance Brand/FEFO" [filtro_nome]
+  python3 frameio.py comentarios "Hike Balance Brand/FEFO/BATCH_3858" --revisao <pasta da batch> [--versao 5]
+        # notas dos vídeos atuais -> <batch>/00_roteiro/revisao_V<k>.md (item 6 do checklist da Louise)
+
+Trava (Frente 4, 13/11/2026): `versao` e `nova` recusam vídeo sem checklist da Louise verde para aquele arquivo
+(<auto>/checklist_V<k>.json, mesma impressão digital) e vídeo de prévia (.PREVIA.txt). Dispensa do Fefo não vale.
 
 O acesso fica em ~/.frameio/tokens.json (só no seu Mac) e é renovado sozinho.
 """
-import base64, hashlib, json, os, secrets, sys, time, urllib.parse, urllib.request, urllib.error, webbrowser
+import base64, hashlib, json, os, re, secrets, sys, time, urllib.parse, urllib.request, urllib.error, webbrowser
 
 CLIENT_ID = '5eabeba7800e46eda63ad4b4a14ba79f'       # credencial "OAuth Single-Page App" (não é segredo)
 REDIRECT = 'https://localhost/callback'
@@ -180,7 +185,39 @@ def cmd_ls(caminho):
     for pre, _, f in arvore(aid, fid):
         print(f"{f['type']:<13} {pre}{f['name']}")
 
+def _checklist():
+    """checklist.py do núcleo (@CLIENTES/_FLUXO/scripts/checagens); None fora da pasta do Fefo (skill dos colegas)."""
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    for c in (os.path.join(aqui, '..', '..', '..', '..', '_FLUXO', 'scripts', 'checagens'), os.path.join(aqui, 'checagens')):
+        if os.path.exists(os.path.join(c, 'checklist.py')):
+            import importlib.util as iu
+            spec = iu.spec_from_file_location('checklist_fio', os.path.join(c, 'checklist.py'))
+            m = iu.module_from_spec(spec); spec.loader.exec_module(m); return m
+    return None
+
+
+def trava_checklist(arqs):
+    """Checklist da Louise (Frente 4, 13/11/2026): não sobe vídeo sem checklist verde para aquele arquivo, nem prévia.
+    Dispensa do Fefo não vale. Cliente com o checklist desligado na ficha: passa."""
+    ck = _checklist()
+    if not ck:
+        return
+    ruins = []
+    for a in arqs:
+        if os.path.exists(os.path.splitext(a)[0] + '.PREVIA.txt') or os.path.exists(a + '.PREVIA.txt'):
+            ruins.append(f'{os.path.basename(a)}: é PRÉVIA; renderize o final e rode o checklist nele'); continue
+        e = ck.estado_de(a)
+        if not e.get('ativo') or e.get('verde'):
+            continue
+        falhas = '; '.join(f"item {k}: {' | '.join(v)}" for k, v in (e.get('falhas') or {}).items())
+        ruins.append(f"{os.path.basename(a)}: {e.get('motivo') or 'checklist vermelho'}" + (f' ({falhas[:300]})' if falhas else ''))
+    if ruins:
+        sys.exit('ENTREGA RECUSADA pelo checklist da Louise (sem dispensa):\n  ' + '\n  '.join(ruins) +
+                 '\nCorrija e rode `fluxo.py checar <batch>` no arquivo final (ou `checklist.py entrega <batch>`).')
+
+
 def cmd_versao(caminho, arqs, teste):
+    trava_checklist(arqs)
     aid, fid = resolve(caminho)
     idx = {}
     for pre, pai, f in arvore(aid, fid):
@@ -214,6 +251,7 @@ def cmd_versao(caminho, arqs, teste):
 def cmd_nova(caminho, arqs, teste):
     """Padrão do Fefo: os arquivos soltos na pasta da batch vão para V<n> (próximo número) e os novos entram na raiz."""
     import re
+    trava_checklist(arqs)
     aid, fid = resolve(caminho)
     filhos = paginado(f'/accounts/{aid}/folders/{fid}/children')
     nums = [int(m.group(1)) for f in filhos if f['type'] == 'folder' for m in [re.fullmatch(r'V(\d+)', f['name'].strip(), re.I)] if m]
@@ -256,16 +294,36 @@ def cmd_links(caminho):
         time.sleep(7)   # limite de 10 shares/min
     return links
 
-def cmd_comentarios(caminho, filtro=''):
+def cmd_comentarios(caminho, filtro='', batch=None, versao=None):
+    """Lista os comentários. Com --revisao <batch>: só os vídeos atuais (raiz da pasta da batch, sem V<n>/) e grava a
+    lista de notas <roteiro>/revisao_V<k>.md (item 6 do checklist da Louise) pelo notas_revisao.py do núcleo."""
     aid, fid = resolve(caminho)
+    coms = []
     for pre, _, f in arvore(aid, fid):
         if f['type'] != 'file' or filtro.lower() not in f['name'].lower():
+            continue
+        if batch and re.match(r'V\d+/', pre):          # versão antiga já respondida
             continue
         cs = paginado(f"/accounts/{aid}/files/{f['id']}/comments")
         if cs:
             print(f"\n== {pre}{f['name']}")
             for c in cs:
                 print(f"  [{c.get('timestamp')}] {c.get('text')}")
+                coms.append({'arquivo': f['name'], 'quadro': c.get('timestamp'), 'texto': c.get('text') or '',
+                             'autor': (c.get('owner') or {}).get('name') if isinstance(c.get('owner'), dict) else None})
+    if batch:
+        import subprocess, tempfile
+        ck = _checklist()
+        if not ck:
+            sys.exit('notas_revisao.py do núcleo não encontrado')
+        if not versao:
+            P = ck.pastas_de(ck.ficha_de(batch))
+            versao = ck.versao_de(batch, os.path.join(batch, P['export'], 'x.mp4'), P)
+        j = os.path.join(tempfile.gettempdir(), 'comentarios_frameio.json')
+        json.dump(coms, open(j, 'w', encoding='utf-8'), ensure_ascii=False)
+        subprocess.run([sys.executable, '-X', 'utf8', os.path.join(os.path.dirname(ck.__file__), 'notas_revisao.py'), 'gerar',
+                        batch, '--versao', str(versao), '--comentarios', j], check=False)
+        os.remove(j)
 
 
 if __name__ == '__main__':
@@ -277,5 +335,10 @@ if __name__ == '__main__':
     elif a[0] == 'versao': cmd_versao(a[1], [x for x in a[2:] if x != '--teste'], '--teste' in a)
     elif a[0] == 'nova': cmd_nova(a[1], [x for x in a[2:] if x != '--teste'], '--teste' in a)
     elif a[0] == 'links': cmd_links(a[1])
-    elif a[0] == 'comentarios': cmd_comentarios(a[1], a[2] if len(a) > 2 else '')
+    elif a[0] == 'comentarios':
+        import re
+        rv = a[a.index('--revisao') + 1] if '--revisao' in a else None
+        vs = a[a.index('--versao') + 1] if '--versao' in a else None
+        resto = [x for i, x in enumerate(a[1:], 1) if x not in ('--revisao', '--versao') and a[i - 1] not in ('--revisao', '--versao')]
+        cmd_comentarios(resto[0], resto[1] if len(resto) > 1 else '', rv, vs)
     else: sys.exit(__doc__)

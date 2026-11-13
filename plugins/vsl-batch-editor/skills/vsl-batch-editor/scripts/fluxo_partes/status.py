@@ -114,7 +114,7 @@ def cmd_status(a):
     else: print("• Perfil: falta — rodar o módulo configurar"); prox = "configurar"
     plano, _ = carregar(B); e = plano.get("estilo")
     if e: print(f"✔ Estilo do ad (de {e.get('fonte', '01_refs')}): avatar {'P&B' if e.get('avatar', {}).get('pb') else 'colorido'}, "
-                f"b-roll {e.get('broll', {}).get('layout', '?')}, legenda {e.get('legenda', {}).get('estilo', '?')}")
+                f"b-roll {e.get('broll', {}).get('layout', '?')}, legenda {e.get('legenda', {}).get('estilo', 'pilula')}")
     else: print("• Estilo do ad: falta — rodar o módulo referencia (analisa 01_refs/ desta batch)"); prox = prox or "referencia"
     for et in ORDEM:
         g = grupos.get(et, []); ok = sum(1 for s, *_ in g if s == "ok")

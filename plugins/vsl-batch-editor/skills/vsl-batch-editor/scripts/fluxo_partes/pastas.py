@@ -105,7 +105,7 @@ def cmd_fazer_pastas(a):
     esp = pj_hooks_esperados(pj_config(B)); faltam = max(0, esp - len(atuais)) if esp else 0
     if not (atuais and not velhos and not faltam) or a.forcar:
         motivo = "sem export" if not atuais else (f"{len(velhos)} export(s) desatualizado(s)" if velhos else f"faltam {faltam} export(s)" if faltam else "forçado")
-        cmd = ["python3", mont]
+        cmd = [sys.executable, mont]                     # o mesmo Python que roda o fluxo (Mac e Windows; "python3" falha no PC)
         print(f"→ montar ({motivo}): {' '.join(cmd)}   (cwd {B})")
         if a.teste: print("  --teste: não rodei."); return
         r = subprocess.run(cmd, cwd=B)
@@ -114,7 +114,7 @@ def cmd_fazer_pastas(a):
 
 
 # ---------------------------------------------------------------- checar
-PJ_TODAS = ["freeze", "lascas", "ritmo", "quadros", "qc", "lint"]
+PJ_TODAS = ["freeze", "lascas", "ritmo", "quadros", "qc", "lint", "checklist"]   # checklist: Frente 4 (13/11/2026)
 
 def pj_uso(msg):
     """Erro de uso ou de execução do checar: mensagem no stderr e código 2 (0 = passou, 1 = checagem falhou)."""
@@ -139,10 +139,12 @@ def pj_env():
     """Ambiente dos scripts de checagem: o PYTHONPATH enxerga os módulos do cliente (ex. alinha_palavras da Trendscale)."""
     env = dict(os.environ); extra = [p for p in sys.path if os.path.isdir(p)]
     env["PYTHONPATH"] = os.pathsep.join(extra + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+    env["PYTHONIOENCODING"] = "utf-8"   # Windows: sem isso o filho escreve em cp1252 e o "até" do lascas não casava (BATCH#3858, 12/11)
+    env["FLUXO_CLIENTE_ID"] = CLIENTE    # checklist.py: cliente certo mesmo numa cópia fora da pasta do cliente
     return env
 
 def pj_roda(cmd, timeout=None):
-    r = subprocess.run(cmd, capture_output=True, text=True, env=pj_env(), timeout=timeout)
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", env=pj_env(), timeout=timeout)
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
 def pj_freeze(mp4):
@@ -210,8 +212,7 @@ def pj_qc(B, mp4, loc):
     ass = pj_acha_ass(B, mp4)
     if not ass: return None, f"sem .ass do export em {AUTO}/ nem ao lado do vídeo (qc_export precisa da legenda)"
     saida = os.path.join(tempfile.gettempdir(), "qc_" + re.sub(r"[^A-Za-z0-9]+", "_", os.path.splitext(os.path.basename(mp4))[0]))
-    fila = os.path.expanduser("~/bin/fila.py" if os.name == "nt" else "~/bin/fila")     # no PC Windows a fila é um .py
-    cmd = (([sys.executable] if os.name == "nt" else []) + [fila] if os.path.exists(fila) else []) + [sys.executable, s, loc, ass, "--saida", saida]
+    fila = os.path.expanduser("~/bin/fila"); cmd = ([fila] if os.path.exists(fila) else []) + [sys.executable, s, loc, ass, "--saida", saida]
     voz = os.path.join(os.path.dirname(ass), "dialogo16k.wav")
     if os.path.exists(voz): cmd += ["--voz", voz]
     rc, texto = pj_roda(cmd); linhas = [l.strip() for l in texto.strip().splitlines() if l.strip()]
@@ -229,10 +230,40 @@ def pj_local(mp4, pasta):
 
 PJ_FN = {"lascas": pj_lascas, "ritmo": pj_ritmo, "quadros": pj_quadros, "qc": pj_qc}
 
+def pj_checklist_ativo():
+    return bool(FICHA.get("checklist", {}).get("ativo")) or os.environ.get("FLUXO_CHECKLIST_FORCAR") == "1"
+
+def pj_checklist(B, videos):
+    """Checklist da Louise (Frente 4, 13/11/2026): checagens/checklist.py uma vez para todos os vídeos, pela fila.
+    Grava <auto>/checklist_V<k>.json. Devolve {video: {"ok": bool|"erro", "motivo": str, "itens": {...}}}."""
+    s = pj_script_checagem("checklist")
+    if not s: return {v: {"ok": "erro", "motivo": "checklist.py não encontrado"} for v in videos}
+    # sem `fila` aqui: o checar já costuma rodar dentro da fila pesada, e o filho na mesma fila esperaria a vaga que o
+    # pai ocupa (trava; 13/11/2026, M8WK3B13). Quem chama o checar decide a fila, como nas outras checagens.
+    rc, saida = pj_roda([sys.executable, "-X", "utf8", s, B] + videos)
+    print("\n".join("  │ " + l for l in saida.rstrip().splitlines() if l.strip()), flush=True)
+    if rc not in (0, 1):
+        return {v: {"ok": "erro", "motivo": "checklist.py falhou (código %s)" % rc} for v in videos}
+    out = {}
+    os.environ["FLUXO_CLIENTE_ID"] = CLIENTE
+    import importlib.util as _iu
+    spec = _iu.spec_from_file_location("checklist_mod", s); cm = _iu.module_from_spec(spec); spec.loader.exec_module(cm)
+    for v in videos:
+        try:
+            e = cm.estado_de(v)
+        except Exception as ex:
+            out[v] = {"ok": "erro", "motivo": f"não li o estado do checklist: {ex}"}; continue
+        verm = sorted(e.get("falhas", {}), key=int)
+        out[v] = {"ok": bool(e.get("verde")), "versao": e.get("versao"), "itens": e.get("itens", {}),
+                  "motivo": (f"{e.get('versao')}: 6 itens verdes" if e.get("verde") else
+                             (f"{e.get('versao')}: vermelho no(s) item(ns) {', '.join(verm)}" if verm else e.get("motivo", "sem checklist")))}
+    return out
+
 def cmd_checar(a):
     B = a.batch.rstrip("/")
     if not os.path.isdir(B): pj_uso(f"Pasta não existe: {B}")
     ficha = list(CHECAGENS) or ["freeze"]
+    if pj_checklist_ativo() and "checklist" not in ficha: ficha.append("checklist")   # ligado na ficha: roda sempre (sem dispensa)
     so = [x.strip() for x in a.so.split(",") if x.strip()] if a.so else None
     if so:
         ruim = [x for x in so if x not in PJ_TODAS]
@@ -264,13 +295,20 @@ def cmd_checar(a):
     for v in videos:
         nome = os.path.relpath(v, B) if v.startswith(B + os.sep) else v
         print(f"\n{nome}", flush=True); linha = {}; loc = pj_local(v, tmp)
-        for c in [x for x in ficha if x != "lint"]:
+        for c in [x for x in ficha if x not in ("lint", "checklist")]:
             ok, motivo = (pj_freeze(loc)[:2] if c == "freeze" else PJ_FN[c](B, v, loc))
             print(f"  {marca(ok)} {c:8s} {motivo}", flush=True)
             linha[c] = {"ok": ok, "motivo": motivo}; conta(ok)
         resultado.append({"video": v, "checagens": linha})
         if loc != v: os.remove(loc)
     shutil.rmtree(tmp, ignore_errors=True)
+    if "checklist" in ficha and videos:            # checklist da Louise: 6 itens por vídeo, json por versão
+        print(f"\nchecklist da Louise (6 itens, sem dispensa)", flush=True)
+        ck = pj_checklist(B, videos)
+        for r in resultado:
+            x = ck.get(r["video"], {"ok": "erro", "motivo": "sem resultado"})
+            r["checagens"]["checklist"] = x; conta(x["ok"])
+            print(f"  {marca(x['ok'])} {'checklist':8s} {os.path.basename(r['video'])[-40:]}: {x['motivo']}", flush=True)
     print(f"\nResumo: {len(videos)} vídeo(s), {falhas} falha(s)" + (f", {erros} erro(s) de execução (!)" if erros else "") + (f", {puladas} checagem(ns) puladas (-)" if puladas else "")
           + (". Tudo certo; assistir no celular do começo ao fim ainda é do Fefo/revisor." if not (falhas or erros) else ""))
     if a.json:

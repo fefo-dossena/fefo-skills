@@ -3,8 +3,9 @@
 O AD inteiro é UMA fala contínua por marca (fala tipo "take", ex. T1_neurobella.mp4), sem b-roll e sem cortes no meio:
   corte    = só o silêncio do início e do fim
   legenda  = transcrição do take -> AD<n>_<p>.srt (grafia do roteiro)
-  montagem = take em tela cheia + título fixo no topo (PNG) + legenda em caixa (PNG por bloco) + loudnorm (+ trilha)
-Estilo em plano.json -> estilo.titulo / estilo.legenda (estilo "caixa_laranja").
+  montagem = take em tela cheia + título fixo no topo (PNG) + legenda em pílula (PNG por bloco) + loudnorm (+ trilha)
+Estilo em plano.json -> estilo.titulo; legenda SEMPRE pílula TikTok Sans Medium (_FLUXO/scripts/pilula.py, regra do Fefo
+13/11/2026; era "caixa_laranja"), estilo.legenda.y muda só a altura.
 """
 import glob, json, os, shutil, subprocess
 
@@ -104,22 +105,11 @@ def titulo_png(plano, p, out):
 
 def F_marca(plano, p): return plano.get("marca_nome", {}).get(p, p.capitalize())
 
-def legenda_png(txt, out, cor=(240, 130, 30, 225)):
-    """Caixa laranja arredondada, texto branco com contorno escuro fino, até 2 linhas (estilo do ref)."""
-    from PIL import Image, ImageDraw
-    f = _font(FL, 58, FL_DEMI); tmp = ImageDraw.Draw(Image.new("RGBA", (10, 10))); maxw = W - 200
-    linhas, cur = [], ""
-    for w in txt.split():
-        if cur and tmp.textlength(cur + " " + w, font=f) > maxw: linhas.append(cur); cur = w
-        else: cur = (cur + " " + w).strip()
-    linhas.append(cur)
-    lh = 70; bw = W - 120; bh = lh * len(linhas) + 46
-    im = Image.new("RGBA", (W, bh), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
-    d.rounded_rectangle((60, 0, 60 + bw, bh), radius=22, fill=cor)
-    for i, l in enumerate(linhas):
-        tw = d.textlength(l, font=f)
-        d.text(((W - tw) / 2, 20 + i * lh), l, font=f, fill="white", stroke_width=2, stroke_fill=(60, 30, 0))
-    im.save(out)
+def legenda_png(txt, out, y=None):
+    """Legenda SEMPRE pílula TikTok Sans Medium (regra do Fefo, 13/11/2026; era a caixa laranja do ref): PNG do tamanho
+    da tela, sobreposto em 0:0. y = centro do bloco (fração da altura ou px); sem y, a altura do PSD de referência."""
+    import pilula
+    pilula.quadro(txt, cfg_leg={} if y is None else {"y": y}, tela=(W, H)).save(out)
 
 # ---------------------------------------------------------------- montagem
 def montar(F, B, p, n):
@@ -132,10 +122,10 @@ def montar(F, B, p, n):
     ins = ["-ss", str(a), "-to", str(b), "-i", mp4, "-loop", "1", "-i", f"{tmp}/titulo.png"]
     g = [f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps=30,setsar=1[v0]",
          "[1:v]format=rgba[tt]", "[v0][tt]overlay=0:150:shortest=1[c0]"]
-    cur = "c0"; yleg = int(H * 0.745)
+    cur = "c0"; yleg = plano.get("estilo", {}).get("legenda", {}).get("y")     # centro da pílula; sem campo, o do PSD
     for k, (s, e, txt) in enumerate(blocos):
-        png = f"{tmp}/leg{k:02d}.png"; legenda_png(txt, png); ins += ["-i", png]; j = k + 2
-        g.append(f"[{cur}][{j}:v]overlay=0:{yleg}:enable='between(t,{s:.3f},{e:.3f})'[c{k+1}]"); cur = f"c{k+1}"
+        png = f"{tmp}/leg{k:02d}.png"; legenda_png(txt, png, yleg); ins += ["-i", png]; j = k + 2
+        g.append(f"[{cur}][{j}:v]overlay=0:0:enable='between(t,{s:.3f},{e:.3f})'[c{k+1}]"); cur = f"c{k+1}"
     g.append(f"[{cur}]format=yuv420p[vout]")
     lufs = cfg.get("audio", {}).get("loudness_lufs", -20); tr = trilhas(B)
     if tr:

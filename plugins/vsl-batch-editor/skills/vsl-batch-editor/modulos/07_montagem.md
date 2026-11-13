@@ -43,7 +43,8 @@
    Buraco < 0,5 s entre duas cenas é fechado (senão o avatar "pisca" 1–2 quadros); ≥ 0,5 s = avatar de propósito.
    `callout` de cena sai no meio da tela; em cena de frasco ele cobre o nome no rótulo → `callout_y` (topo do texto em px
    de 1920, ex. 330 = acima da tampa; BATCH#3222).
-   Legenda `pilula` (caixa arredondada por linha) sai de `pilula.py` como PNGs; `legenda_y` por cena desvia de rótulo/rosto.
+   **Legenda SEMPRE TikTok Sans Medium em pílula** (Fefo, 13/11/2026, EV e TS: "padronizar o estilo de legenda em TODAS AS TAREFAS"): texto preto, pílula branca de ponta redonda, nas proporções do PSD `@CLIENTES/_FLUXO/legenda/EXEMPLO LEGENDA.psd`. Desenho único em `@CLIENTES/_FLUXO/scripts/pilula.py`; regra completa no `@CLIENTES/_FLUXO/LEIA-ME.md`. O `montar` recusa outro estilo no plano (job antigo em revisão: `estilo.legenda.manter_antigo`, só com ok do Fefo).
+   A pílula sai como PNGs; corpo, cor e fonte não mudam pelo plano. `legenda_y` por cena desvia de rótulo/rosto. **Altura padrão 0,63 e nunca abaixo de 0,65** (Fefo, 13/11/2026, regra fixa no `SKILL.md`): desvio só para cima.
    Trecho de avatar sem cena (ex.: placa na mão) → `estilo.legenda.y_trechos` [{de, ate, y}] pelo texto da legenda. Com SRT de
    1 linha, `quebra` ≥ maior linha (a pílula não pode re-quebrar "Nobel / Prize").
    Banner/sticker com alfa (.mov 1080x1920, em loop) por cima do vídeo: `estilo.overlays` = [{"arquivo": "06_elementos/...mov",
@@ -73,6 +74,7 @@ Mac no quadro do clipe). Corrija no `plano.json` (`dur_max`, avatar entre os 3D,
 de novo até sair 0. Aviso (`!`) não trava: é o que o script não conseguiu ler. Versão já exportada:
 `lint_plano.py <batch> --export <AD.mp4>` (lê o vídeo e casa cada trecho com o clipe de origem; ~1,5 min por AD).
 O pedido ao revisor roda `fluxo.py checar <batch>` (freeze, lascas, ritmo e lint, pela ficha) e recusa com falha.
+**Checklist da Louise (13/11/2026, sem dispensa):** o `checar` também roda os 6 itens em cada AD (`@CLIENTES/_FLUXO/scripts/checagens/checklist.py`) e grava `08_auto/checklist_V<k>.json`: 1 texto no 4:5 e legenda com centro até 0,65 (OCR a 2 fps + camadas do montar); 2 legenda na lista fechada (pílula; outra só com `estilo.legenda.pedido_brief`); 3 Whisper no AD inteiro contra o plano (palavra trocada, faltando, repetida, fim cortado, marca, pausa > 0,45 s); 4 trilha ≥ 15 dB abaixo da voz (falha < 12; o montar grava `08_auto/mix_AD<n>_<p>.json` pelos stems) e −20 LUFS; 5 plano parado, tremido ou borrado; 6 notas da revisão. Item vermelho: o revisor não recebe o pedido, a sala não aprova e o `frameio.py` não sobe. `--sem-checagens` e `dispensa_V<k>.txt` não valem para estes itens. Rodar só ele: `fluxo.py checar <batch> --so checklist` (~1 min por minuto de vídeo, pela fila).
 - Prancha `ffmpeg -i AD.mp4 -vf "fps=1/6,scale=180:-1,tile=8x2" s.jpg` (prancha com fps+tile pode mostrar quadro preto
   falso — conferir com `-ss`); loudness `-af ebur128`.
 - Emendas internas de voz < −50 dB; respiro hook → hold ≥ 0,2 s; ritmo de cada fala ~3,3 pal/s.

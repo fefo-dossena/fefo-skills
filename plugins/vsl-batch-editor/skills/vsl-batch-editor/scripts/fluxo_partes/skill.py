@@ -6,6 +6,7 @@ FLUXO = globals().get("FLUXO_CLIENTE") or os.path.dirname(os.path.dirname(os.pat
 PERFIL = f"{FLUXO}/perfil.json"
 QUEM = os.path.expanduser("~/.vsl-batch-editor/raiz")                    # raiz das batches neste Mac
 REPO_SKILL = os.path.expanduser("~/repos/fefo-skills")                   # repositório do plugin, fora do Drive
+REPO_SKILL_URL = "https://github.com/fefo-dossena/fefo-skills.git"     # sem REPO_SKILL, o publicar clona em pasta temporária
 
 def carregar_perfil():
     return json.load(open(PERFIL)) if os.path.exists(PERFIL) else None
@@ -24,28 +25,39 @@ PASTAS_BATCH = ("00_roteiro", "01_refs", "02_audio/trilha", "02_audio/neurobella
                 "08_auto", "09_export/neurobella", "09_export/visiovance")
 
 def arvore(base):
+    # caminhos sempre com "/": no Windows o os.walk devolve "\" e os filtros de itens_da_skill (monitor/, troca dos
+    # atalhos pelo núcleo, fluxo_partes/) falhavam, mandando dados do monitor e atalhos quebrados ao GitHub (13/11/2026)
+    base = base.replace("\\", "/")
     if os.path.isfile(base): yield base; return
     for raiz, dirs, arqs in os.walk(base):
         dirs[:] = [x for x in dirs if x != "__pycache__"]
         for f in arqs:
-            if f != ".DS_Store": yield os.path.join(raiz, f)
+            if f not in (".DS_Store", "desktop.ini"): yield os.path.join(raiz, f).replace("\\", "/")
 
 def itens_da_skill():
     """(origem, caminho na skill) de tudo que sai com a skill, no zip e no plugin."""
-    R = os.path.dirname(FLUXO)
-    itens = [(s, os.path.relpath(s, FLUXO)) for item in DA_SKILL for s in arvore(f"{FLUXO}/{item}")
-             if not s.startswith(f"{FLUXO}/scripts/monitor/") or os.path.basename(s) in MONITOR_NA_SKILL]
+    F = FLUXO.replace("\\", "/"); R = os.path.dirname(F)                   # "/" também no Windows (ver arvore)
+    rel = lambda p, b: os.path.relpath(p, b).replace("\\", "/")
+    itens = [(s, rel(s, F)) for item in DA_SKILL for s in arvore(f"{F}/{item}")
+             if not s.startswith(f"{F}/scripts/monitor/") or os.path.basename(s) in MONITOR_NA_SKILL]
     # Núcleo comum (@CLIENTES/_FLUXO, 09/11/2026): scripts/kie.py, scripts/fluxo.py, scripts/lascas.py e scripts/ritmo.py
     # daqui são só atalhos. Na skill vão os do núcleo (kie.py, fluxo.py + fluxo_partes/, checagens) com a ficha deste cliente
     # ao lado (scripts/clientes/), para funcionar sozinho na pasta de outra pessoa.
     nucleo = NUCLEO_DIR_PAI if os.path.exists(f"{NUCLEO_DIR_PAI}/scripts/kie.py") else os.path.join(os.path.dirname(os.path.dirname(R)), "_FLUXO")
     if os.path.exists(f"{nucleo}/scripts/kie.py"):
         troca = {"scripts/kie.py": f"{nucleo}/scripts/kie.py", "scripts/fluxo.py": f"{nucleo}/scripts/fluxo.py",
-                 "scripts/lascas.py": f"{nucleo}/scripts/checagens/lascas.py", "scripts/ritmo.py": f"{nucleo}/scripts/checagens/ritmo.py"}
+                 "scripts/lascas.py": f"{nucleo}/scripts/checagens/lascas.py", "scripts/ritmo.py": f"{nucleo}/scripts/checagens/ritmo.py",
+                 "scripts/pilula.py": f"{nucleo}/scripts/pilula.py"}       # legenda padrão EV/TS (13/11/2026)
         itens = [(troca.get(rel, s), rel) for s, rel in itens if not rel.startswith("scripts/fluxo_partes/")]
-        itens += [(s, "scripts/fluxo_partes/" + os.path.relpath(s, f"{nucleo}/scripts/fluxo_partes")) for s in arvore(f"{nucleo}/scripts/fluxo_partes")]
+        itens += [(s, "scripts/fluxo_partes/" + rel(s, f"{nucleo}/scripts/fluxo_partes")) for s in arvore(f"{nucleo}/scripts/fluxo_partes")]
+        # fonte da legenda (TikTok Sans Medium, corte 36) ao lado de scripts/, onde o pilula.py procura (../fontes)
+        itens += [(f"{nucleo}/fontes/{a}", f"fontes/{a}") for a in ("TikTokSans-Legenda-Medium.ttf", "TikTokSans_OFL.txt")
+                  if os.path.exists(f"{nucleo}/fontes/{a}")]
         itens.append((f"{nucleo}/clientes/empire-vision.json", "scripts/clientes/empire-vision.json"))
-    return itens + [(s, "modelo/_BATCH_MODELO/" + os.path.relpath(s, f"{R}/_BATCH_MODELO")) for s in arvore(f"{R}/_BATCH_MODELO")
+        # checklist da Louise (Frente 4, 13/11/2026): o checar o roda quando a ficha o liga; vai em scripts/ (onde o checar procura)
+        itens += [(f"{nucleo}/scripts/checagens/{a}", f"scripts/{a}") for a in
+                  ("checklist.py", "notas_revisao.py", "visao.py", "visao_win.ps1", "visao.swift") if os.path.exists(f"{nucleo}/scripts/checagens/{a}")]
+    return itens + [(s, "modelo/_BATCH_MODELO/" + rel(s, f"{R}/_BATCH_MODELO")) for s in arvore(f"{R}/_BATCH_MODELO")
                     if s.endswith((".md", ".txt", ".json"))]
 
 def cmd_empacotar(a):
@@ -68,19 +80,35 @@ def cmd_publicar(a):
     fonte da skill; leva os mesmos arquivos do zip. Quem tem o plugin com auto-update recebe depois que uma sessão abre."""
     if not (carregar_perfil() or {}).get("fonte_da_skill"):
         raise SystemExit("Só publico no _FLUXO_VSL fonte da skill (perfil com fonte_da_skill).")
-    if not os.path.isdir(f"{REPO_SKILL}/.git"): raise SystemExit(f"Sem repositório em {REPO_SKILL}.")
-    itens = itens_da_skill()                                             # lista antes de apagar o destino
-    dst = f"{REPO_SKILL}/plugins/vsl-batch-editor/skills/vsl-batch-editor"
-    shutil.rmtree(dst, ignore_errors=True)
-    for s, rel in itens:
-        os.makedirs(os.path.dirname(f"{dst}/{rel}"), exist_ok=True); shutil.copy2(s, f"{dst}/{rel}")
-    git = lambda *x: subprocess.run(["git", "-C", REPO_SKILL, *x], check=True, capture_output=True, text=True).stdout.strip()
-    git("add", "-A")
-    if not git("status", "--porcelain"): print("ok nada mudou desde a última publicação"); return
-    git("commit", "-m", a.mensagem)
-    if not git("remote"): print(f"ok commit {git('rev-parse', '--short', 'HEAD')} (sem remoto, não enviei)"); return
-    git("push")
-    print(f"ok publicado {git('rev-parse', '--short', 'HEAD')} ({len(itens)} arquivos)")
+    # Sem ~/repos/fefo-skills (PC Windows, 13/11/2026): clona numa pasta temporária, publica e apaga no fim, para não
+    # deixar uma segunda cópia fixa do repositório na máquina. Nunca usar a cópia do marketplace do Claude.
+    repo, temp = REPO_SKILL, None
+    if not os.path.isdir(f"{repo}/.git"):
+        temp = tempfile.mkdtemp(prefix="fefo-skills_"); repo = f"{temp}/fefo-skills"
+        subprocess.run(["git", "clone", "-q", REPO_SKILL_URL, repo], check=True)
+    try:
+        itens = itens_da_skill()                                         # lista antes de apagar o destino
+        dst = f"{repo}/plugins/vsl-batch-editor/skills/vsl-batch-editor"
+        shutil.rmtree(dst, ignore_errors=True)
+        for s, rel in itens:
+            os.makedirs(os.path.dirname(f"{dst}/{rel}"), exist_ok=True); shutil.copy2(s, f"{dst}/{rel}")
+        quem = []                                                        # PC sem identidade do git: a mesma dos commits do Mac
+        if not subprocess.run(["git", "-C", repo, "config", "user.email"], capture_output=True, text=True).stdout.strip():
+            quem = ["-c", "user.name=Fefo", "-c", "user.email=133016163+fefo-dossena@users.noreply.github.com"]
+        def git(*x):
+            r = subprocess.run(["git", "-C", repo, "-c", "core.autocrlf=input", *quem, *x], capture_output=True, text=True)
+            if r.returncode: raise SystemExit(f"git {x[0]} falhou: {r.stderr.strip() or r.stdout.strip()}")
+            return r.stdout.strip()
+        git("add", "-A")
+        if not git("status", "--porcelain"): print("ok nada mudou desde a última publicação"); return
+        if getattr(a, "teste", False):
+            print(git("diff", "--cached", "--stat")); print("--teste: não fiz commit nem push."); return
+        git("commit", "-m", a.mensagem)
+        if not git("remote"): print(f"ok commit {git('rev-parse', '--short', 'HEAD')} (sem remoto, não enviei)"); return
+        git("push")
+        print(f"ok publicado {git('rev-parse', '--short', 'HEAD')} ({len(itens)} arquivos)")
+    finally:
+        if temp: shutil.rmtree(temp, onerror=lambda f, p, e: (os.chmod(p, 0o700), f(p)))   # .git do Windows vem só-leitura
 
 def cmd_instalar(a):
     """Monta ou atualiza <raiz>/_FLUXO_VSL e <raiz>/_BATCH_MODELO a partir da pasta da skill (rodar o fluxo.py DA SKILL).

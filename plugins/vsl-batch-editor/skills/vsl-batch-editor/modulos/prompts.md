@@ -70,6 +70,20 @@ Somam-se aos 14 blocos; não trocam nada acima. Resumo do curso em `@cursos/tren
   **olhando reto para a câmera e de boca fechada** (de ângulo a testa deforma; boca fechada articula melhor P/B).
 - **Teste barato antes do caro**: 5 s em 720p no modelo barato para checar timing e movimento; modelo caro só no final.
 
+## Reforços do guia da Magnific (Fefo, 12/11/2026: "usa isso pra prompts em geral")
+Somam-se aos 14 blocos e valem para UGC e Drama. Onde brigam com as seções acima, as de cima vencem (UGC continua sem grão
+de filme, sem "cinematic" e com FOV em graus). Guia completo: `Pesquisas/Prompting Handbook da Magnific.md` no segundo cérebro.
+- **Nunca escrever:** ultra sharp, hyper detailed, crisp, razor sharp, 8K, HDR, ultra-realistic detail, masterpiece.
+- **07 Camera / 08 Action:** um movimento e uma ação por clipe; "slow" em quase tudo; handheld sempre com "subtle".
+  Ação com mais de um passo leva tempo por batida (`00:00 … 00:02 … 00:04 …`), a última dentro da duração.
+- **Imagem para vídeo:** com start frame, o prompt descreve só movimento e câmera; o quadro já traz o sujeito.
+- **09 Performance:** emoção como física ("jaw tightens, one slow blink"), nunca rótulo ("looks sad").
+- **12 Audio:** fala entre aspas com quem fala e como; terminar em "No music. No subtitles."
+- **Texto e rótulo:** toda palavra entre aspas, igual ao produto, com posição; palavra que sai errada vai soletrada
+  ("spelled V, I, S, I, O"). Texto fora do produto entra na montagem, não no prompt.
+- **Edição de imagem:** uma frase diz o que muda, outra o que fica ("keep everything else exactly").
+- **Cena:** quem sai do quadro some no take; nunca enquadrar reflexo de espelho; no máximo 3 pessoas rastreadas.
+
 ## Reforços para Drama ad e peça cinematográfica (kaye.creatives, 30/10/2026) — a testar
 Somam-se aos 14 blocos e **não valem para UGC**. Ainda sem teste nosso: confirmar com o Fefo antes de gastar crédito. Fonte
 e o que ficou de fora: `Pesquisas/Realismo em filme de IA.md` no segundo cérebro.

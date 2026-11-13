@@ -56,6 +56,13 @@ for _d in (AQUI, _AQUI_ARQ):
     if _d not in sys.path: sys.path.insert(0, _d)
 os.environ["PATH"] = os.path.expanduser("~/bin") + os.pathsep + os.environ.get("PATH", "")
 FF = shutil.which("ffmpeg") or "ffmpeg"
+# ffmpeg 7+ lê o filtro de arquivo com "-/filter_complex"; o 9 do PC recusa "-filter_complex_script" (BATCH#3831 V5, 11/11/2026)
+try: _ffv = int(re.search(r"version n?(\d+)\.", subprocess.run([FF, "-version"], capture_output=True, text=True).stdout)[1])
+except Exception: _ffv = 0
+FCS = "-/filter_complex" if _ffv >= 7 else "-filter_complex_script"
+def fpath(p):
+    """Caminho de arquivo dentro de um filtro (subtitles=...): no Windows, '\\' e o ':' do drive quebram o parser; no Mac fica igual."""
+    return "'" + p.replace("\\", "/").replace(":", "\\:") + "'" if os.name == "nt" else p
 
 
 # ---------------------------------------------------------------- ficha do cliente
@@ -191,7 +198,7 @@ def _argumentos():
     p = sp.add_parser("perfil"); p.set_defaults(fn=cmd_perfil)
     p = sp.add_parser("instalar"); p.add_argument("raiz"); p.set_defaults(fn=cmd_instalar)
     p = sp.add_parser("empacotar"); p.set_defaults(fn=cmd_empacotar)
-    p = sp.add_parser("publicar"); p.add_argument("mensagem"); p.set_defaults(fn=cmd_publicar)
+    p = sp.add_parser("publicar"); p.add_argument("mensagem"); p.add_argument("--teste", action="store_true"); p.set_defaults(fn=cmd_publicar)
     p = sp.add_parser("renomear"); p.add_argument("batch"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "renomear"), cmd_renomear(a)))
     return ap
 

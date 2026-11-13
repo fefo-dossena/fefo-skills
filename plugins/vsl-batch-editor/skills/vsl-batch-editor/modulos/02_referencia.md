@@ -4,6 +4,18 @@ Se `01_refs/` estiver vazio, pergunte ao Fefo qual ad seguir antes de seguir. Ca
 ref, BATCH#3214 e #3215): proponha um estilo UGC (personagem, cenário, enquadramento de cada setup, legenda) e espere o
 OK; nas duas, médico(a) falando para a câmera fixa na mesa do consultório + selfie andando nos hooks foi aprovado.
 
+## Passo 0a: o brief vem antes do ref (Louise, 13/11/2026; trava no lint)
+O ad de referência é guia e inspiração. Instrução escrita no brief ou no card manda sobre o ref. Antes de medir o ref:
+1. Leia o brief e o card inteiros (Notion, Milanote, doc). Copie cada instrução escrita, palavra por palavra, para o
+   `08_auto/plano.json`: `"brief_regras": [{"frase": "<texto literal>", "fonte": "card|brief|milanote", "regra": "<o que muda no plano>"}]`.
+   Sem instrução escrita: `"brief_regras": []` e `"brief_lido": "<onde leu>"`.
+2. Leia `_FLUXO_VSL/preferencias_daniel.md` (notas que já voltaram): o plano já sai sem elas.
+3. Meça o ref (passo 0 abaixo) e liste onde ele contradiz o brief ou as preferências: `"brief_conflitos": [{"brief": "...", "ref": "...", "decisao_fefo": ""}]`.
+4. Com conflito: **pergunte ao Fefo antes de planejar**, uma pergunta só com a lista, e grave as palavras dele em
+   `decisao_fefo`. Sem resposta, o brief vence.
+- Trava: o `lint_plano.py` (dentro do `fluxo.py checar`) dá erro em batch nova (criada desde 13/11/2026) sem
+  `brief_regras` e em conflito sem `decisao_fefo`.
+
 ## Passo 0: medir o ref antes de planejar (Fefo, 09/11/2026)
 O resumo do briefing não substitui o ad. Na 4206 o briefing dizia "5 planos de 2 s"; o ref tinha ~9 planos de 0,8–1,8 s,
 VO a ~3,7 pal/s, 2 flashes e legenda fixa no topo, e o plano teve de ser refeito. Antes do banco e do plano:
@@ -48,6 +60,7 @@ Quando o card pedir "estilo Pixar" / animação 3D, e o ref da batch não decidi
 - **Áudio:** canção inteira cantada (voz feminina atrevida, ~134 BPM, Suno do Kie da Empire), fecho instrumental de
   ~14 s com resultado + cartão "90-DAY MONEY BACK GUARANTEE / SHOP NOW". -18 LUFS.
 - **Legenda:** caixa alta, sans bold arredondada, branca com contorno preto, 1–4 palavras seguindo o canto, ~60% da altura.
+  (Desde 13/11/2026 a legenda sai sempre na pílula TikTok Sans Medium; do ref fica só o ritmo de 1–4 palavras.)
 - **Em aberto (perguntar antes da 1ª batch):** planos > 3 s reprovam no `lint_plano` e no `ritmo` (exceção para este
   formato?); duração-alvo (o ref tem 2:13); palavrão censurado na letra pode?; lip-sync cantado no Kling.
 
@@ -71,7 +84,7 @@ repete e o que dá sensação. Sem ref: procure ads e conteúdo orgânico do que
   "fonte": "01_refs/<arquivo>",
   "avatar": {"pb": false, "enquadramento": "tela_cheia"},
   "broll": {"layout": "tela_cheia"},
-  "legenda": {"estilo": "caixa_branca", "posicao": "centro_baixo", "max_caracteres": 22},
+  "legenda": {"estilo": "pilula", "y": 0.63, "quebra": 30},
   "ritmo": "corte a cada ~2-3 s",
   "elementos": ["seta no CTA", "banner no topo"],
   "observacoes": "texto livre: cenário do avatar, tipo de b-roll (live-action, 3D, stickers), CTA, música"
@@ -83,9 +96,10 @@ repete e o que dá sensação. Sem ref: procure ads e conteúdo orgânico do que
   No `cartao`, cada cena tem `formato`: `tela_cheia` (cartão) · `inset` · `avatar` (variação do avatar, ocupa o quadro) ·
   `cta_final` (tela final: vídeo do frasco no topo branco + faixa escura com seta). Parâmetros opcionais em `estilo`:
   `avatar.quadro` [x,y,w,h] (ex.: [0,285,1080,1350] = 4:5 com tarjas; [0,0,1080,1920] = 9:16 cheio), `avatar.punch_in`
-  (zoom alternado por clipe), `broll.cartao`/`broll.inset` [x,y,w,h], `legenda.tamanho`/`y`,
+  (zoom alternado por clipe), `broll.cartao`/`broll.inset` [x,y,w,h], `legenda.y` (a legenda é a pílula padrão),
   `hook_banner.texto` (`**negrito**`, `|` quebra linha), `cta.titulo`/`rodape`. Exemplo completo: BATCH#2078.
-- `legenda.estilo`: `amarelo_contorno`, `branca_contorno` (sem caixa), `caixa_branca` / `caixa_branca_compacta` /
+- `legenda.estilo` = `pilula`, sempre. **Legenda SEMPRE TikTok Sans Medium em pílula** (Fefo, 13/11/2026, EV e TS: "padronizar o estilo de legenda em TODAS AS TAREFAS"): texto preto, pílula branca de ponta redonda, nas proporções do PSD `@CLIENTES/_FLUXO/legenda/EXEMPLO LEGENDA.psd`. Desenho único em `@CLIENTES/_FLUXO/scripts/pilula.py`; regra completa no `@CLIENTES/_FLUXO/LEIA-ME.md`. O ref NÃO escolhe mais a legenda: decide só a altura (dentro da regra de 0,63) e a quebra. Os estilos abaixo são histórico, só para job antigo em revisão com `estilo.legenda.manter_antigo` e ok do Fefo:
+  `amarelo_contorno`, `branca_contorno` (sem caixa), `caixa_branca` / `caixa_branca_compacta` /
   `caixa_branca_justa` (caixa colada no texto — a preferida do Fefo quando o ref tem caixa reta), `pilula` (caixa de
   cantos arredondados por linha, 1–2 linhas, estilo texto do Instagram; header do hook no mesmo desenho via
   `estilo.header_pilula`; `y`, `tamanho`, `quebra`; o texto do header é `plano.header`, um só para os 3 hooks, não o
