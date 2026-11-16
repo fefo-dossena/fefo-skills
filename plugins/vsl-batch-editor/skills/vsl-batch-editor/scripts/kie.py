@@ -445,6 +445,10 @@ def lote(caminho, intervalo=0.6):
             sys.exit(f'RECUSADO: pedido {n}: {cmd} não roda em {FICHA["nome"]}: {proibidos[cmd]}')
         _trava_cliente([saida])     # todas as saídas na pasta do mesmo cliente da conta
         _confere_tarefa(saida)
+        if not os.path.exists(saida + '.task.json'):    # retomada (só espera) não passa pela trava
+            motivo = _trava_folha(cmd, args)
+            if motivo:
+                sys.exit(f'RECUSADO: pedido {n}: {motivo}')
         if not TESTE and os.path.exists(saida + '.task.json'):   # já criada: só espera e baixa, sem cobrar
             task = json.load(open(saida + '.task.json')).get('taskId')
             cmd, args = 'espera', [task, saida]
@@ -496,6 +500,19 @@ def lote(caminho, intervalo=0.6):
         print(f'O pedido montado de cada um está no log ({logs}/).')
 
 
+VIDEO = ('omni', 'kling3', 'kling4', 'seedance')
+
+
+def _trava_folha(cmd, args):
+    """Clipe de vídeo só com ok na folha de lógica (PDF do Lucas, 16/11/2026; _FLUXO/QUALIDADE_DO_BATCH.md, 1.4)."""
+    if TESTE or cmd not in VIDEO or not args:
+        return None
+    aqui = os.path.dirname(os.path.abspath(__file__))     # núcleo: checagens/; skill publicada: scripts/ (ao lado)
+    sys.path[:0] = [os.path.join(aqui, 'checagens'), aqui]
+    import prompt_qa
+    return prompt_qa.exigir_ok(args[0])
+
+
 def _aviso_fora_do_lote(cmd):
     """Geração avulsa (fora do `lote`): se já houve outra nos últimos 2 min, avisa para usar o lote (Fefo, 09/11/2026)."""
     if TESTE or os.environ.get('KIE_LOTE') or cmd in ('lote', 'saldo', 'upload', 'espera', 'suno-persona'):
@@ -541,6 +558,9 @@ def main():
     if a[0] in (FICHA['kie'].get('proibidos') or {}) and not _excecao(a[0], [a[POS_SAIDA[a[0]]+1]] if len(a) > POS_SAIDA.get(a[0], 99)+1 else []):
         sys.exit(f'RECUSADO: {a[0]} não roda em {FICHA["nome"]}: {FICHA["kie"]["proibidos"][a[0]]}')
     _aviso_fora_do_lote(a[0])
+    motivo = _trava_folha(a[0], a[1:])
+    if motivo:
+        sys.exit(f'RECUSADO: {motivo}')
     if a[0] == 'lote':
         arq = next((x for x in a[1:] if not x.startswith('--') and x != _opcao(a, '--intervalo')), None)
         if not arq:

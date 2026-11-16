@@ -1,4 +1,7 @@
 # Estrutura de prompt (padrão do Fefo desde 13/10/2026)
+
+> **Desde 16/11/2026 a ordem dos campos é a do PDF do Lucas** (`@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seção 1.2; o `prompt_qa.py` confere e o `kie.py` trava): TITLE · FORMAT · CHARACTERS · REFERENCES · PLACE AND LIGHT · POSITION (locked) · STATE AT START · Shot 1… · SOUND · STYLE · STATE AT END · NEVER, 140 a 180 palavras no mínimo. Os blocos antigos abaixo continuam como vocabulário e entram dentro dos campos novos: SCENE CONTEXT → TITLE; ACTIVE REFERENCES → REFERENCES (cada @image com função); FIRST FRAME e o estado da ação → STATE AT START; CAMERA e ACTION → Shot (uma câmera, ação com começo, meio e fim); PHYSICS e STYLE → STYLE (uma referência visual só); POSITIVE LOCKS → frase positiva dentro do shot + NEVER desta cena (citando o objeto, ex.: "the bottle never leaves her hand"). Inserto de produto sem gente: CHARACTERS diz "none (product only)" e POSITION trava o objeto no cenário.
+
 Todo prompt de **vídeo** (fala do avatar no Kling/Seedance, movimento de b-roll, hook) é escrito nestes 14 blocos, nesta
 ordem. Prompt de **imagem** (personagem, quadro inicial no Sunburst) usa só os blocos marcados com ●.
 

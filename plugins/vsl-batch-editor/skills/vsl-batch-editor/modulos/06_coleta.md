@@ -1,4 +1,7 @@
 # Módulo: coleta (baixar e identificar o que foi gerado)
+
+> **Logo depois de baixar cada clipe (PDF do Lucas, 16/11/2026; `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seção 2):** todo clipe é conferido num subagente: quadros a cada 0,5 s em tamanho grande (olhar os tempos de contato), régua de lógica e física, fala contra o roteiro (Whisper medium para palavra curta ou rara), primeiro clipe de cada personagem olhado assim que baixa. Veredito por clipe com `prompt_qa.py veredito <clipe> ok|parcial --faixa A-B|reroll --motivo ...`. Regerar só pela lista fechada (identidade, roupa, texto, anatomia, fundo, ação ou batida faltando) e **no máximo 1 vez**; falhou de novo = mudar a abordagem. Uma linha de lição no `LICOES.md` por clipe conferido.
+
 - **Pelo Kie** (padrão): o `kie.py` já baixa no nome pedido; não precisa identificar por quadro. O resto deste módulo
   só vale para batch antiga, gerada pelo site do Higgsfield.
 - Liste os vídeos novos no histórico (thumbnails `hf_<data>_<hora>_<uuid>_thumbnail`); baixe de

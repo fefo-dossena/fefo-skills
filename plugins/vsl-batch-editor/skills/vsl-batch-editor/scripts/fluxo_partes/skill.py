@@ -56,7 +56,7 @@ def itens_da_skill():
         itens.append((f"{nucleo}/clientes/empire-vision.json", "scripts/clientes/empire-vision.json"))
         # checklist da Louise (Frente 4, 13/11/2026): o checar o roda quando a ficha o liga; vai em scripts/ (onde o checar procura)
         itens += [(f"{nucleo}/scripts/checagens/{a}", f"scripts/{a}") for a in
-                  ("checklist.py", "notas_revisao.py", "visao.py", "visao_win.ps1", "visao.swift") if os.path.exists(f"{nucleo}/scripts/checagens/{a}")]
+                  ("checklist.py", "notas_revisao.py", "prompt_qa.py", "visao.py", "visao_win.ps1", "visao.swift") if os.path.exists(f"{nucleo}/scripts/checagens/{a}")]
     return itens + [(s, "modelo/_BATCH_MODELO/" + rel(s, f"{R}/_BATCH_MODELO")) for s in arvore(f"{R}/_BATCH_MODELO")
                     if s.endswith((".md", ".txt", ".json"))]
 

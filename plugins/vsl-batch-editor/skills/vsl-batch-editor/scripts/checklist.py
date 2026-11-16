@@ -5,10 +5,12 @@ revisão. Dispensa do Fefo não vale para estes itens (decisão dele, 13/11/2026
 
   1 texto_45      todo texto dentro da área segura (EV: 4:5 = y 285–1635 em 1920) em todo quadro, e o centro da
                   legenda até 0,65 da altura (margem do Daniel). OCR a 2 fps + camadas gravadas pelo montar.
+                  LEGENDA na tela vertical (Fefo, 16/11/2026, EV e TS): a pílula inteira dentro de x 5,7%–94,3% e
+                  y 13,9%–64,9% (area_legenda; 1080x1920 = x 62-1018, y 267-1246).
   2 texto_estilo  legenda na lista fechada (pílula ou branca com contorno): sem 3D, sombra deslocada, degradê, cor.
   3 vo            Whisper no AD inteiro contra o roteiro: palavra trocada, faltando, repetida, fim cortado, marca,
                   pausa acima do limite (padrão 0,45 s).
-  4 musica        trilha abaixo da voz nos trechos com fala (ok >= 15 dB, falha < 12 dB) e AD a -20 LUFS.
+  4 musica        trilha abaixo da voz nos trechos com fala (ok >= 15 dB, falha < 12 dB), AD a -20 LUFS e true peak <= -1 dBTP.
                   Mede pelos stems do montar (<auto>/mix_AD<n>_<p>.json); sem eles, estima pelo mix (pausas x fala).
   5 imagem        por plano: imagem parada (still), tremida ou borrada.
   6 notas         revisão: toda nota da versão anterior marcada [x] com prova (quadro da versão nova) em
@@ -45,10 +47,12 @@ PADRAO = {
     "itens": [1, 2, 3, 4, 5, 6],
     "area_segura": {"nome": "4:5", "y0": 285 / 1920, "y1": 1635 / 1920, "x0": 0.0, "x1": 1.0, "tolerancia": 0.006},
     "legenda_centro_max": 0.65,
+    # margem da LEGENDA na tela vertical (Fefo, 16/11/2026, EV e TS; mesma conta do pilula.MARGEM_LEGENDA)
+    "area_legenda": {"nome": "margem da legenda", "x0": 0.057, "y0": 0.139, "x1": 0.943, "y1": 0.649, "tolerancia": 0.006},
     "estilos_legenda": ["pilula", "branca_contorno"],
     "ocr": {"fps": 2, "altura_min": 0.012, "persistencia_s": 1.0},
     "vo": {"pausa_max_s": 0.45, "pausa_tolerancia_mix_s": 0.10, "pausa_emenda_max_s": 0.8, "pausa_abaixo_db": 8.0, "prob_min": 0.6, "idioma": "en"},
-    "musica": {"margem_ok_db": 15, "margem_min_db": 12, "lufs": -20.0, "lufs_tol": 1.0},
+    "musica": {"margem_ok_db": 15, "margem_min_db": 12, "lufs": -20.0, "lufs_tol": 1.0, "tp_max": -1.0},
     "imagem": {"fps": 15, "parado_atividade_max": 3.0, "parado_resto_max": 9.5, "parado_clipe_max": 10.0, "parado_dur_min": 1.0, "tremor_max": 6.0, "nitidez_min": 6.0,
                "plano_min_s": 0.6},
 }
@@ -190,6 +194,15 @@ def lufs(mp4):
                        capture_output=True, text=True, errors="replace")
     m = re.findall(r"I:\s+(-?[\d.]+) LUFS", r.stderr)
     return float(m[-1]) if m else None
+
+
+def true_peak(mp4):
+    """True peak do arquivo final em dBTP (PDF do Lucas, 16/11/2026: no máximo -1 dBTP)."""
+    r = subprocess.run([FF, "-nostdin", "-hide_banner", "-nostats", "-i", mp4, "-vn", "-af", "ebur128=peak=true", "-f", "null", "-"],
+                       capture_output=True, text=True, errors="replace")
+    m = re.findall(r"Peak:\s+(-?[\d.]+|-inf) dBFS", r.stderr)
+    try: return float(m[-1]) if m else None
+    except ValueError: return None
 
 
 # ---------------------------------------------------------------- whisper
@@ -430,9 +443,13 @@ def pausas_audio(nv, abaixo=8.0, minimo=0.25):
     return out
 
 
-def item_musica(a16, words, cfg, mix=None, lu=None):
+def item_musica(a16, words, cfg, mix=None, lu=None, tp=None):
     import numpy as np
     c = cfg["musica"]; occ = []; partes = []
+    if tp is not None:
+        partes.append(f"true peak {tp:.1f} dBTP")
+        if tp > c.get("tp_max", -1.0) + 0.05:
+            occ.append({"t": 0, "msg": f"true peak {tp:.1f} dBTP (máximo {c.get('tp_max', -1.0):.0f})", "nivel": "erro", "regra": "true_peak"})
     if lu is not None:
         partes.append(f"{lu:.1f} LUFS")
         if abs(lu - c["lufs"]) > c["lufs_tol"]:
@@ -522,6 +539,7 @@ def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, voc
     import numpy as np
     A = area_do_video(cfg["area_segura"], *tam); tol = A.get("tolerancia", 0.006); hmin = cfg["ocr"]["altura_min"]
     vertical = tam[1] / max(tam[0], 1) > 1.6          # margem do centro da legenda só vale no 9:16
+    AL = dict(PADRAO["area_legenda"], **cfg.get("area_legenda", {})) if vertical else A   # margem da legenda (16/11/2026)
     passo = 1.0 / cfg["ocr"]["fps"]; occ = []; legendas = []; centros = []
     _CLASSES.clear()
     if img is not None:
@@ -546,12 +564,16 @@ def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, voc
             if h < hmin and l not in leg: continue
             if l in leg and img is not None and _CLASSES.get((q, tuple(l["b"]))) == "pilula" or (l in leg and _CLASSES.get("_pilula_dominante")):
                 c = y + h / 2; y, h = min(y, c - pil_h / 2), max(y + h, c + pil_h / 2) - min(y, c - pil_h / 2)   # mede a pílula, não só o texto
-            fora = y < A["y0"] - tol or y + h > A["y1"] + tol or x < A["x0"] - tol or x + w > A["x1"] + tol
+            Z = AL if l in leg else A                     # legenda: margem de 16/11/2026; outro texto: 4:5/1:1
+            if l in leg and img is not None and (_CLASSES.get((q, tuple(l["b"]))) == "pilula" or _CLASSES.get("_pilula_dominante")):
+                pw = 2 * 0.44 * 42.5 / 1080; x, w = x - pw / 2, w + pw   # folga lateral da pílula (18,7 px em 1080 de cada lado)
+            fora = y < Z["y0"] - tol or y + h > Z["y1"] + tol or x < Z["x0"] - tol or x + w > Z["x1"] + tol
             if fora:
                 tipo = "legenda" if l in leg else "texto"
                 if tipo == "texto" and vocab and all(w in vocab for w in _palavras_ocr(l["t"])): continue   # rótulo/objeto da cena
                 occ.append({"t": round(t, 2), "chave": f"fora:{tipo}:{round(y, 1)}", "tipo": tipo, "b": l["b"], "q": q,
-                            "msg": f"{tipo} fora do {A['nome']} (y {y:.3f}–{y + h:.3f}; área {A['y0']:.3f}–{A['y1']:.3f}): \"{l['t'][:40]}\""})
+                            "msg": f"{tipo} fora da {Z['nome']} (x {x:.3f}–{x + w:.3f}, y {y:.3f}–{y + h:.3f}; área x {Z['x0']:.3f}–{Z['x1']:.3f}, "
+                                   f"y {Z['y0']:.3f}–{Z['y1']:.3f}): \"{l['t'][:40]}\""})
         if leg:          # centro do bloco da legenda (linhas empilhadas no mesmo quadro)
             leg = sorted(leg, key=lambda l: l["b"][1]); blocos = [[leg[0]]]
             for l in leg[1:]:
@@ -581,9 +603,9 @@ def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, voc
         final.append({"t": o["t"], "t_fim": o["t_fim"], "msg": o["msg"] + (f" ({mmss(o['t'])}–{mmss(o['t_fim'])})" if o["t_fim"] > o["t"] else ""), "nivel": "erro",
                       "regra": "baixa" if o["chave"] == "baixa" else "fora"})
     for cm in (camadas or {}).get("camadas", []):     # camadas desenhadas pelo montar (posição exata, mesmo arquivo)
-        y0, y1 = cm["y0"], cm["y1"]
-        if y0 < A["y0"] - tol or y1 > A["y1"] + tol:
-            final.append({"t": cm.get("t0", 0), "msg": f"{cm['tipo']} do montar fora do {A['nome']} (y {y0:.3f}–{y1:.3f})", "nivel": "erro", "regra": "fora"})
+        y0, y1 = cm["y0"], cm["y1"]; Z = AL if cm["tipo"] == "legenda" else A
+        if y0 < Z["y0"] - tol or y1 > Z["y1"] + tol:
+            final.append({"t": cm.get("t0", 0), "msg": f"{cm['tipo']} do montar fora da {Z['nome']} (y {y0:.3f}–{y1:.3f}; área {Z['y0']:.3f}–{Z['y1']:.3f})", "nivel": "erro", "regra": "fora"})
         if vertical and cm["tipo"] == "legenda" and (y0 + y1) / 2 > cfg["legenda_centro_max"] + 0.01:
             final.append({"t": cm.get("t0", 0), "msg": f"legenda do montar com centro em y {(y0 + y1) / 2:.2f} (máximo {cfg['legenda_centro_max']:.2f})", "nivel": "erro", "regra": "baixa"})
     final.sort(key=lambda o: o["t"])
@@ -971,7 +993,7 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
             alvo = json.load(open(os.path.join(B, P["config"]), encoding="utf-8")).get("audio", {}).get("loudness_lufs")
             if alvo is not None: c4 = _mescla(cfg, {"musica": {"lufs": float(alvo)}})
         except (OSError, ValueError, AttributeError): pass
-        poe(4, *item_musica(a16, words, c4, mix=mix, lu=lufs(video)))
+        poe(4, *item_musica(a16, words, c4, mix=mix, lu=lufs(video), tp=true_peak(video)))
     if 1 in itens or 2 in itens or 5 in itens:          # o item 5 usa as caixas de texto do OCR (legenda trocando não é movimento)
         qs = quadros(video, os.path.join(d, "q"), cfg["ocr"]["fps"])
         vis = __import__("visao").ler([q for _, q in qs]) if qs else {}

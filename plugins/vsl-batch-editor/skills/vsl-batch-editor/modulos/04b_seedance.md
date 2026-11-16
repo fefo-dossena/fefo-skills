@@ -1,5 +1,8 @@
 # Falas: Seedance e rotas antigas
 
+> **Qualidade do batch (PDF do Lucas, 16/11/2026; regra completa em `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seções 1.2 a 1.5):** todo prompt de vídeo segue a estrutura fixa, nesta ordem: TITLE · FORMAT · CHARACTERS · REFERENCES · PLACE AND LIGHT · POSITION (locked) · STATE AT START · Shot 1… · SOUND · STYLE · STATE AT END · NEVER, com 140 a 180 palavras no mínimo. O START de um clipe é o END do anterior, palavra por palavra; o NEVER cita personagem ou objeto desta cena; lado travado por objeto do cenário; uma intenção e uma câmera por shot; verbo concreto; quem entra tem causa; objeto com origem e destino. Clipe falado no máximo do modelo permitido (shots rotulados com tempo); ação que o modelo pula vai em clipe próprio de 3 a 6 s; fala nunca acelerada. **Trava:** antes de gerar, `py "G:/Meu Drive/@CLIENTES/_FLUXO/scripts/checagens/prompt_qa.py" folha <pasta dos prompts> [--lote PEDIDOS.json]`, ler a folha de lógica (6 perguntas) e `prompt_qa.py ok <folha_logica.json> <clipes> --nota "..."`; o `kie.py` recusa clipe de vídeo sem ok ou com prompt mudado depois do ok. Canário (1 clipe por personagem e por cenário) antes do lote.
+
+
 Abrir só para Drama ad (único caso em que o Seedance entra), revisão de batch antiga feita no Seedance ou para entender a rota Seed Audio (que não existe no Kie). Tirado de `04_falas.md` em 05/11/2026; texto inteiro anterior em `old/04_falas_antes_tokens_2026-11-05.md`.
 
 As notas de Seedance abaixo valem para Drama ad e para entender batch antiga. O que pesa entre os dois (BATCH#1977 no

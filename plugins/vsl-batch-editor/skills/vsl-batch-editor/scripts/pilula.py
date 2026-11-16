@@ -12,7 +12,10 @@ Medidas do PSD (tela 1080x1920; tudo escala pelo lado menor da tela / 1080):
   altura   NÃO vem do PSD (lá a pílula está a 80,6%, abaixo do limite da EV). Segue a regra de cada cliente: EV y = 0,63 e
            nunca abaixo de 0,65 (SKILL.md, checklist da Louise); TS dentro do 1:1 central (legenda.y_rel do job.json).
            Sem y no plano, o padrão é 0,63, que serve aos dois.
-  4:5      SEMPRE dentro do 4:5 central, nunca fora (Fefo, 13/11/2026), legenda e header: o bloco é empurrado para
+  MARGEM   LEGENDA (Fefo, 16/11/2026, EV e TS): na tela vertical, SEMPRE em x 5,7%–94,3% e y 13,9%–64,9%
+           (1080x1920 = x 62-1018, y 267-1246; 720x1280 = x 41-679, y 178-831). Substitui o 4:5/1:1 para a legenda;
+           o bloco é empurrado para dentro e a linha larga é re-quebrada. Ver area_legenda().
+  4:5      (header e tela não vertical) SEMPRE dentro do 4:5 central, nunca fora (Fefo, 13/11/2026): o bloco é empurrado para
            dentro (folga de 0,3 x corpo) e a linha que passaria da largura é re-quebrada. Avisa quando mexe.
            9:16 1080x1920 = y 285-1635 (190-1090 em 720p).
            Trendscale: estilo.legenda.area = "1:1" (o montagem_base passa) prende no 1:1 central (y 420-1500). Do PSD
@@ -79,6 +82,18 @@ def geometria(tam):
 SS = 4                                               # cada linha é desenhada 4x maior e reduzida: borda lisa e
                                                      # largura do texto fracionada (o Pillow sem raqm arredonda cada letra)
 MARGEM = 0.3                                         # folga mínima entre a pílula e a borda do 4:5 (x corpo)
+# Margem da LEGENDA na tela vertical (Fefo, 16/11/2026, print com a área tracejada; EV e TS): x 5,7%–94,3%,
+# y 13,9%–64,9%. 1080x1920 = x 62-1018, y 267-1246; 720x1280 = x 41-679, y 178-831. Vale só para a legenda; o header e
+# os outros textos continuam no 4:5 (EV) ou 1:1 (TS).
+MARGEM_LEGENDA = (0.057, 0.139, 0.943, 0.649)
+
+def area_legenda(tela=(W, H), prop="4:5"):
+    """(x0, y0, x1, y1) onde a legenda pode ficar. Tela vertical (altura > 1,6 x largura): a margem do Fefo de 16/11/2026.
+    Outra tela (1:1, 4:5, 16:9): o retângulo `prop` central, como antes."""
+    w, h = tela
+    if h / max(w, 1) > 1.6:
+        a, b, c, d = MARGEM_LEGENDA; return w * a, h * b, w * c, h * d
+    return area_central(tela, prop)
 
 def area_45(tela=(W, H)):
     """(x0, y0, x1, y1) do maior 4:5 no centro da tela. Legenda e header NUNCA saem dele (regra do Fefo, 13/11/2026).
@@ -126,7 +141,7 @@ def _linhas(img, linhas, cy, tam, topo=False, area=None):
     if round(y2) != y and ("y", y) not in _avisado:
         _avisado.add(("y", y))
         print(f"   aviso pilula: bloco em y {y}-{y + total} px sairia da área segura ({ay0:.0f}-{ay1:.0f}); foi para "
-              f"{round(y2)}-{round(y2) + total} (regra do Fefo, 13/11/2026: EV dentro do 4:5, TS dentro do 1:1)", file=sys.stderr)
+              f"{round(y2)}-{round(y2) + total} (regra do Fefo: legenda na margem de 16/11/2026; header no 4:5/1:1)", file=sys.stderr)
     y = round(y2)
     for txt, cx, ct, *hl in linhas:
         emo = EH is not None and any(EH._e_emoji(ch) for ch in txt)
@@ -162,6 +177,7 @@ def quadro(legenda, header=None, cfg_leg=None, cfg_hd=None, tela=(W, H)):
         _linhas(img, ls, cfg_hd.get("y", 190) * k, tam, topo=True, area=ar)
     if legenda:
         _avisar_fixos(cfg_leg)
+        ar = area_legenda(tela, cfg_leg.get("area", "4:5"))   # margem da legenda (Fefo, 16/11/2026)
         cx, ct = _rgb(PADRAO["cor_caixa"]), _rgb(PADRAO["cor_texto"]); tam = PADRAO["tamanho"] * k
         lin = caber(quebrar(legenda, cfg_leg.get("quebra", PADRAO["quebra"])), tam, ar[2] - ar[0] - 2 * tam * MARGEM)
         ls = [(t, cx, ct) for t in lin]

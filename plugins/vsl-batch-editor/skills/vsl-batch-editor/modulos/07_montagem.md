@@ -1,4 +1,7 @@
 # Módulo: montagem (local, sem crédito)
+
+> **Antes do render e na edição (PDF do Lucas, 16/11/2026; `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seções 3 e 4):** conferir a timeline (prévia) e a folha dos clipes antes do render; nenhum quadro de fonte usado duas vezes (esticar = desacelerar até ~0,6x ou outro clipe); nenhum trecho em faixa ruim do veredito nem clipe com reroll pendente; ponto de entrada tirado do clipe real. A cena flui: clipe inteiro, corte só na troca de cena ou na reação, nunca picado por linha de roteiro. Ouvir cada emenda de fala. Pausa dramática de diálogo de drama fica (só ar morto > ~4 s sai); **VO narrada de anúncio segue o item 3 da Louise** (pausa > 0,45 s é falha). **Legenda continua a nossa** (pílula TikTok Sans Medium, `pilula.py`, dentro do 4:5 na EV e do 1:1 na TS).
+
 `python3 fluxo.py fazer "<batch>"` roda, só onde precisa e nesta ordem:
 1. **cortes** — silêncio de cada clipe (`batch.json` → corte_silencio). Se existir `<clipe>.manual.json`, ele vence.
    Toda borda de corte (automático e manual) é levada ao silêncio de verdade (`bordas_no_silencio`: janela de 20 ms

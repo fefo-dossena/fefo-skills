@@ -1,4 +1,7 @@
 # Módulo: personagens (gasta crédito)
+
+> **Qualidade do batch (PDF do Lucas, 16/11/2026; regra completa em `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seção 1.1):** cada personagem com duas referências travadas (rosto em close e corpo inteiro com a roupa, mesma luz), nunca folha com vários ângulos numa imagem; cada local com imagem **sem gente**, conferida em tamanho grande; no máximo 2 pessoas importantes por quadro; toda referência com função escrita no prompt. Do 2º clipe da cena em diante, o último quadro do clipe anterior **aprovado** entra como continuidade. Canário antes do lote: 1 clipe por personagem e 1 por cenário, conferido. A mesma frase de voz colada igual em todos os clipes do personagem.
+
 - Avatar fotográfico de UGC novo: parte de **quadro real** + **Nano Banana Pro** (seção abaixo). Frasco, rótulo, cartão e ilustração seguem no **GPT Image 2.5 Sunburst** (`kie.py sunburst`, 2K, 9:16; ver `modulos/kie.md`). 1 imagem por vez. Mostre ao Fefo e espere a aprovação antes de qualquer vídeo.
 - Aparência, idade, roupa e cenário seguem o ad em `01_refs/` desta batch e o brief do canvas — não a batch anterior.
   O personagem que fala (avatar) e o que aparece no b-roll devem ser a mesma pessoa.
