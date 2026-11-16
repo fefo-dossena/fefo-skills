@@ -292,17 +292,35 @@ def cmd_checar(a):
     if "lint" in ficha:
         ok, motivo = pj_lint(B); print(f"\nbatch\n  {marca(ok)} {'lint':8s} {motivo}", flush=True)
         lint = {"ok": ok, "motivo": motivo}; conta(ok)
+    # Do barato ao caro (PDF do Lucas, 16/11/2026): as baratas rodam em todos os vídeos primeiro; com falha nelas, as
+    # pesadas (qc e checklist, que transcrevem) ficam para a próxima versão, salvo --tudo. Sem checklist verde a
+    # versão continua travada no revisor, na sala e na entrega.
+    PESADAS = ("qc",)
+    leves = [x for x in ficha if x not in ("lint", "checklist") + PESADAS]
+    pesadas = [x for x in ficha if x in PESADAS]
+    locs = {}
     for v in videos:
         nome = os.path.relpath(v, B) if v.startswith(B + os.sep) else v
-        print(f"\n{nome}", flush=True); linha = {}; loc = pj_local(v, tmp)
-        for c in [x for x in ficha if x not in ("lint", "checklist")]:
+        print(f"\n{nome}", flush=True); linha = {}; loc = locs[v] = pj_local(v, tmp)
+        for c in leves:
             ok, motivo = (pj_freeze(loc)[:2] if c == "freeze" else PJ_FN[c](B, v, loc))
             print(f"  {marca(ok)} {c:8s} {motivo}", flush=True)
             linha[c] = {"ok": ok, "motivo": motivo}; conta(ok)
         resultado.append({"video": v, "checagens": linha})
-        if loc != v: os.remove(loc)
+    corta = bool(falhas or erros) and not getattr(a, "tudo", False)
+    if corta and (pesadas or "checklist" in ficha):
+        print(f"\n{falhas} falha(s) nas checagens baratas: pulei {', '.join(pesadas + (['checklist'] if 'checklist' in ficha else []))} "
+              "(corrija e rode de novo; --tudo roda mesmo assim). A versão segue travada até o checklist ficar verde.", flush=True)
+    else:
+        for r in resultado:
+            for c in pesadas:
+                ok, motivo = PJ_FN[c](B, r["video"], locs[r["video"]])
+                print(f"  {marca(ok)} {c:8s} {os.path.basename(r['video'])[-40:]}: {motivo}", flush=True)
+                r["checagens"][c] = {"ok": ok, "motivo": motivo}; conta(ok)
+    for v, loc in locs.items():
+        if loc != v and os.path.exists(loc): os.remove(loc)
     shutil.rmtree(tmp, ignore_errors=True)
-    if "checklist" in ficha and videos:            # checklist da Louise: 6 itens por vídeo, json por versão
+    if "checklist" in ficha and videos and not corta:            # checklist da Louise: 6 itens por vídeo, json por versão
         print(f"\nchecklist da Louise (6 itens, sem dispensa)", flush=True)
         ck = pj_checklist(B, videos)
         for r in resultado:

@@ -194,7 +194,7 @@ def _argumentos():
     p = sp.add_parser("xml"); p.add_argument("batch"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "xml"), gerar_xml(a.batch.rstrip("/"))))
     p = sp.add_parser("identificar"); p.add_argument("videos", nargs="+"); p.add_argument("--quadros", required=True); p.set_defaults(fn=_identificar)
     p = sp.add_parser("novo-plano"); p.add_argument("batch"); p.set_defaults(fn=_novo_plano)
-    p = sp.add_parser("checar"); p.add_argument("batch"); p.add_argument("videos", nargs="*"); p.add_argument("--so"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_checar)
+    p = sp.add_parser("checar"); p.add_argument("batch"); p.add_argument("videos", nargs="*"); p.add_argument("--so"); p.add_argument("--json", action="store_true"); p.add_argument("--tudo", action="store_true", help="roda as pesadas mesmo com falha nas baratas"); p.set_defaults(fn=cmd_checar)
     p = sp.add_parser("perfil"); p.set_defaults(fn=cmd_perfil)
     p = sp.add_parser("instalar"); p.add_argument("raiz"); p.set_defaults(fn=cmd_instalar)
     p = sp.add_parser("empacotar"); p.set_defaults(fn=cmd_empacotar)

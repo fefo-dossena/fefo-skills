@@ -28,6 +28,7 @@ Uso (no Windows: py -X utf8; processo pesado pela fila):
   checklist.py estado <video>...
       JSON com o estado do checklist de cada arquivo (usado pela sala e pelo frameio.py).
 """
+import sys as _s, os as _o; _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import argparse, datetime, difflib, glob, hashlib, json, os, re, shutil, subprocess, sys, tempfile, wave
 
 AQUI = os.path.dirname(os.path.abspath(__file__))          # scripts/checagens
@@ -975,9 +976,15 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
         with wave.open(wp, "wb") as w:
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
             w.writeframes((np.concatenate([np.zeros(8000, np.float32), a16]) * 32767).clip(-32768, 32767).astype(np.int16).tobytes())
-        try: words = [(w, max(0.0, a - 0.5), max(0.0, b - 0.5), p) for w, a, b, p in transcrever(wp, cfg["vo"].get("idioma", "en"))]
-        except Exception as e:
-            words = []; res["aviso_whisper"] = f"Whisper falhou: {e}"
+        import transcricao_cache as tc       # uma transcrição por vídeo para checklist, qc e revisor (16/11/2026)
+        idi = cfg["vo"].get("idioma", "en")
+        words = tc.ler(video, idi) or []
+        if not words:
+            try:
+                words = [(w, max(0.0, a - 0.5), max(0.0, b - 0.5), p) for w, a, b, p in transcrever(wp, idi)]
+                tc.gravar(video, words, idi, "checklist")
+            except Exception as e:
+                words = []; res["aviso_whisper"] = f"Whisper falhou: {e}"
     nv = niveis(a16, words) if precisa_fala else None
     if 3 in itens:
         rot, marca = roteiro_do_ad(B, P, video)

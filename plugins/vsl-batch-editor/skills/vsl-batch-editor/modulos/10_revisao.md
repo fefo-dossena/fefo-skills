@@ -29,8 +29,8 @@ Drama ad, refaça no Kling.
    **Card "só QA"** (vídeo pronto de outro editor): `modulos/10c_so_qa.md`. **Trocar trecho direto no MP4** (batch do Premiere, sem fontes): seção no fim de `10b_casos_revisao.md`.
 2b. **Localizar**: extrair quadros no ponto e em volta (prancha) e a fala (faster-whisper) para entender o que o revisor viu.
    Comentário de áudio ("weird sound", "VO wrong", "deadspace") quase sempre vem da hold: vale para os 6 ADs.
-   Além do pedido, rode as checagens de `07_montagem.md` na versão antiga (freezedetect, lascas, imagem × áudio, Whisper
-   no fim): em 16/10 elas acharam defeitos sem comentário em 4 das 7 revisões (fim cortado, piscada, congelados, quadro solto).
+   Além do pedido, rode `fluxo.py checar <batch> --tudo` na versão antiga (um comando: baratas + checklist; nada de
+   freezedetect, lascas ou Whisper à mão): em 16/10 essas checagens acharam defeitos sem comentário em 4 das 7 revisões.
 3. **Achar o padrão, não só o ponto** (regra do Fefo): um comentário vale para todos os ADs que usam a mesma hold e para
    todo trecho com o mesmo defeito. Varra os 6 ADs inteiros (prancha 1 fps) e confira:
    - avatar com mão/relógio perto da câmera (IA deforma) → punch-in ~1,6× no rosto recompondo a pílula da legenda;
