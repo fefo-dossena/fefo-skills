@@ -51,9 +51,14 @@ def cena_mp4(B, c, p=None):
     pasta = f"04_broll_hold/{p}" if c["tipo"] == "produto" else "04_broll_hold/geral"
     return f"{B}/{pasta}/{cid}_{c['nome']}.mp4"
 
-def cena_inicio(c):
-    """Segundo de onde o corte começa dentro do clipe ('parte' b = 2º corte do mesmo clipe)."""
-    return float(c.get("inicio", 2.5 if c.get("parte") == "b" else 0))
+def _por_marca(v, p=None):
+    """Campo da cena que pode ser número ou {marca: número} (BATCH#4377: faixa boa do clipe muda por marca)."""
+    return v.get(p or "", v.get("*")) if isinstance(v, dict) else v
+
+def cena_inicio(c, p=None):
+    """Segundo de onde o corte começa dentro do clipe ('parte' b = 2º corte do mesmo clipe). `inicio` pode ser {marca: s}."""
+    v = _por_marca(c.get("inicio", 2.5 if c.get("parte") == "b" else 0), p)
+    return float(v if v is not None else 0)
 
 def clipe_direita(B, c, p=None):
     """Cena "formato": "split" (tela dividida, tipo B de modulos/hooks.md): clipe da metade direita (produto), caminho
@@ -63,8 +68,9 @@ def clipe_direita(B, c, p=None):
 
 def dur_util(B, c, f, p=None):
     """Segundos usáveis da cena a partir do 'inicio' (split: o mais curto dos dois clipes, sem congelar nenhum lado)."""
-    d = duracao(f) - cena_inicio(c); r = clipe_direita(B, c, p)
-    if c.get("dur_max"): d = min(d, float(c["dur_max"]) + 0.05)   # trecho limpo do clipe (antes de um pulo/objeto estranho)
+    d = duracao(f) - cena_inicio(c, p); r = clipe_direita(B, c, p)
+    dm = _por_marca(c.get("dur_max"), p)
+    if dm: d = min(d, float(dm) + 0.05)   # trecho limpo do clipe (antes de um pulo/objeto estranho)
     return min(d, duracao(r) - float(c.get("inicio_direita", 0))) if r else d
 
 def pos_fala(c): return c.get("copy", "").startswith("(")    # ex.: "(tela final)" entra depois da última fala

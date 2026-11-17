@@ -197,13 +197,21 @@ def pj_quadros(B, mp4, loc):
     partes = ([resol] if resol else []) + [f"{n} {k}" for k, n in conta.items() if n] + ([f"primeiro em {re.sub(chr(32) + '+', chr(32), ocorr[0])}"] if ocorr else [])
     return False, "; ".join(partes) or linhas[-1][:160]
 
+PJ_ARQUIVO_DIR = ("_old", "old", "_antigo", "antigo", "_arquivo", "arquivo", "_lixo", "lixo", "_bak", "backup")
+
+def pj_e_arquivo(base, arq):
+    """True se <arq> está numa subpasta de arquivo (_old, antigos, _lixo...) abaixo de <base>."""
+    return any(d.lower().startswith(PJ_ARQUIVO_DIR) for d in os.path.relpath(arq, base).split(os.sep)[:-1])
+
 def pj_acha_ass(B, mp4):
-    """Legenda .ass do export: mesmo nome do vídeo (sem espaços, caixa baixa) em <auto>, <export> ou ao lado do vídeo."""
+    """Legenda .ass do export: mesmo nome do vídeo (sem espaços, caixa baixa) ao lado do vídeo, em <auto> ou em <export>.
+    Ignora subpastas de arquivo (_old, antigos...) e prefere o nível mais raso de cada pasta (17/11/2026, M1WK4B2 V6: o qc
+    leu um .ass velho de 07_export/_old/V6b no lugar do atual em 06_auto)."""
     chave = lambda p: re.sub(r"[^a-z0-9]", "", os.path.splitext(os.path.basename(p))[0].lower())
     alvo = chave(mp4)
     for base in (os.path.dirname(mp4), f"{B}/{AUTO}", f"{B}/{EXPORT}"):
-        for arq in pj_arquivos(base):
-            if arq.lower().endswith(".ass") and chave(arq) == alvo: return arq
+        achados = [a for a in pj_arquivos(base) if a.lower().endswith(".ass") and chave(a) == alvo and not pj_e_arquivo(base, a)]
+        if achados: return min(achados, key=lambda a: (os.path.relpath(a, base).count(os.sep), -os.path.getmtime(a)))
     return None
 
 def pj_qc(B, mp4, loc):
@@ -271,6 +279,9 @@ def cmd_checar(a):
         fora = [x for x in so if x not in ficha]
         if fora: print(f"(aviso: {', '.join(fora)} não está na ficha de {_nome_cliente(CLIENTE)}; rodo mesmo assim)")
         ficha = so
+    if getattr(a, "baratas", False):     # prévia de ajuste (Fefo, 16/11/2026): só as baratas; qc e checklist no export final
+        ficha = [x for x in ficha if x not in ("qc", "checklist")]
+        print("(--baratas: sem qc e sem checklist; eles rodam no export final, antes da entrega)")
     so_lint = ficha == ["lint"]
     if so_lint: videos = []
     elif a.videos:

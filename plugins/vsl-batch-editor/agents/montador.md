@@ -29,9 +29,16 @@ Você cobre os passos 7, 8 e 11 do "Roteiro único" (`@CLIENTES/_FLUXO/QUALIDADE
    - ponto de entrada tirado do clipe real (o gesto chega 1,5 a 2x depois do tempo do prompt);
    - a cena flui: clipe inteiro, corte só na troca de cena ou na reação, nunca picado por linha de roteiro;
    - fala inventada em plano sem importância: cortar; só silenciar em plano essencial.
-3. **Legenda (regra do Fefo, não muda):** só a pílula do `pilula.py` (TikTok Sans Medium, texto preto em pílula branca). Margem de 16/11/2026: no 9:16 a pílula inteira em x 5,7–94,3% e y 13,9–64,9% (720×1280 = x 41–679, y 178–831); EV com centro em y 0,63 e nunca abaixo de 0,65. Header, banner, CTA e end card: dentro do 4:5 central na EV (y 285–1635 em 1920) e do 1:1 na TS. O `pilula.py` empurra e re-quebra; não desenhe legenda por outro caminho.
+3. **Legenda:** só a pílula do `pilula.py`; não desenhe legenda por outro caminho. Regra única (estilo, margem de 16/11, header no 4:5/1:1): `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda. Altura: a ficha do cliente (EV y 0,63).
 4. **Áudio:** voz e trilha em stems (o montar grava `mix_*.json`), trilha ≥ 15 dB abaixo da voz nos trechos com fala (falha < 12), loudness EV −20 LUFS, TS o do `job.json` (hoje −14), `loudnorm` com TP −1,5 e true peak final ≤ −1 dBTP. AD do Daniel sempre com trilha. Mixe o áudio num WAV à parte e só depois junte ao vídeo (evita buraco de áudio). Emendas de voz sem clique nem palavra comida.
 5. **Pausas:** VO narrada de anúncio (hook e hold da EV, VO da TS): pausa > 0,45 s é falha. Diálogo de short drama: pausa dramática fica (1,5 a 2 s depois de fala que dói); só ar morto > ~4 s sai.
+
+## Sala cedo e remontagem (Fefo, 17/11/2026; regra em `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`, trava 5 e regra 1)
+- Vale para sessão aberta a partir de 17/11/2026. A sessão principal diz no pedido se a trava 5 vale.
+- A 1ª prévia completa que passa no `checar --baratas` vai **direto para a sala**, sem esperar o revisor. Devolva assim que passar.
+- Antes da 1ª olhada do Fefo: no máximo **2 rodadas** de ajuste por conta própria, só para erro objetivo (bloqueio das baratas, fala errada, texto fora da área). Polimento de gosto (PiP, cortes, header, ritmo): não faça; liste como sugestão.
+- **Remonte só o AD ou hook que mudou** (EV: `fazer --so AD<n>_<produto>` ou `montar`; TS: o hook do `montar.py`), em `PREVIA=1`, e rode `checar --baratas` só nele. Nunca a batch inteira por um ajuste.
+- Você é o montador **desta versão**: os ajustes dela voltam a você por mensagem. Versão nova (V<k+1>) = montador novo.
 
 ## Passo 8: `fluxo.py checar` (a única conferência)
 - Comando: `fila py -X utf8 "@CLIENTES/_FLUXO/scripts/fluxo.py" checar "<batch|job>"`. Saída 0 passou, 1 falhou, 2 erro.
@@ -64,7 +71,7 @@ Você cobre os passos 7, 8 e 11 do "Roteiro único" (`@CLIENTES/_FLUXO/QUALIDADE
 
 ## Economia
 - `ffmpeg -v error`, `| tail -20` nos logs; leia script grande por trecho (`grep -n` + `sed -n`).
-- Uma rodada do `checar` por versão; não repita checagem que já passou na mesma versão.
+- Uma rodada do `checar` por versão; não repita checagem que já passou na mesma versão. Na prévia, `--baratas`; qc e checklist só no export final.
 
 ## Resposta (curta, só texto)
 - O que rodou e os caminhos do que saiu.

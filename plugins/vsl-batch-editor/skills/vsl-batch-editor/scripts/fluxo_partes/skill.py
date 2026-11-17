@@ -32,7 +32,8 @@ def arvore(base):
     for raiz, dirs, arqs in os.walk(base):
         dirs[:] = [x for x in dirs if x != "__pycache__"]
         for f in arqs:
-            if f not in (".DS_Store", "desktop.ini"): yield os.path.join(raiz, f).replace("\\", "/")
+            # backup (.bak_<data>_<motivo>, .bak2_...) nunca sai com a skill (17/11/2026: o publicar --teste levava 12)
+            if f not in (".DS_Store", "desktop.ini") and not re.search(r"\.bak\d*(_|$)", f): yield os.path.join(raiz, f).replace("\\", "/")
 
 def itens_da_skill():
     """(origem, caminho na skill) de tudo que sai com a skill, no zip e no plugin."""
@@ -54,11 +55,24 @@ def itens_da_skill():
         itens += [(f"{nucleo}/fontes/{a}", f"fontes/{a}") for a in ("TikTokSans-Legenda-Medium.ttf", "TikTokSans_OFL.txt")
                   if os.path.exists(f"{nucleo}/fontes/{a}")]
         itens.append((f"{nucleo}/clientes/empire-vision.json", "scripts/clientes/empire-vision.json"))
-        # checklist da Louise (Frente 4, 13/11/2026): o checar o roda quando a ficha o liga; vai em scripts/ (onde o checar procura)
-        itens += [(f"{nucleo}/scripts/checagens/{a}", f"scripts/{a}") for a in
-                  ("checklist.py", "notas_revisao.py", "prompt_qa.py", "transcricao_cache.py", "visao.py", "visao_win.ps1", "visao.swift") if os.path.exists(f"{nucleo}/scripts/checagens/{a}")]
+        # checagens/ inteira (17/11/2026: a lista fixa deixava de fora qc_export, conferir_quadros e lado_montagem, e o
+        # checar do plugin quebrava); vai em scripts/, onde o checar procura. lascas/ritmo já vieram pela troca acima.
+        ja = {r for _, r in itens}
+        itens += [(s, f"scripts/{os.path.basename(s)}") for s in arvore(f"{nucleo}/scripts/checagens")
+                  if s.endswith((".py", ".ps1", ".swift")) and f"scripts/{os.path.basename(s)}" not in ja]
+        # ficha de cliente em texto (skill genérica, 17/11/2026): a skill pede o cliente e lê clientes/<cliente>.md
+        itens += [(f"{nucleo}/clientes/empire-vision.md", "clientes/empire-vision.md")] if os.path.exists(f"{nucleo}/clientes/empire-vision.md") else []
     return itens + [(s, "modelo/_BATCH_MODELO/" + rel(s, f"{R}/_BATCH_MODELO")) for s in arvore(f"{R}/_BATCH_MODELO")
                     if s.endswith((".md", ".txt", ".json"))]
+
+def itens_do_plugin():
+    """(origem, caminho no plugin) do que fica fora da pasta da skill: agentes e plugin.json, de _FLUXO_VSL/plugin/.
+    O ("", "agents/") do começo manda o publicar apagar os agentes velhos antes de copiar."""
+    P = f"{FLUXO}/plugin".replace("\\", "/")
+    if not os.path.isdir(P): return []
+    itens = [("", "agents/")] + [(s, "agents/" + os.path.basename(s)) for s in arvore(f"{P}/agents") if s.endswith(".md")]
+    if os.path.exists(f"{P}/plugin.json"): itens.append((f"{P}/plugin.json", ".claude-plugin/plugin.json"))
+    return itens
 
 def cmd_empacotar(a):
     """Zip da skill (claude.ai / outra pessoa), só no _FLUXO_VSL fonte da skill. Do monitor/ vão só os scripts do
@@ -92,6 +106,11 @@ def cmd_publicar(a):
         shutil.rmtree(dst, ignore_errors=True)
         for s, rel in itens:
             os.makedirs(os.path.dirname(f"{dst}/{rel}"), exist_ok=True); shutil.copy2(s, f"{dst}/{rel}")
+        # agentes e plugin.json também saem do Drive (17/11/2026: antes existiam só no repo, sem fonte)
+        plug = f"{repo}/plugins/vsl-batch-editor"
+        for s, rel in itens_do_plugin():
+            if rel == "agents/" : shutil.rmtree(f"{plug}/agents", ignore_errors=True); continue
+            os.makedirs(os.path.dirname(f"{plug}/{rel}"), exist_ok=True); shutil.copy2(s, f"{plug}/{rel}")
         quem = []                                                        # PC sem identidade do git: a mesma dos commits do Mac
         if not subprocess.run(["git", "-C", repo, "config", "user.email"], capture_output=True, text=True).stdout.strip():
             quem = ["-c", "user.name=Fefo", "-c", "user.email=133016163+fefo-dossena@users.noreply.github.com"]

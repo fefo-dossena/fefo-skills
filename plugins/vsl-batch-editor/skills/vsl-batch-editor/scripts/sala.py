@@ -34,7 +34,7 @@ def timeline(B, plano, p, n, mp4, dest):
             m = iu.module_from_spec(sp); sp.loader.exec_module(m); tl["planos"] = m.ler_planos(pos, dur)
         except Exception as e:
             print("  ! planos da timeline:", e)
-    os.makedirs(os.path.dirname(dest), exist_ok=True); json.dump(tl, open(dest, "w"), ensure_ascii=False)
+    os.makedirs(os.path.dirname(dest), exist_ok=True); json.dump(tl, open(dest, "w", encoding='utf-8'), ensure_ascii=False)
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("batch"); ap.add_argument("--nota", default="")
@@ -42,7 +42,7 @@ def main():
     a = ap.parse_args(); B = os.path.abspath(a.batch); plano, cfg = F.carregar(B); nome = os.path.basename(B)
     base = a.pasta or os.path.expanduser(f"~/.vsl-batch-editor/salas/{nome}"); os.makedirs(base, exist_ok=True)
     rj = f"{base}/review.json"
-    r = json.load(open(rj)) if os.path.exists(rj) else {"title": cfg.get("card") or nome, "id": re.sub(r"\W+", "-", nome).strip("-").lower(),
+    r = json.load(open(rj, encoding='utf-8')) if os.path.exists(rj) else {"title": cfg.get("card") or nome, "id": re.sub(r"\W+", "-", nome).strip("-").lower(),
                                                         "client": "Empire Vision", "url": None, "videos": []}
     k = versao_atual(B); hoje = str(datetime.date.today()); faltam = []
     for p in plano["produtos"]:
@@ -66,7 +66,7 @@ def main():
                 if q: rend[str(n)]["4x5"] = q[0]
             timeline(B, plano, p, n, mp4, f"{base}/timelines/v{k}_{ad_name}.timeline.json")
         vd["versions"] = [x for x in vd["versions"] if x["v"] != k] + [{"v": k, "date": hoje, "note": a.nota or f"V{k}", "renders": rend}]
-    json.dump(r, open(rj, "w"), ensure_ascii=False, indent=1)
+    json.dump(r, open(rj, "w", encoding='utf-8'), ensure_ascii=False, indent=1)
     for f in faltam: print("  ! falta o export:", f)
     print(f"V{k} em {rj}")
     # O kit vive na skill sala-de-revisao (design do Fefo + montagem ao vivo); a cópia daqui fica de reserva.

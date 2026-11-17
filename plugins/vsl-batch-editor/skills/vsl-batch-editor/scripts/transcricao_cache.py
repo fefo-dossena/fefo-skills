@@ -35,3 +35,20 @@ def gravar(video, palavras, idioma="en", origem=""):
                   open(os.path.join(PASTA, f"{chave(video)}_{idioma}.json"), "w", encoding="utf-8"), ensure_ascii=False)
     except OSError:
         pass
+
+
+def vocabulario(video):
+    """Palavras raras do job para o Whisper (hotwords): job.json/batch.json "vocabulario", na pasta acima
+    do vídeo. Sem isso o medium ouvia "Leydig" como "lytic" (M1WK4B2 V6, 16/11/2026). None = sem vocabulário."""
+    d = os.path.dirname(os.path.abspath(video))
+    for _ in range(6):
+        for nome in ("job.json", "batch.json"):
+            try:
+                j = json.load(open(os.path.join(d, nome), encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            v = [str(x) for x in (j.get("vocabulario") or [])]   # sem a marca: com "Testolite" o Whisper inventava
+                                                                  # a marca no lugar de "every penny" (M1WK4B2 V6 H3)
+            return " ".join(dict.fromkeys(v)) or None
+        d = os.path.dirname(d)
+    return None

@@ -26,7 +26,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 FONTE = ("/System/Library/Fonts/HelveticaNeue.ttc", 1)      # Helvetica Neue Bold (igual ao pilula.py)
 NATIVA = ("/System/Library/Fonts/HelveticaNeue.ttc", 0)     # Helvetica Neue regular: a legenda do Snapchat é fina
-EMOJI = "/System/Library/Fonts/Apple Color Emoji.ttc"       # bitmap: só renderiza em 160 px; reduz depois
+import os as _os
+EMOJI = "/System/Library/Fonts/Apple Color Emoji.ttc" if _os.path.exists("/System/Library/Fonts/Apple Color Emoji.ttc") else "C:/Windows/Fonts/seguiemj.ttf"   # PC Windows (16/11/2026)       # bitmap: só renderiza em 160 px; reduz depois
 W, H, FPS = 1080, 1920, 30
 
 def _rgb(h): h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
@@ -214,11 +215,12 @@ def inset_pngs(cfg, rotulo, pasta, nome):
     m, o = f"{pasta}/{nome}_mascara.png", f"{pasta}/{nome}_moldura.png"
     mk.save(m); fm.save(o); return m, o, (x, y, L)
 
-def inset_filtro(j, jm, i0, dur, a, k, L, cy=0.4, extra=""):
+def inset_filtro(j, jm, i0, dur, a, k, L, cy=0.4, extra="", rc=None):
     """Clipe j recortado no quadrado L x L (faixa vertical cy) com a máscara jm de cantos arredondados; sai [x{k}] com alfa,
     já no tempo do AD (como as outras cenas). O overlay e a moldura ficam no fluxo.montar."""
     ex = f"{extra}," if extra else ""
-    return (f"[{j}:v]trim={i0:.3f}:{i0 + dur:.3f},setpts=PTS-STARTPTS,scale={L}:{L}:force_original_aspect_ratio=increase,"
+    rec = f"crop=trunc(iw*{rc[2]}/2)*2:trunc(ih*{rc[3]}/2)*2:iw*{rc[0]}:ih*{rc[1]}," if rc else ""   # recorte [x,y,w,h] antes do quadrado (4380 S04)
+    return (f"[{j}:v]trim={i0:.3f}:{i0 + dur:.3f},setpts=PTS-STARTPTS,{rec}scale={L}:{L}:force_original_aspect_ratio=increase,"
             f"crop={L}:{L}:(iw-{L})/2:(ih-{L})*{cy},{ex}fps=30,setsar=1,format=rgba[xi{k}];"
             f"[{jm}:v]scale={L}:{L},format=gray,fps=30[mk{k}];[xi{k}][mk{k}]alphamerge,settb=1/90000,"
             f"setpts=PTS+{round(a * 30) / 30 - 1 / 60:.6f}/TB[x{k}]")

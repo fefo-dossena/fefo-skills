@@ -46,8 +46,8 @@
    Buraco < 0,5 s entre duas cenas é fechado (senão o avatar "pisca" 1–2 quadros); ≥ 0,5 s = avatar de propósito.
    `callout` de cena sai no meio da tela; em cena de frasco ele cobre o nome no rótulo → `callout_y` (topo do texto em px
    de 1920, ex. 330 = acima da tampa; BATCH#3222).
-   **Legenda SEMPRE TikTok Sans Medium em pílula** (Fefo, 13/11/2026, EV e TS: "padronizar o estilo de legenda em TODAS AS TAREFAS"): texto preto, pílula branca de ponta redonda, nas proporções do PSD `@CLIENTES/_FLUXO/legenda/EXEMPLO LEGENDA.psd`. Desenho único em `@CLIENTES/_FLUXO/scripts/pilula.py`; regra completa no `@CLIENTES/_FLUXO/LEIA-ME.md`. O `montar` recusa outro estilo no plano (job antigo em revisão: `estilo.legenda.manter_antigo`, só com ok do Fefo).
-   A pílula sai como PNGs; corpo, cor e fonte não mudam pelo plano. `legenda_y` por cena desvia de rótulo/rosto. **Altura padrão 0,63 e nunca abaixo de 0,65** (Fefo, 13/11/2026, regra fixa no `SKILL.md`): desvio só para cima.
+   **Legenda:** a pílula do `pilula.py`; estilo, margem e altura moram em `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda.
+   Aqui só o uso: a pílula sai como PNGs; o plano muda só a altura (`legenda_y` por cena desvia de rótulo ou rosto, só para cima).
    Trecho de avatar sem cena (ex.: placa na mão) → `estilo.legenda.y_trechos` [{de, ate, y}] pelo texto da legenda. Com SRT de
    1 linha, `quebra` ≥ maior linha (a pílula não pode re-quebrar "Nobel / Prize").
    Banner/sticker com alfa (.mov 1080x1920, em loop) por cima do vídeo: `estilo.overlays` = [{"arquivo": "06_elementos/...mov",
@@ -68,7 +68,9 @@ Opções: `--ate legendas` (para antes dos ADs), `--so AD2_neurobella`, `--forca
 Regra do Fefo (02/11/2026): vídeo gerado e AD final sempre em **720p** (720x1280). `fluxo.py`, `cartao.py` e `umtake.py` compõem em
 1080x1920 (por isso posições e overlays seguem em px de 1920) e descem na saída.
 
-## Conferência antes de mandar ao Fefo
+## Conferência: só o `fluxo.py checar` (pelo `montador`)
+O passo de conferência é um só: `fluxo.py checar <batch>`, uma vez por versão (roteiro único de `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`).
+O resto desta seção **não é passo**: é como entender e corrigir o que o `checar` ou o revisor acusou.
 **Trava antes do render final (Frente 1, 09/11/2026):** depois do `fluxo.py fazer <batch> --ate legendas` e antes do `fazer`
 final, rode `python3 @CLIENTES/_FLUXO/scripts/lint_plano.py <batch>`. Ele monta a linha do tempo de cada AD pela mesma
 conta da montagem, sem renderizar, e **sai com 1** quando acha: 3D seguido ou acima de 2,5 s; pausa hook→hold abaixo de
@@ -154,14 +156,13 @@ O pedido ao revisor roda `fluxo.py checar <batch>` (freeze, lascas, ritmo e lint
   O `broll_posicoes_*.json` e o XML saem com o caminho do espelho: antes de entregar, regenere o XML com o `fluxo.py`
   apontando para a batch no Drive (3214).
 - `~/bin/ffprobe` deste Mac é um atalho que SÓ imprime a duração (ignora `-show_entries`): para fps e streams use `ffmpeg -i`.
-- **Olhar de revisor** (curso Ad Creators Lab, 29/10/2026), depois das checagens técnicas: assistir cada AD em **1,75x**
-  (o que parece lento ali arrasta em 1x); um texto na tela por vez; produto nunca coberto por legenda ou texto; no
-  ingrediente ou item citado, mostrar o próprio; close do produto nas pausas do avatar.
-- Mande os 6 ADs ao Fefo (SendUserFile) e espere o OK antes da entrega.
+- **Olhar de revisor** (curso Ad Creators Lab, 29/10/2026) é do `revisor-de-video`, não do montador: AD em 1,75x; um texto
+  na tela por vez; produto nunca coberto; no item citado, mostrar o próprio; close do produto nas pausas do avatar.
+- A versão vai ao Fefo pela sala (`modulos/11_review_room.md`), não por SendUserFile. Sala cedo: trava 5 de `REGRAS_DA_SESSAO.md`.
 
 ## Fim e emendas da voz (checagem fixa, Fefo, 09/11/2026)
 - **Fim do AD:** a última palavra ganha +0,45 s de cauda no recorte e fade de 0,3 s na voz; depois, 1,4 s de cauda com fade
   de trilha e de vídeo. Corte seco no fim foi nota do Fefo na 4205.
 - **Entre frases** (VO única cortada em trechos): emenda com crossfade curto (10–20 ms), nunca corte seco com a voz soando.
-- **Confira:** Whisper do AD inteiro contra o roteiro, palavra a palavra (palavra fraca no fim some: "breakfast", "flow"),
-  e os últimos 5 s isolados.
+- O item 3 do checklist (no `checar`) transcreve o AD inteiro contra o roteiro. Palavra fraca no fim some ("breakfast",
+  "flow"): se ele acusar, ouça os últimos 5 s antes de mexer.

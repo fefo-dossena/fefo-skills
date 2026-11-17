@@ -27,12 +27,12 @@ Drama ad, refaça no Kling.
    (`fluxo.py checar`): revisão também passa por ele, sem dispensa.
 2. **Comentário parecido já apareceu?** `grep -n -i "<palavra do comentário>" modulos/10b_casos_revisao.md` e leia só a linha achada (tabela de causas e correções de revisões antigas; não abrir o arquivo inteiro).
    **Card "só QA"** (vídeo pronto de outro editor): `modulos/10c_so_qa.md`. **Trocar trecho direto no MP4** (batch do Premiere, sem fontes): seção no fim de `10b_casos_revisao.md`.
-2b. **Localizar**: extrair quadros no ponto e em volta (prancha) e a fala (faster-whisper) para entender o que o revisor viu.
+2b. **Localizar** (só o ponto da nota): quadros no ponto e em volta e a fala daquele trecho, para entender o que o revisor viu.
    Comentário de áudio ("weird sound", "VO wrong", "deadspace") quase sempre vem da hold: vale para os 6 ADs.
    Além do pedido, rode `fluxo.py checar <batch> --tudo` na versão antiga (um comando: baratas + checklist; nada de
    freezedetect, lascas ou Whisper à mão): em 16/10 essas checagens acharam defeitos sem comentário em 4 das 7 revisões.
 3. **Achar o padrão, não só o ponto** (regra do Fefo): um comentário vale para todos os ADs que usam a mesma hold e para
-   todo trecho com o mesmo defeito. Varra os 6 ADs inteiros (prancha 1 fps) e confira:
+   todo trecho com o mesmo defeito. O `checar` da versão nova cobre os 6 ADs; olhe só os trechos do mesmo tipo e confira:
    - avatar com mão/relógio perto da câmera (IA deforma) → punch-in ~1,6× no rosto recompondo a pílula da legenda;
    - texto gerado pela IA dentro do b-roll (selos, rótulos) → errado = tirar (zoom leve no b-roll-fonte sem legenda),
      não trocar por outro texto;

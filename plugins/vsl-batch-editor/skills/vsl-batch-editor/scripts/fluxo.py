@@ -21,7 +21,7 @@ Subcomandos:
   xml    <batch>                         timeline Premiere, só se o Fefo pedir (fora do fazer desde 10/11/2026)
   identificar <videos...> --quadros <pasta>   casa cada vídeo baixado com o quadro inicial (1º frame)   (motor plano)
   novo-plano <batch>                     gera um plano.json vazio a partir do roteiro.txt (para o Claude preencher)   (motor plano)
-  checar <job_ou_batch> [videos...] [--so freeze,lascas,ritmo,quadros,qc] [--json]
+  checar <job_ou_batch> [videos...] [--so freeze,lascas,ritmo,quadros,qc] [--baratas] [--json]
                                          checagens da ficha em cada export (sem vídeos: os exports da pasta de export, sem _old)
   perfil                                 perfil de quem usa (contas, aprovador); sem perfil → módulo configurar
   instalar <raiz>                        (fluxo.py da pasta da skill) monta/atualiza <raiz>/_FLUXO_VSL e _BATCH_MODELO
@@ -194,7 +194,7 @@ def _argumentos():
     p = sp.add_parser("xml"); p.add_argument("batch"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "xml"), gerar_xml(a.batch.rstrip("/"))))
     p = sp.add_parser("identificar"); p.add_argument("videos", nargs="+"); p.add_argument("--quadros", required=True); p.set_defaults(fn=_identificar)
     p = sp.add_parser("novo-plano"); p.add_argument("batch"); p.set_defaults(fn=_novo_plano)
-    p = sp.add_parser("checar"); p.add_argument("batch"); p.add_argument("videos", nargs="*"); p.add_argument("--so"); p.add_argument("--json", action="store_true"); p.add_argument("--tudo", action="store_true", help="roda as pesadas mesmo com falha nas baratas"); p.set_defaults(fn=cmd_checar)
+    p = sp.add_parser("checar"); p.add_argument("batch"); p.add_argument("videos", nargs="*"); p.add_argument("--so"); p.add_argument("--json", action="store_true"); p.add_argument("--tudo", action="store_true", help="roda as pesadas mesmo com falha nas baratas"); p.add_argument("--baratas", action="store_true", help="só as baratas (prévia de ajuste); qc e checklist ficam para o export final"); p.set_defaults(fn=cmd_checar)
     p = sp.add_parser("perfil"); p.set_defaults(fn=cmd_perfil)
     p = sp.add_parser("instalar"); p.add_argument("raiz"); p.set_defaults(fn=cmd_instalar)
     p = sp.add_parser("empacotar"); p.set_defaults(fn=cmd_empacotar)

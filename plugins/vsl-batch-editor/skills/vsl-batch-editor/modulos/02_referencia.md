@@ -98,7 +98,7 @@ repete e o que dá sensação. Sem ref: procure ads e conteúdo orgânico do que
   `avatar.quadro` [x,y,w,h] (ex.: [0,285,1080,1350] = 4:5 com tarjas; [0,0,1080,1920] = 9:16 cheio), `avatar.punch_in`
   (zoom alternado por clipe), `broll.cartao`/`broll.inset` [x,y,w,h], `legenda.y` (a legenda é a pílula padrão),
   `hook_banner.texto` (`**negrito**`, `|` quebra linha), `cta.titulo`/`rodape`. Exemplo completo: BATCH#2078.
-- `legenda.estilo` = `pilula`, sempre. **Legenda SEMPRE TikTok Sans Medium em pílula** (Fefo, 13/11/2026, EV e TS: "padronizar o estilo de legenda em TODAS AS TAREFAS"): texto preto, pílula branca de ponta redonda, nas proporções do PSD `@CLIENTES/_FLUXO/legenda/EXEMPLO LEGENDA.psd`. Desenho único em `@CLIENTES/_FLUXO/scripts/pilula.py`; regra completa no `@CLIENTES/_FLUXO/LEIA-ME.md`. O ref NÃO escolhe mais a legenda: decide só a altura (dentro da regra de 0,63) e a quebra. Os estilos abaixo são histórico, só para job antigo em revisão com `estilo.legenda.manter_antigo` e ok do Fefo:
+- `legenda.estilo` = `pilula`, sempre (regra única em `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda). O ref NÃO escolhe mais a legenda: decide só a altura (dentro da regra da ficha do cliente) e a quebra. Os estilos abaixo são histórico, só para job antigo em revisão com `estilo.legenda.manter_antigo` e ok do Fefo:
   `amarelo_contorno`, `branca_contorno` (sem caixa), `caixa_branca` / `caixa_branca_compacta` /
   `caixa_branca_justa` (caixa colada no texto — a preferida do Fefo quando o ref tem caixa reta), `pilula` (caixa de
   cantos arredondados por linha, 1–2 linhas, estilo texto do Instagram; header do hook no mesmo desenho via

@@ -219,7 +219,7 @@ def _cuda_ok():
     except OSError: return False
 
 
-def transcrever(wav, idioma="en"):
+def transcrever(wav, idioma="en", hotwords=None):
     """Palavras [(texto, ini, fim, prob)] do AD inteiro (Whisper medium; GPU no PC Windows, CPU no Mac)."""
     global _MODELO
     from faster_whisper import WhisperModel
@@ -227,12 +227,47 @@ def transcrever(wav, idioma="en"):
         _MODELO = (WhisperModel("medium", device="cuda", compute_type="float16") if _cuda_ok()
                    else WhisperModel("medium", device="cpu", compute_type="int8", cpu_threads=8))
     segs, _ = _MODELO.transcribe(wav, word_timestamps=True, vad_filter=False, language=idioma,
-                                 condition_on_previous_text=False, beam_size=5)
+                                 condition_on_previous_text=False, beam_size=5, hotwords=hotwords)
     out = []
     for s in segs:
         for w in (s.words or []):
             out.append((w.word.strip(), float(w.start), float(w.end), float(w.probability)))
-    return out
+    return _tapa_buracos(wav, out, idioma, hotwords)
+
+
+def _tapa_buracos(wav, out, idioma, hotwords, buraco_s=1.5):
+    """O Whisper no arquivo inteiro às vezes pula 4 s de fala (M1WK4B2 V6 H2, 0:53: "falta no áudio" com a voz lá).
+    Buraco > buraco_s entre palavras com voz no áudio (RMS > -35 dBFS): transcreve só o trecho e encaixa as palavras."""
+    try:
+        import numpy as np
+        with wave.open(wav, "rb") as f:
+            sr = f.getframerate(); a = np.frombuffer(f.readframes(f.getnframes()), np.int16).astype(np.float32) / 32768
+    except Exception:
+        return out
+    fim_audio = len(a) / sr
+    # trechos a refazer: (ini, fim, índices das palavras que saem). Buraco entre palavras, ou palavra esticada > 1 s
+    # (M1WK4B2 V6 H3, 0:29: "are" durou 1,5 s e engoliu "your Leydig cells. And your"): refaz ela e a anterior.
+    trechos = []
+    for k in range(len(out) + 1):
+        ini = out[k - 1][2] if k else 0.0
+        fim = out[k][1] if k < len(out) else fim_audio
+        if fim - ini >= buraco_s: trechos.append((ini, fim, ()))
+    for k, w in enumerate(out):
+        if w[2] - w[1] > 1.0:
+            ini = out[k - 2][2] if k >= 2 else 0.0
+            fim = out[k + 1][1] if k + 1 < len(out) else fim_audio
+            trechos.append((ini, fim, tuple(j for j in (k - 1, k) if j >= 0)))
+    novos, sai = [], set()
+    for ini, fim, idx in trechos:
+        tr = a[int(ini * sr):int(fim * sr)]
+        if not len(tr) or 20 * np.log10(np.sqrt(np.mean(tr ** 2)) + 1e-9) < -35: continue
+        segs, _ = _MODELO.transcribe(tr, word_timestamps=True, vad_filter=False, language=idioma,
+                                     condition_on_previous_text=False, beam_size=5, hotwords=hotwords)
+        ws = [(w.word.strip(), ini + float(w.start), ini + float(w.end), float(w.probability))
+              for s in segs for w in (s.words or [])]
+        if ws: novos += ws; sai.update(idx)
+    if not novos: return out
+    return sorted([w for k, w in enumerate(out) if k not in sai] + novos, key=lambda w: w[1])
 
 
 # ---------------------------------------------------------------- texto: normalização e roteiro
@@ -252,6 +287,7 @@ def palavras(txt):
     t = str(txt).lower().replace("’", "'").replace("%", " percent ").replace("&", " and ")
     t = re.sub(r"(\d),(\d{3})", r"\1\2", t)
     t = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", t)
+    t = re.sub(r"\b(\d*[2-9]0)'?s\b", lambda m: " " + _num(m[1])[:-1] + "ies ", t)   # "70s" = seventies (M1WK4B2 V6, 16/11/2026)
     t = re.sub(r"\d+", lambda m: " " + _num(m[0]) + " ", t)
     t = re.sub(r"\b([ap])\s*\.?\s*m\b\.?", r"\1m", t)          # a.m. / a m / am (Whisper escreve de três jeitos)
     t = re.sub(r"[-/]", " ", t)
@@ -341,10 +377,24 @@ def junta_marca(ouvidas, marca):
 
 FRACAS = set("a an the to of in on at for with by from and or but so if as that it is are was be just this its".split())
 
+def junta_numeros(words):
+    """O Whisper parte "3,000" em "3," + "000"; normalizado em separado vira "three zero" (M1WK4B2 V6, 16/11/2026)."""
+    out = []
+    for w in words:
+        t = w[0].strip()
+        if (out and re.fullmatch(r"\d[\d,]*", out[-1][0].strip().rstrip(",") or "x") and re.match(r",?\d{3}\b", t)
+                and (out[-1][0].strip().endswith(",") or t.startswith(","))):
+            o = out[-1]; out[-1] = (o[0].strip() + t, o[1], w[2], min(o[3], w[3]))
+        else:
+            out.append(tuple(w))
+    return out
+
+
 def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False):
     """words = [(texto, ini, fim, prob)] do Whisper. Devolve (ok, resumo, ocorrências)."""
     c = cfg["vo"]; occ = []
     ouv = []
+    words = junta_numeros(words)
     for w, a, b, p in words:
         for x in palavras(w): ouv.append((x, a, b, p))
     ouv = junta_marca(ouv, marca)
@@ -981,7 +1031,7 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
         words = tc.ler(video, idi) or []
         if not words:
             try:
-                words = [(w, max(0.0, a - 0.5), max(0.0, b - 0.5), p) for w, a, b, p in transcrever(wp, idi)]
+                words = [(w, max(0.0, a - 0.5), max(0.0, b - 0.5), p) for w, a, b, p in transcrever(wp, idi, tc.vocabulario(video))]
                 tc.gravar(video, words, idi, "checklist")
             except Exception as e:
                 words = []; res["aviso_whisper"] = f"Whisper falhou: {e}"
@@ -991,7 +1041,19 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
         mix3 = lado_montar(B, P, video, "mix", dg)
         stems = bool(mix3 and mix3.get("pausas") is not None)
         pz = mix3["pausas"] if stems else pausas_audio(nv, cfg["vo"].get("pausa_abaixo_db", 8.0))
-        ok3, r3, o3 = item_vo(words, rot, marca, cfg, dur, pz, exata=stems)
+        c3 = cfg
+        try:      # short drama (job.json "formato"): pausa dramática fica, só ar morto > ~4 s é falha (QUALIDADE_DO_BATCH.md §4; Fefo, 16/11/2026)
+            if "drama" in str(json.load(open(os.path.join(B, P["config"]), encoding="utf-8")).get("formato", "")).lower():
+                c3 = _mescla(cfg, {"vo": {"pausa_max_s": 4.0, "pausa_emenda_max_s": 4.0}})
+                # cena sem fala de propósito (montagem, inserto; o montar grava "trechos_sem_fala" no mix) não é ar morto:
+                # conta só a parte da pausa fora desses trechos (Fefo, 16/11/2026, M1WK4B1)
+                sf = (mix3 or {}).get("trechos_sem_fala") or []
+                if sf:
+                    def _fora(t, d):
+                        return d - sum(max(0.0, min(t + d, b) - max(t, a)) for a, b in sf)
+                    pz = [(t, round(_fora(t, d), 2)) for t, d in pz]
+        except (OSError, ValueError, AttributeError, KeyError): pass
+        ok3, r3, o3 = item_vo(words, rot, marca, c3, dur, pz, exata=stems)
         poe(3, ok3, r3, o3, {"pausas": sorted(pz, key=lambda x: -x[1])[:8], "fonte_pausas": "stems" if stems else "mix"})
     if 4 in itens:
         mix = lado_montar(B, P, video, "mix", dg)

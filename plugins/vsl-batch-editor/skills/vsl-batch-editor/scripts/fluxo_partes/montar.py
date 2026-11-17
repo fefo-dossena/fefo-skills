@@ -19,6 +19,38 @@ def _marca_previa(saida):
     elif os.path.exists(m):
         os.remove(m)
 
+# Loudnorm em 2 passadas (17/11/2026, defeito achado na M1WK4B2 V6): o loudnorm de uma passada dentro do filter_complex
+# deixa o export ~2 LU abaixo do alvo (TS -14 saía em -16) e o item 4 do checklist reprova. Depois do encode: mede o
+# áudio do arquivo (1ª passada) e reaplica o loudnorm linear com os valores medidos (2ª), só no áudio; o vídeo é copiado.
+# TP -1.5 deixa folga para o AAC: o checklist pede no máximo -1 dBTP.
+def _mede_loudnorm(mp4, lufs, tp):
+    err = subprocess.run([FF, "-nostdin", "-hide_banner", "-nostats", "-i", mp4, "-vn", "-af",
+                          f"loudnorm=I={lufs}:TP={tp}:LRA=11:print_format=json", "-f", "null", "-"],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace").stderr
+    blocos = re.findall(r"\{[^{}]*\}", err)
+    return json.loads(blocos[-1]) if blocos else None
+
+def _loudnorm_2p(mp4, lufs, tp=-1.5, tol=0.5):
+    m = _mede_loudnorm(mp4, lufs, tp)
+    if not m or m["input_i"] in ("-inf", "inf"):
+        print(f"   aviso: não medi o loudness de {os.path.basename(mp4)}; ficou o da 1ª passada"); return
+    ent_i, ent_tp = float(m["input_i"]), float(m["input_tp"])
+    if abs(ent_i - lufs) <= tol and ent_tp <= tp + 0.5:
+        print(f"   loudness ok na 1ª passada: {ent_i:.1f} LUFS, {ent_tp:.1f} dBTP"); return
+    af = (f"loudnorm=I={lufs}:TP={tp}:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}"
+          f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true,aresample=48000")
+    pasta = tempfile.mkdtemp(prefix="ln2p_"); wav = os.path.join(pasta, "a.wav"); tmp = os.path.join(pasta, os.path.basename(mp4))
+    try:
+        subprocess.run([FF, "-nostdin", "-v", "error", "-y", "-i", mp4, "-vn", "-af", af, "-c:a", "pcm_s16le", wav], check=True)
+        subprocess.run([FF, "-nostdin", "-v", "error", "-y", "-i", mp4, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+                        "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", tmp], check=True)
+        shutil.copyfile(tmp, mp4)
+    finally:
+        shutil.rmtree(pasta, ignore_errors=True)
+    f = _mede_loudnorm(mp4, lufs, tp)
+    print(f"   loudnorm 2ª passada: {ent_i:.1f} -> {float(f['input_i']):.1f} LUFS (alvo {lufs}), pico {float(f['input_tp']):.1f} dBTP" if f
+          else f"   loudnorm 2ª passada aplicada (entrada {ent_i:.1f} LUFS)")
+
 def _silencio_real(mp4, ini=0.0, dur=None, db=-42):
     """[(inicio, fim|None)] dos silêncios do áudio (silencedetect), no tempo do trecho lido."""
     cmd = [FF, "-nostats", "-hide_banner"] + (["-ss", f"{ini:.3f}"] if ini else []) + (["-t", f"{dur:.3f}"] if dur else []) + ["-i", mp4, "-af", f"silencedetect=n={db}dB:d=0.05", "-vn", "-f", "null", "-"]
@@ -265,7 +297,7 @@ def montar(B, p, n):
     import elementos_hook as EH
     for k, (cid, a, b, fl) in enumerate(plan):
         c = cen.get(cid, {}); j = ins.count("-i"); ins += ["-i", fl]
-        i0 = cena_inicio(c)
+        i0 = cena_inicio(c, p)
         # cada cena passa 3 quadros do fim por baixo da seguinte: sem isso o 1º quadro do clipe novo cai depois
         # do corte e aparece 1 quadro do fundo (preto quando não tem avatar)
         b2 = b + 0.1 if k + 1 < len(plan) else b
@@ -276,7 +308,7 @@ def montar(B, p, n):
             mk, mo, (ix, iy, il) = EH.inset_pngs(plano.get("estilo", {}).get("inset"), c.get("rotulo"), f"{tmp}/inset", cid)
             jm = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{b2 - a + 0.3:.3f}", "-i", mk]
             jf = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{b2 + 0.3:.3f}", "-i", mo]
-            g.append(EH.inset_filtro(j, jm, i0, b2 - a, a, k, il, float(c.get("inset_cy", 0.4)), c.get("inset_filtro", "")))
+            g.append(EH.inset_filtro(j, jm, i0, b2 - a, a, k, il, float(c.get("inset_cy", 0.4)), c.get("inset_filtro", ""), c.get("recorte")))
             g.append(f"[{cur}][x{k}]overlay={ix}:{iy}:eof_action=pass:format=auto:enable='between(t,{a},{b2})'[oi{k}]")
             g.append(f"[{jf}:v]format=rgba[fm{k}];[oi{k}][fm{k}]overlay=0:0:eof_action=pass:format=auto:"
                      f"enable='between(t,{a},{b2})'[o{k}]"); cur = f"o{k}"
@@ -384,7 +416,7 @@ def montar(B, p, n):
         # header_pilula.y_hook = {"3": 960}: outra altura do header num hook (BATCH#3465: no topo cobria o rosto do H3-01)
         hp = plano.get("estilo", {}).get("header_pilula", {}); hy = hp.get("y_hook", {}).get(str(n))
         pl = plano if hy is None else {**plano, "estilo": {**plano["estilo"], "header_pilula": {**hp, "y": hy}}}
-        lista = pilula.gerar(evs, plano.get("header"), HD, total, f"{tmp}/pilula", pl, alt)
+        lista = pilula.gerar(evs, plano.get("header"), total if plano.get("estilo", {}).get("header_ate_fim") else HD, total, f"{tmp}/pilula", pl, alt)   # header_ate_fim: header no AD inteiro (ref 4380, 16/11/2026)
         jc = ins.count("-i"); ins += ["-f", "concat", "-safe", "0", "-i", lista]
         g.append(f"[{jc}:v]fps=30,format=rgba[cap];[{cur}][cap]overlay=0:0:eof_action=pass:format=auto[pl]")
         g.append(f"[pl]subtitles={fpath(ass)}[vout]" if ass_textos(B, plano, plan, HD, ass, n, sem_header=True) else "[pl]null[vout]")
@@ -406,9 +438,12 @@ def montar(B, p, n):
         else: gv = f"volume={vol}dB"
         gv += f",volume=0.25:enable='between(t,{ts + 0.04:.3f},{hq + max(tl - 0.03, 0):.3f})'"   # trilha cai ~12 dB no silêncio hook -> hold (a pausa aparece no mix)
         g.append(f"[{it}:a]{gv},aresample=44100,aformat=channel_layouts=stereo,atrim=end={total + 0.5:.3f},asplit=2[tr][trm];[aa][tr]amix=inputs=2:duration=first:normalize=0[mx]")
-        g.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
+        g.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB[aout]")
     else:
-        g.append(f"[aa]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
+        g.append(f"[aa]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB[aout]")
+    # asetpts=N/SR/TB (17/11/2026, BATCH#4382): no fim do arquivo o loudnorm solta os ~3 s da janela dele com o PTS errado e o
+    # AAC grava um salto de ~0,07 s nos tempos (VisioVance em 65,22 s): o player toca a voz atrasada daí até o fim. Refazer o
+    # PTS pela contagem de amostras tira o salto sem mexer no som (teste: atraso 0 ms antes e depois do ponto do salto).
     g.append(SAIDA_720)
     sc = f"{tmp}/fc_AD{n}_{p}.txt"; open(sc, "w").write(";".join(g))
     out = export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -422,6 +457,7 @@ def montar(B, p, n):
     subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, FCS, sc, *extra, "-map", "[v720]", "-map", "[aout]",
                     *_codec_final(["-c:v", "libx264", "-preset", "medium", "-crf", "20"]), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                     "-movflags", "+faststart", out], check=True)
+    _loudnorm_2p(out, lufs)
     _marca_previa(out)
     try:      # lado do checklist da Louise: voz x trilha pelos stems e posição das camadas de texto (por impressão digital)
         dg = _digital(out)

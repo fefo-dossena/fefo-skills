@@ -170,8 +170,9 @@ def segmentos(B, p, n):
             b2 = eb if abs(eb - b) <= 0.3 and eb - a2 >= 1.0 and eb <= a2 + dur_util(B, cen[cid], f, p) - 0.05 else b
             if k + 1 < len(out): b2 = min(b2, out[k + 1][1]) if out[k + 1][1] >= a2 else b2
             out[k] = (cid, round(a2, 3), round(b2, 3), f)
+            if k and 0 < abs(a2 - out[k - 1][2]) <= 0.3 and a2 - out[k - 1][1] <= 3.0: out[k - 1] = (out[k - 1][0], out[k - 1][1], round(a2, 3), out[k - 1][3])   # a cena anterior acaba onde o PiP começa (4380: PiP 3 quadros antes do avatar)
         for k in range(len(out) - 1):          # PiPs encostados: o seguinte começa onde o anterior acaba
-            if 0 < out[k + 1][1] - out[k][2] < 0.15: out[k + 1] = (out[k + 1][0], out[k][2], out[k + 1][2], out[k + 1][3])
+            if 0 < out[k + 1][1] - out[k][2] < 0.3: out[k + 1] = (out[k + 1][0], out[k][2], out[k + 1][2], out[k + 1][3])
     return out, HD
 
 def dur_corte_hold(B, plano, p):
