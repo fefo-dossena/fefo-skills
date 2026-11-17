@@ -17,7 +17,9 @@ Este arquivo é um índice. Cada regra mora num lugar só; aqui fica o ponteiro.
 3. **Sem ficha:** faça as perguntas de início numa mensagem só e grave as respostas em `clientes/<cliente>.md` antes de planejar:
    entrega (formato, duração, resolução, quantos vídeos e versões), gerador e conta (quem paga o crédito), referência e estilo,
    legenda (padrão: pílula), loudness, quem aprova, onde entrega e como nomeia, prazo.
-4. Ordem de quem manda: brief do pedido > referência da tarefa > ficha do cliente > padrão desta skill.
+4. **Aprendizados:** antes de planejar, leia as ~10 entradas mais recentes do mesmo cliente em `@CLIENTES/_FLUXO/APRENDIZADOS.md`
+   e cite no plano as que se aplicam (módulo `referencia`). Sem o arquivo (outra máquina): avise numa linha e siga.
+5. Ordem de quem manda: brief do pedido > referência da tarefa > ficha do cliente > padrão desta skill.
    O estilo vem do ref da tarefa, nunca de tarefa anterior. Sem ref: proponha um estilo e espere o OK antes de gerar.
 
 ## 2. Onde está tudo (uma fonte só)
@@ -32,6 +34,8 @@ Este arquivo é um índice. Cada regra mora num lugar só; aqui fica o ponteiro.
 - **Tamanho:** vídeo (ou batch de ADs) de até ~30 s = **uma sessão só**, do pega à entrega. Acima: 2 etapas
   (`<tarefa> · 1 plano e geração`, `<tarefa> · 2 montagem e entrega`); cada revisão do cliente numa sessão nova.
   Passagem pelo arquivo de estado (`ESTADO.md` ou o do job) e por `@CLIENTES/_FLUXO/SESSAO_MAE.md`.
+- **Fechamento com aprendizado:** no fim de etapa, de entrega ou de sessão que para, escreva a entrada em `@CLIENTES/_FLUXO/APRENDIZADOS.md`
+  (modelo de lá) e avise a Central. Regra: `REGRAS_DA_SESSAO.md`, seção "Fechamento com aprendizado". Sem o arquivo: avise e siga.
 - **Regras da sessão** (subagente, teto de crédito, cabeçalho, prévia, modelo por etapa, travas 1–5): `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`. Leia no começo.
 - **Agentes:** `montador` (montagem, `checar`, render; um por versão), `executor-mecanico` (passo já aprovado: subir,
   renomear, status), `revisor-de-video` (só o que a máquina não mede).

@@ -183,5 +183,10 @@ A lista do dia fica no `clock.dia_json` do perfil, relativo à raiz (Fefo: `_FLU
    Batch que ainda não está como Done no `dia.json`: sai como Done no Clock Out do mesmo jeito, mas avise o Fefo para
    conferir se a entrega dela saiu.
 
+## Fechamento com aprendizado (Fefo, 17/11/2026)
+No fim de toda etapa fechada e de toda entrega (e na sessão que para sem terminar): siga a regra "Fechamento com aprendizado"
+de `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`. Escreva a entrada no fim de `@CLIENTES/_FLUXO/APRENDIZADOS.md`, no modelo de lá, e avise a Central numa linha.
+Arquivo não existe (outra máquina): avise numa linha e siga.
+
 ## Passo fixo no fim: registrar no segundo cérebro (Fefo, 09/11/2026)
 Depois de entregar (inclusive revisão), antes de encerrar, sem o Fefo pedir: acrescentar a entrada da batch em `Meu Drive/@segundo cérebro/3 Recursos/Aprendizados das batches.md` (seção Empire Vision: o que foi, o que se aprendeu, o que se otimizou, custo se houve), uma linha no diário do dia e a Situação da nota/área ([[Batches VSL]]) conforme `@segundo cérebro/CLAUDE.md`. Otimização do fluxo que vale para todas vai na seção "Otimizações do fluxo". Modelo: Sonnet baixo basta.

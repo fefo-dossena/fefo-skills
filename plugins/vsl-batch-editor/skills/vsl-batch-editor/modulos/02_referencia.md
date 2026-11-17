@@ -10,6 +10,9 @@ O ad de referência é guia e inspiração. Instrução escrita no brief ou no c
    `08_auto/plano.json`: `"brief_regras": [{"frase": "<texto literal>", "fonte": "card|brief|milanote", "regra": "<o que muda no plano>"}]`.
    Sem instrução escrita: `"brief_regras": []` e `"brief_lido": "<onde leu>"`.
 2. Leia `_FLUXO_VSL/preferencias_daniel.md` (notas que já voltaram): o plano já sai sem elas.
+   Leia também as ~10 entradas mais recentes do mesmo cliente em `@CLIENTES/_FLUXO/APRENDIZADOS.md` (cabeçalho `## data · EV|TS · ...`).
+   No plano, cite numa linha cada item delas que vale para esta batch (`"aprendizados": ["<data · job>: <o que muda>"]`).
+   Arquivo não existe (outra máquina): avise numa linha e siga.
 3. Meça o ref (passo 0 abaixo) e liste onde ele contradiz o brief ou as preferências: `"brief_conflitos": [{"brief": "...", "ref": "...", "decisao_fefo": ""}]`.
 4. Com conflito: **pergunte ao Fefo antes de planejar**, uma pergunta só com a lista, e grave as palavras dele em
    `decisao_fefo`. Sem resposta, o brief vence.
