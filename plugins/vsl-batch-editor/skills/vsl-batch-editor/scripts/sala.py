@@ -10,9 +10,31 @@ import argparse, datetime, glob, json, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fluxo as F
 
-def versao_atual(B):
-    v = [int(m[1]) for d in glob.glob(f"{B}/09_export/_old/V*") if (m := re.search(r"V(\d+)$", d))]
-    return max(v, default=0) + 1
+def _digital(path):
+    """Mesma conta do reviewroom.py e do revisor.py (sha1, 16 primeiros hex)."""
+    import hashlib
+    h = hashlib.sha1()
+    with open(path, "rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""): h.update(b)
+    return h.hexdigest()[:16]
+
+def _le_json(p):
+    for enc in ("utf-8", "cp1252"):      # pareceres antigos do PC saíram em cp1252
+        try: return json.load(open(p, encoding=enc))
+        except (UnicodeDecodeError, json.JSONDecodeError): continue
+    return {}
+
+def versao_atual(B, r, base, exports):
+    """Versão destes exports (17/11/2026, BATCH#4382: sem 09_export/_old/V*, a conta antiga dava V1 em vez de V6).
+    1) a versão do selo do revisor para exatamente estes arquivos (a trava da sala exige esse selo);
+    2) senão, a maior versão já na sala + 1; 3) as pastas 09_export/_old/V<k> continuam valendo como piso."""
+    old = max([int(m[1]) for d in glob.glob(f"{glob.escape(B)}/09_export/_old/V*") if (m := re.search(r"V(\d+)$", d))], default=0) + 1
+    digs = {_digital(f) for f in exports if os.path.exists(f)}
+    selo = [j.get("versao", 0) for p in glob.glob(f"{glob.escape(base)}/revisor/*/parecer.json") if (j := _le_json(p))
+            and digs & {x.get("digital") for x in j.get("videos", {}).values()}]
+    if selo: return max(selo)
+    sala = max([v["v"] for vd in r.get("videos", []) for v in vd.get("versions", [])], default=0) + 1
+    return max(sala, old)
 
 def timeline(B, plano, p, n, mp4, dest):
     """Trechos hook/body e legendas do AD, para as notas 'all hooks' caírem no mesmo ponto da hold."""
@@ -44,7 +66,7 @@ def main():
     rj = f"{base}/review.json"
     r = json.load(open(rj, encoding='utf-8')) if os.path.exists(rj) else {"title": cfg.get("card") or nome, "id": re.sub(r"\W+", "-", nome).strip("-").lower(),
                                                         "client": "Empire Vision", "url": None, "videos": []}
-    k = versao_atual(B); hoje = str(datetime.date.today()); faltam = []
+    k = versao_atual(B, r, base, [F.export(B, plano, p, int(n)) for p in plano["produtos"] for n in plano["hooks"]]); hoje = str(datetime.date.today()); faltam = []
     for p in plano["produtos"]:
         vd = next((x for x in r["videos"] if x["id"] == p), None)
         if vd is None:

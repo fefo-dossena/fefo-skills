@@ -52,3 +52,30 @@ def vocabulario(video):
             return " ".join(dict.fromkeys(v)) or None
         d = os.path.dirname(d)
     return None
+
+
+def idioma(video, padrao="en"):
+    """Idioma da fala para o Whisper. Ordem: job.json/batch.json "idioma" na pasta acima do vídeo → plano.json da
+    batch ("idioma", na pasta ou numa subpasta como 08_auto) → padrao (o da ficha do cliente). Antes todos usavam o
+    "en" da ficha: na 4611 ("es") o Whisper ouvia "Insta" no lugar de "Esta" e o L3 travava (17/11/2026)."""
+    d = os.path.dirname(os.path.abspath(video))
+    for _ in range(6):
+        for nome in ("job.json", "batch.json"):
+            try:
+                j = json.load(open(os.path.join(d, nome), encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if str(j.get("idioma") or "").strip():
+                return str(j["idioma"]).strip().lower()
+            planos = [os.path.join(d, "plano.json")] + sorted(
+                os.path.join(d, s, "plano.json") for s in os.listdir(d) if os.path.isdir(os.path.join(d, s)))
+            for pl in planos:
+                try:
+                    i = str(json.load(open(pl, encoding="utf-8")).get("idioma") or "").strip()
+                except (OSError, ValueError, AttributeError):
+                    continue
+                if i:
+                    return i.lower()
+            return padrao or "en"
+        d = os.path.dirname(d)
+    return padrao or "en"

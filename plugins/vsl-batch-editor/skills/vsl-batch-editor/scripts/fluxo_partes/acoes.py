@@ -66,11 +66,13 @@ def executar(B, acao):
         p = acao[1]; srt(L(B, f"palavras_hold_{p}.json"), texto_hold(plano, p), L(B, f"HOLD_{p}.srt"), cfg,
                          plano.get("estilo", {}).get("legenda", {}).get("inteiras", []),
                          plano.get("estilo", {}).get("legenda", {}).get("separar", []))
+        legenda_final_arquivo(L(B, f"HOLD_{p}.srt"), plano, ["*", f"HOLD_{p}"])
     elif k == "srt_hook":
         n = acao[1]; f, pm, hs = hook_marca(plano, n, acao[2] if len(acao) > 2 else None)
         srt(L(B, f"palavras_{hs}.json"), texto_hook(plano, n, pm), L(B, f"{hs}.srt"), cfg,
             plano.get("estilo", {}).get("legenda", {}).get("inteiras", []),
             plano.get("estilo", {}).get("legenda", {}).get("separar", []))
+        legenda_final_arquivo(L(B, f"{hs}.srt"), plano, ["*", hs])
     elif k == "srt_ad":
         _, p, n = acao; f, pm, hs = hook_marca(plano, n, p); off = dur_corte(corte(B, fala_stem(f, pm)))
         # hook com texto fixo no topo: sem legenda embaixo, a não ser com estilo.legenda_no_hook ("text is not following the
@@ -79,7 +81,8 @@ def executar(B, acao):
         hk = [] if so_banner else ler_srt(L(B, f"{hs}.srt"))
         pl = pulo_hold(B, plano, p, n)
         bl = hk + [(max(a - pl, 0) + off, b - pl + off, t) for a, b, t in ler_srt(L(B, f"HOLD_{p}.srt")) if b - pl > 0.05]
-        escrever_srt(bl, L(B, f"AD{n}_{p}.srt"))
+        escrever_srt(legenda_final(bl, plano, [f"AD{n}_{p}"]), L(B, f"AD{n}_{p}.srt"))   # "*" e HOLD/hook já entraram
     elif k == "montar": montar(B, acao[1], acao[2])
+    elif k == "segmentos": montar_por_segmentos(B, acao[1], acao[2])
     elif k == "xml": gerar_xml(B)
 

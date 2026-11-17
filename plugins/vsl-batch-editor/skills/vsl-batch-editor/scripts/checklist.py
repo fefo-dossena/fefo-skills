@@ -219,13 +219,55 @@ def _cuda_ok():
     except OSError: return False
 
 
-def transcrever(wav, idioma="en", hotwords=None):
-    """Palavras [(texto, ini, fim, prob)] do AD inteiro (Whisper medium; GPU no PC Windows, CPU no Mac)."""
+def _modelo():
     global _MODELO
     from faster_whisper import WhisperModel
     if _MODELO is None:
         _MODELO = (WhisperModel("medium", device="cuda", compute_type="float16") if _cuda_ok()
                    else WhisperModel("medium", device="cpu", compute_type="int8", cpu_threads=8))
+    return _MODELO
+
+
+def confirma_repeticoes(wav, occ, idioma="en", hotwords=None, janela=5.0, pad=0.5):
+    """Repetição colada no arquivo inteiro pode ser alucinação do Whisper (M1WK4B1 Hook3 V5, 17/11/2026: "calvin calvin"
+    em 5:52 de um vídeo de 7 min, com um "Calvin" só no áudio). Cada "repetida" em erro é refeita só na janela de ±janela s
+    (wav com `pad` s de silêncio na frente). O Whisper também funde uma repetição REAL na janela (teste sintético
+    "Calvin Calvin" colado: a janela ouviu um só), então a janela sozinha não basta: vira aviso só quando a janela não
+    repete E uma das duas palavras do arquivo inteiro não tem voz (dura < 0,15 s ou fica abaixo de -35 dBFS; o "Calvin?"
+    alucinado tinha 0,08 s). Janela sem repetir com voz nas duas segue erro, para conferir no ouvido.
+    Devolve quantas viraram aviso."""
+    sus = [o for o in occ if o.get("regra") == "repetida" and o.get("nivel") == "erro"]
+    if not sus: return 0
+    import numpy as np
+    with wave.open(wav, "rb") as f:
+        sr = f.getframerate(); a = np.frombuffer(f.readframes(f.getnframes()), np.int16).astype(np.float32) / 32768
+    n = 0
+    for o in sus:
+        w = (re.findall(r'"(\S+) ', o["msg"]) or [""])[0]
+        ini = max(0.0, o["t"] + pad - janela); tr = a[int(ini * sr):int((o["t"] + pad + janela) * sr)]
+        try:
+            segs, _ = _modelo().transcribe(tr, word_timestamps=True, vad_filter=False, language=idioma,
+                                           condition_on_previous_text=False, beam_size=5, hotwords=hotwords)
+            ouv = [x for s in segs for ww in (s.words or []) for x in palavras(ww.word)]
+        except Exception as e:
+            o["msg"] += f" (janela de ±{janela:g} s não refeita: {e})"; continue
+        def com_voz(ab):
+            x = a[int((ab[0] + pad) * sr):int((ab[1] + pad) * sr)]
+            return ab[1] - ab[0] >= 0.15 and len(x) and 20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-9) >= -35
+        vozes = [bool(com_voz(ab)) for ab in o.get("palavras") or []]
+        if any(x == w and y == w for x, y in zip(ouv, ouv[1:])):
+            o["msg"] += f" (confirmada na janela de ±{janela:g} s)"
+        elif not vozes or all(vozes):
+            o["msg"] += f" (a janela de ±{janela:g} s ouviu uma só, mas há voz nas duas palavras: confira no ouvido)"
+        else:
+            o["nivel"] = "aviso"; n += 1
+            o["msg"] += f" só no arquivo inteiro; a janela de ±{janela:g} s ouviu \"{' '.join(ouv)[:80]}\" (provável alucinação do Whisper)"
+    return n
+
+
+def transcrever(wav, idioma="en", hotwords=None):
+    """Palavras [(texto, ini, fim, prob)] do AD inteiro (Whisper medium; GPU no PC Windows, CPU no Mac)."""
+    _modelo()
     segs, _ = _MODELO.transcribe(wav, word_timestamps=True, vad_filter=False, language=idioma,
                                  condition_on_previous_text=False, beam_size=5, hotwords=hotwords)
     out = []
@@ -417,7 +459,8 @@ def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False):
     pares_rot = set(zip(esp, esp[1:]))
     for (w1, a1, b1, p1), (w2, a2, b2, p2) in zip(ouv, ouv[1:]):
         if w1 == w2 and w1 not in FRACAS and (w1, w2) not in pares_rot and min(p1, p2) >= c["prob_min"]:
-            occ.append({"t": round(a1, 2), "msg": f"palavra repetida: \"{w1} {w2}\"", "nivel": "erro", "regra": "repetida"})
+            occ.append({"t": round(a1, 2), "msg": f"palavra repetida: \"{w1} {w2}\"", "nivel": "erro", "regra": "repetida",
+                        "palavras": [[round(a1, 3), round(b1, 3)], [round(a2, 3), round(b2, 3)]]})
     resumo_rot = "sem roteiro no plano: conferi só pausa, repetição e fim"
     if esp:
         ouvidas = [w[0] for w in ouv]
@@ -563,6 +606,33 @@ def vocab_cena(B, P):
     return {w for w in v if len(w) >= 4}
 
 
+TELAS = ("gravada", "replica")
+
+
+def zonas_tela(B, P, video):
+    """Trechos do AD com texto de tela (site, app, carrinho) na faixa da legenda (BATCH#4611 e #4607, 17/11/2026: o
+    "Secure Checkout" da réplica do carrinho caía na faixa da camada de legenda e o OCR lia "out" como legenda fora).
+    plano.texto_de_tela = [{"cena": "S03", "de": 8.97, "ate": 10.77, "ad": 1 (opcional), "motivo": "..."}], tempos no
+    export. Só vale se a cena em plano.cenas tiver "tela": "gravada" ou "replica". Devolve (zonas [(de, ate)], erros)."""
+    try: pl = json.load(open(os.path.join(B, P["auto"], "plano.json"), encoding="utf-8"))
+    except (OSError, ValueError): return [], []
+    zs, erros = [], []
+    cenas = {str(c.get("id")): c for c in pl.get("cenas", []) or [] if isinstance(c, dict)}
+    m = re.search(r"AD(\d+)", os.path.basename(video)); ad = int(m[1]) if m else None
+    for z in pl.get("texto_de_tela") or []:
+        c = cenas.get(str(z.get("cena"))) if isinstance(z, dict) else None
+        try: de, ate = float(z["de"]), float(z["ate"])
+        except (TypeError, KeyError, ValueError): de = ate = None
+        if c is None or c.get("tela") not in TELAS or de is None or ate <= de or ate - de > 15:
+            erros.append({"t": de or 0, "nivel": "erro", "regra": "texto_de_tela",
+                          "msg": f"plano.texto_de_tela inválido: {json.dumps(z, ensure_ascii=False)[:120]} (precisa de cena em plano.cenas com "
+                                 f"\"tela\": \"gravada\" ou \"replica\", e de < ate, até 15 s)"})
+            continue
+        if z.get("ad") is not None and ad is not None and int(z["ad"]) != ad: continue
+        zs.append((de, ate))
+    return zs, erros
+
+
 def _agrupa(ocorr, folga):
     """Junta ocorrências seguidas do mesmo tipo e texto parecido: uma linha por trecho (início, fim)."""
     out = []
@@ -585,7 +655,7 @@ def _classe(img, q, l):
     return c
 
 
-def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, vocab=frozenset()):
+def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, vocab=frozenset(), tela=()):
     """Item 1. qs = [(t, quadro)], vis = OCR de cada quadro, img(q) = quadro em RGB. Devolve (ok, resumo, ocorrências, legendas)."""
     import numpy as np
     A = area_do_video(cfg["area_segura"], *tam); tol = A.get("tolerancia", 0.006); hmin = cfg["ocr"]["altura_min"]
@@ -602,7 +672,9 @@ def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, voc
         cl = [c for c in (camadas or {}).get("camadas", []) if c.get("tipo") == "legenda" and c["t0"] - 0.1 <= t <= c["t1"] + 0.1]
         if (camadas or {}).get("camadas"):        # o montar disse onde desenhou a legenda: só é legenda o que cai nela
             leg = [l for l in linhas if any(c["y0"] - 0.01 <= l["b"][1] + l["b"][3] / 2 <= c["y1"] + 0.01 for c in cl)]
-        else:                                     # palavra solta: pílula, centralizada e fora do vocabulário da cena (rótulo)
+            if any(de <= t <= ate for de, ate in tela):   # texto de tela na faixa: só é legenda o que está sendo falado
+                leg = [l for l in leg if e_legenda(l, t, words, (lambda l=l, q=q: img is not None and _classe(img, q, l) == "pilula"))]
+        else:                                    # palavra solta: pílula, centralizada e fora do vocabulário da cena (rótulo)
             leg = [l for l in linhas if e_legenda(l, t, words, (lambda l=l, q=q: img is not None and abs(l["b"][0] + l["b"][2] / 2 - 0.5) <= 0.06
                                                                 and not all(w in vocab for w in _palavras_ocr(l["t"]))
                                                                 and estilo_crop(img(q), l["b"])[0] == "pilula"))]
@@ -1027,7 +1099,7 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
             w.writeframes((np.concatenate([np.zeros(8000, np.float32), a16]) * 32767).clip(-32768, 32767).astype(np.int16).tobytes())
         import transcricao_cache as tc       # uma transcrição por vídeo para checklist, qc e revisor (16/11/2026)
-        idi = cfg["vo"].get("idioma", "en")
+        idi = tc.idioma(video, cfg["vo"].get("idioma", "en"))   # batch.json/job.json → plano → ficha (4611 "es", 17/11/2026)
         words = tc.ler(video, idi) or []
         if not words:
             try:
@@ -1054,6 +1126,9 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
                     pz = [(t, round(_fora(t, d), 2)) for t, d in pz]
         except (OSError, ValueError, AttributeError, KeyError): pass
         ok3, r3, o3 = item_vo(words, rot, marca, c3, dur, pz, exata=stems)
+        if confirma_repeticoes(wp, o3, idi, tc.vocabulario(video)):   # repetição só do Whisper vira aviso
+            er = [o for o in o3 if o["nivel"] == "erro"]; ok3 = not er
+            r3 = r3.split("; ")[0] + "; " + (f"{len(er)} problema(s)" if er else "nada errado") + (f", {len(o3) - len(er)} aviso(s)" if len(o3) > len(er) else "")
         poe(3, ok3, r3, o3, {"pausas": sorted(pz, key=lambda x: -x[1])[:8], "fonte_pausas": "stems" if stems else "mix"})
     if 4 in itens:
         mix = lado_montar(B, P, video, "mix", dg)
@@ -1080,7 +1155,10 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
                 if n in itens: poe(n, False, "OCR indisponível nesta máquina", [{"t": 0, "msg": "sem OCR: não deu para conferir o texto", "nivel": "erro"}])
         else:
             cam = lado_montar(B, P, video, "camadas", dg)
-            ok1, r1, o1, legendas = item_texto(qs, vis, words, cfg, cam, tamanho(video), img, vocab_cena(B, P))
+            zt, ezt = zonas_tela(B, P, video)
+            ok1, r1, o1, legendas = item_texto(qs, vis, words, cfg, cam, tamanho(video), img, vocab_cena(B, P), zt)
+            if zt: r1 += f"; texto de tela do plano em {', '.join(f'{mmss(a)}–{mmss(b)}' for a, b in zt)}"
+            if ezt: ok1, o1 = False, ezt + o1
             if 1 in itens: poe(1, ok1, r1, o1)
             if 2 in itens:
                 ep, pb = None, None

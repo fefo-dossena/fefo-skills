@@ -41,6 +41,24 @@ py fluxo.py status "<pasta da batch>"                           # o que falta, p
   fala ~3,3 palavras/s; emendas no silêncio e antes do estalo do fim do Seedance.
 - Hooks: `modulos/hooks.md` (tirado do board "Great hooks" do Hookd; o ref manda no estilo).
 
+## Padrão de qualidade (Umut, 17/11/2026: vale para toda batch, nova ou revisão)
+Origem: aviso do Umut no Slack e Loom "Why Our Meta Ads Videos Fail Sales" (17/11). Ele e os estrategistas conferem
+cada vídeo; o que for quase todo IA, sem b-roll ou lento volta. Público: 50-60+ com degeneração macular e retinopatia
+diabética, com medo de ficar cego e de injeção, com raiva e dor.
+- **70% b-roll real, no máximo 30% IA.** Pessoas, situações e emoções reais de YouTube, TikTok, Pinterest e banco de
+  imagens. IA só para o mecanismo médico (olho, retina) ou cena que não existe pronta.
+- **B-roll novo a cada 2-3 s**, e cada frase do roteiro com o visual que combina. Nunca a mesma pessoa falando por muitos
+  segundos sem corte (o Loom cita 17 s como o erro).
+- **Mostrar os sintomas na tela:** visão borrada, manchas escuras, moscas volantes, ofuscamento, "janela suja".
+- **Gancho que para o scroll nos 3 primeiros segundos.** Nenhum momento morto.
+- **Som:** efeitos, risers e música que criam tensão; legenda em todo vídeo. Nada de música alegre para esse público.
+- **Formatos fora para este público:** song ad, estilo Pixar e talking head sem b-roll. Bons: VSL "OG" (estilo Noroo),
+  mecanismo médico, listicle e comparação (meio do funil), oferta (most aware). Drama ad funciona se bem feito.
+- **Frasco certo:** foto real do produto; nunca frasco gerado por IA.
+- **Ref do estrategista manda:** a edição tem de parecer com o vídeo de referência.
+- **Estudar:** SmoothSpine, Relivex, Koprez, Noroo, Hike Footwear e LifeX. Referência interna: os VSLs da Ria.
+- Conflito com regra antiga (ex. "AD do Daniel sempre com música"): a música fica, mas de tensão, não alegre.
+
 ## Regras só da EV
 - **ED descontinuado** nas duas marcas: card de ED não se pega; avisar o Fefo.
 - **AD do Daniel sempre com música.** Sem trilha no banco ou no card: `kie.py suno` / `suno-ref` no Kie da EV, com ok de crédito.

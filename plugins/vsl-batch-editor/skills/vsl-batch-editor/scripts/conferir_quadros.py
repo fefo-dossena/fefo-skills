@@ -9,7 +9,8 @@ import numpy as np
 W, H = 108, 192
 # A legenda do meio fica fora das regiões para não contar como corte.
 REGIOES = {"cima": (0, 88), "baixo": (104, 192)}
-MIN_PADRAO = 8  # quadros (~0,27 s a 30 fps)
+MIN_PADRAO = 8  # quadros (~0,27 s a 30 fps); em outro fps vira a mesma duração
+FADE_FIM = 1.5  # s: preto contínuo até o fim, deste tamanho ou menos, é o fade-out do export (M1WK4B1, 17/11/2026)
 DIF_TAKE = 8    # diferença média (0-255) para contar como outro take
 DIF_HIST = 0.2  # na metade do b-roll, o histograma também precisa mudar
 
@@ -59,17 +60,46 @@ def resolucao(arq):
     return int(m[1]), int(m[2])
 
 
+def fps_de(arq):
+    """fps real do vídeo (M1WK4B1, 17/11/2026: export de 24 fps tinha o tempo contado como i/30)."""
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                            "stream=avg_frame_rate,r_frame_rate", "-of", "default=nw=1:nk=1", arq],
+                           capture_output=True, text=True).stdout.split()
+        for x in r:
+            a, _, b = x.partition("/")
+            v = float(a) / float(b or 1)
+            if 1 < v < 241: return v
+    except (OSError, ValueError, ZeroDivisionError):
+        pass
+    return 30.0
+
+
+def fade_final(escuro, n, fps):
+    """Quadros pretos do fade-out do fim: a corrida contínua que vai até o último quadro, se cabe em FADE_FIM s.
+    Preto mais longo que isso no fim, ou no meio do vídeo, continua sendo erro."""
+    k = n
+    while k > 0 and (k - 1) in escuro: k -= 1
+    return set(range(k, n)) if k < n and (n - k) / fps <= FADE_FIM else set()
+
+
 def conferir(arq, minimo):
     q = quadros(arq)
     problemas = 0
     w, h = resolucao(arq)
-    print(f"{arq.rsplit('/', 1)[-1]}: {len(q)} quadros, {w}x{h}")
+    fps = fps_de(arq)
+    if minimo is None: minimo = max(1, round(MIN_PADRAO * fps / 30))   # mesma duração (~0,27 s) em qualquer fps
+    print(f"{arq.rsplit('/', 1)[-1]}: {len(q)} quadros, {w}x{h}, {fps:g} fps")
     if min(w, h) != 720:
         print(f"  RESOLUCAO {w}x{h}: tem que ser 720 no lado menor")
         problemas += 1
     for nome, (a, b) in REGIOES.items():
         r = q[:, a:b]
         escuro = [i for i in range(len(r)) if np.percentile(r[i], 99.5) < 40]   # só preto mesmo: fundo preto com objeto ou cena escura não contam
+        fim = fade_final(set(escuro), len(r), fps)
+        if fim:
+            print(f"  {nome}: fade-out final de {len(fim) / fps:.2f} s ({len(fim)} quadros pretos no fim), não conta como erro")
+            escuro = [i for i in escuro if i not in fim]
         cs = cortes(r)
         limites = [0] + cs + [len(r)]
         # Plano curto só conta se o take for outro: diferente do quadro antes e do quadro depois (movimento forte não é take).
@@ -80,18 +110,18 @@ def conferir(arq, minimo):
         pisc = piscadas(r)
         print(f"  {nome}: {len(cs)} cortes, menor plano {min(limites[i + 1] - limites[i] for i in range(len(limites) - 1))} quadros")
         for i in escuro:
-            print(f"    PRETO   {i / 30:7.2f} s (quadro {i})")
+            print(f"    PRETO   {i / fps:7.2f} s (quadro {i})")
         for i, n in curtos:
-            print(f"    CURTO   {i / 30:7.2f} s (quadro {i}), {n} quadros")
+            print(f"    CURTO   {i / fps:7.2f} s (quadro {i}), {n} quadros")
         for i, n in pisc:
-            print(f"    PISCADA {i / 30:7.2f} s (quadro {i}), {n} quadros")
+            print(f"    PISCADA {i / fps:7.2f} s (quadro {i}), {n} quadros")
         problemas += len(escuro) + len(curtos) + len(pisc)
     return problemas
 
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    minimo = MIN_PADRAO
+    minimo = None   # padrão: MIN_PADRAO ajustado ao fps de cada vídeo
     if "--min" in args:
         k = args.index("--min")
         minimo = int(args[k + 1])

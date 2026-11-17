@@ -267,6 +267,34 @@ def pj_checklist(B, videos):
                              (f"{e.get('versao')}: vermelho no(s) item(ns) {', '.join(verm)}" if verm else e.get("motivo", "sem checklist")))}
     return out
 
+def pj_checklist_baratas(B, videos):
+    """Itens 3 (VO limpa: pausa no mix, palavra) e 6 (notas) do checklist da Louise na prévia (--baratas). São rápidos
+    e foram os que recusaram a entrega da M1WK3B6 duas vezes depois do OK do Fefo (17/11/2026). Grava em
+    <auto>/checklist_previa/, fora dos checklist_V<k>.json: não conta para a trava da entrega, que segue no export final."""
+    s = pj_script_checagem("checklist")
+    if not s: return {v: {"ok": "erro", "motivo": "checklist.py não encontrado"} for v in videos}
+    saida = os.path.join(B, AUTO, "checklist_previa")
+    antes = {f: os.path.getmtime(f) for f in glob.glob(os.path.join(glob.escape(saida), "checklist_*.json"))}
+    rc, texto = pj_roda([sys.executable, "-X", "utf8", s, B] + videos + ["--so", "3,6", "--saida", saida])
+    print("\n".join("  │ " + l for l in texto.rstrip().splitlines() if l.strip()), flush=True)
+    if rc not in (0, 1):
+        return {v: {"ok": "erro", "motivo": "checklist.py falhou (código %s)" % rc} for v in videos}
+    novos = [f for f in glob.glob(os.path.join(glob.escape(saida), "checklist_*.json")) if antes.get(f) != os.path.getmtime(f)]
+    vids = {}
+    for f in novos:
+        try: vids.update({os.path.normcase(os.path.abspath(r.get("caminho", n))): r for n, r in json.load(open(f, encoding="utf-8")).get("videos", {}).items()})
+        except (OSError, ValueError): pass
+    out = {}
+    for v in videos:
+        r = vids.get(os.path.normcase(os.path.abspath(v)))      # caminho inteiro: o mesmo nome pode estar em duas versões
+        if not r: out[v] = {"ok": "erro", "motivo": "sem resultado dos itens 3 e 6"}; continue
+        ruins = sorted((k for k, it in r.get("itens", {}).items() if not it.get("ok")), key=int)
+        out[v] = {"ok": not ruins, "itens": {k: it.get("ok") for k, it in r.get("itens", {}).items()},
+                  "motivo": "itens 3 e 6 verdes (o resto do checklist roda no export final)" if not ruins else
+                            ("vermelho no(s) item(ns) " + ", ".join(ruins) + ": " + " | ".join(
+                                o["msg"] for k in ruins for o in r["itens"][k].get("ocorrencias", []) if o.get("nivel") == "erro"))[:240]}
+    return out
+
 def cmd_checar(a):
     B = a.batch.rstrip("/")
     if not os.path.isdir(B): pj_uso(f"Pasta não existe: {B}")
@@ -279,9 +307,12 @@ def cmd_checar(a):
         fora = [x for x in so if x not in ficha]
         if fora: print(f"(aviso: {', '.join(fora)} não está na ficha de {_nome_cliente(CLIENTE)}; rodo mesmo assim)")
         ficha = so
+    ck36 = False
     if getattr(a, "baratas", False):     # prévia de ajuste (Fefo, 16/11/2026): só as baratas; qc e checklist no export final
+        ck36 = "checklist" in ficha        # itens 3 e 6 do checklist são baratos: rodam já na prévia (M1WK3B6, 17/11/2026)
         ficha = [x for x in ficha if x not in ("qc", "checklist")]
-        print("(--baratas: sem qc e sem checklist; eles rodam no export final, antes da entrega)")
+        print("(--baratas: sem qc; do checklist só os itens 3 e 6. O resto roda no export final, antes da entrega)" if ck36 else
+              "(--baratas: sem qc e sem checklist; eles rodam no export final, antes da entrega)")
     so_lint = ficha == ["lint"]
     if so_lint: videos = []
     elif a.videos:
@@ -338,6 +369,13 @@ def cmd_checar(a):
             x = ck.get(r["video"], {"ok": "erro", "motivo": "sem resultado"})
             r["checagens"]["checklist"] = x; conta(x["ok"])
             print(f"  {marca(x['ok'])} {'checklist':8s} {os.path.basename(r['video'])[-40:]}: {x['motivo']}", flush=True)
+    if ck36 and videos:                  # na prévia, mesmo com falha nas outras baratas: tudo o que é barato aparece de uma vez
+        print("\nchecklist da Louise na prévia: itens 3 (VO limpa) e 6 (notas)", flush=True)
+        ck = pj_checklist_baratas(B, videos)
+        for r in resultado:
+            x = ck.get(r["video"], {"ok": "erro", "motivo": "sem resultado"})
+            r["checagens"]["checklist_3_6"] = x; conta(x["ok"])
+            print(f"  {marca(x['ok'])} {'ck 3+6':8s} {os.path.basename(r['video'])[-40:]}: {x['motivo']}", flush=True)
     print(f"\nResumo: {len(videos)} vídeo(s), {falhas} falha(s)" + (f", {erros} erro(s) de execução (!)" if erros else "") + (f", {puladas} checagem(ns) puladas (-)" if puladas else "")
           + (". Tudo certo; assistir no celular do começo ao fim ainda é do Fefo/revisor." if not (falhas or erros) else ""))
     if a.json:

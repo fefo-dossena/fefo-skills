@@ -12,6 +12,11 @@
   py prompt_qa.py metricas PASTA --master A.mp4 [--master B.mp4] [--cr 1234]
         # segundos gerados, crédito, refeitos, aproveitamento (meta 70%) e crédito por segundo final (meta <= 7)
 
+MODO CURTO (17/11/2026, BATCH#4611): prompt de até 300 caracteres (OmniHuman e qualquer modelo com esse limite; o
+prompt completo nunca cabe nisso) dispensa os 12 campos e as 140 palavras, mas precisa de uma trava curta: um NEVER
+ou uma frase de restrição ("never", "do not", "must not", "stays identical/still/unchanged", "no ..."). A folha e o ok
+continuam obrigatórios, com o mesmo hash.
+
 A trava do kie.py usa exigir_ok(): clipe de vídeo só sai com ok na folha_logica.json da pasta do prompt
 (ou de até 3 pastas acima) e com o mesmo texto do ok.
 """
@@ -36,6 +41,27 @@ CAMERAS = re.compile(r'\b(dolly|pan|pans|tilt|truck|zoom|push-in|push in|pull-ba
 STOP = set('the a an and or of in on at to with from his her their its is are be stays stay every never nobody one two '
            'into onto over under behind front side left right frame shot scene this that'.split())
 MIN_PALAVRAS = 140
+LIMITE_CURTO = 300   # caracteres: até aqui o prompt é do modo curto (limite do OmniHuman 2.0 no Kie)
+RESTRICAO = re.compile(r"\bnever\b|\bmust not\b|\bdo(?:es)? not\b|\bdon'?t\b|\bdoesn'?t\b|\bcannot\b|\bcan'?t\b|"
+                       r"\bno (?!one\b)\w+|\bwithout\b|\b(?:stays?|remains?|keeps?|kept|held|holds?)\b[^.]{0,40}?"
+                       r"\b(?:still|identical|unchanged|the same|fixed|steady|sharp|legible)\b", re.I)
+
+
+def curto(t):
+    return len(t.strip()) <= LIMITE_CURTO
+
+
+def checar_curto(t):
+    """Modo curto: só a trava curta. Devolve (erros, avisos, blocos) como o checar_um; NEVER = as frases de restrição."""
+    frases = [f.strip() for f in re.split(r'(?<=[.!?])\s+', t.strip()) if f.strip()]
+    trava = [f for f in frases if RESTRICAO.search(f)]
+    erros = [] if trava else ['modo curto (até %d caracteres) sem trava: escreva um NEVER ou uma frase de restrição '
+                              '(ex.: "The bottles never move; labels stay identical to the reference.")' % LIMITE_CURTO]
+    avisos = [] if len(frases) > 1 else ['modo curto com uma frase só: diga também o que deve acontecer']
+    v = sorted({x.lower() for f in frases if f not in trava for x in VAGOS.findall(f)})   # "never move" é trava, não verbo vago
+    if v:
+        avisos.append('verbo vago: ' + ', '.join(v))
+    return erros, avisos, {'NEVER': ' '.join(trava), 'modo': 'curto'}
 
 
 def texto(p):
@@ -89,15 +115,22 @@ def cena_de(b, arq):
     t = b.get('TITLE', '')
     partes = [p.strip() for p in re.split(r'·|\|', t) if p.strip()]
     if len(partes) >= 2:
-        m = re.match(r'([A-Za-z]*\s*\d+)', partes[1])
-        return (m.group(1) if m else partes[1]).replace(' ', '').upper()
+        m = re.match(r'([A-Za-z]*\s*\d+)\s*([A-Za-z][\w-]*)?', partes[1])
+        cena = (m.group(1) if m else partes[1]).replace(' ', '').upper()
+        # Gêmeos de marca paralelos (BATCH#4607, 17/11/2026): "H1 Neurobella" e "H1 VisioVance" são cadeias
+        # separadas, não um clipe depois do outro. A palavra depois do número entra na chave quando o arquivo a tem.
+        if m and m.group(2) and m.group(2).lower() in os.path.basename(arq).lower():
+            cena += '·' + m.group(2).upper()
+        return cena
     m = re.search(r'(C|CENA|S|SC)(\d+)', os.path.basename(arq), re.I)
     return m.group(0).upper() if m else '?'
 
 
 def checar_um(arq, anterior=None, imagem=False):
-    """Devolve (erros, avisos, blocos)."""
+    """Devolve (erros, avisos, blocos). Prompt de até LIMITE_CURTO caracteres vai pelo modo curto."""
     t = texto(arq)
+    if curto(t):
+        return checar_curto(t)
     b, ordem = blocos(t)
     erros, avisos = [], []
     faltam = [n for n, _ in CAMPOS if n not in b]
@@ -169,7 +202,7 @@ def cmd_checar(a):
     for r in res:
         st = 'FALHA' if r['erros'] else ('aviso' if r['avisos'] else 'ok')
         ruins += bool(r['erros'])
-        print(f'{st:6} {r["cena"]:6} {os.path.basename(r["arquivo"])}')
+        print(f'{st:6} {r["cena"]:6} {os.path.basename(r["arquivo"])}' + ('  (modo curto)' if r['b'].get('modo') == 'curto' else ''))
         for x in r['erros']:
             print(f'         ✖ {x}')
         for x in r['avisos']:
@@ -206,7 +239,7 @@ def cmd_folha(a):
         b = r['b']
         clipes.append({'clipe': rel, 'cena': r['cena'], 'start': b.get('STATE AT START', ''),
                        'planos': [s.split('\n')[0][:90] for s in b.get('Shots', [])],
-                       'end': b.get('STATE AT END', ''), 'never': b.get('NEVER', ''),
+                       'end': b.get('STATE AT END', ''), 'never': b.get('NEVER', ''), 'modo': b.get('modo', 'completo'),
                        'quadro': quadros.get(os.path.abspath(r['arquivo']), v.get('quadro', '')),
                        'erros': r['erros'], 'avisos': r['avisos'], 'hash': h, 'ok': ok,
                        'nota': v.get('nota', '') if ok else '', 'ok_em': v.get('ok_em', '') if ok else ''})
@@ -220,7 +253,7 @@ def cmd_folha(a):
     cel = lambda s: (s or '').replace('|', '/').replace('\n', ' ')[:220]
     for c in clipes:
         chk = ('✖ ' + '; '.join(c['erros'])) if c['erros'] else ('· ' + '; '.join(c['avisos']) if c['avisos'] else 'ok')
-        md.append(f"| {c['clipe']} | {c['cena']} | {cel(c['start'])} | {cel(' / '.join(c['planos']))} | {cel(c['end'])} | "
+        md.append(f"| {c['clipe']}{' (curto)' if c.get('modo') == 'curto' else ''} | {c['cena']} | {cel(c['start'])} | {cel(' / '.join(c['planos']))} | {cel(c['end'])} | "
                   f"{cel(c['never'])} | {cel(c['quadro'])} | {cel(chk)} | {'ok' if c['ok'] else ''} |")
     open(os.path.join(pasta, 'folha_logica.md'), 'w', encoding='utf-8').write('\n'.join(md) + '\n')
     falhas = sum(bool(c['erros']) for c in clipes)

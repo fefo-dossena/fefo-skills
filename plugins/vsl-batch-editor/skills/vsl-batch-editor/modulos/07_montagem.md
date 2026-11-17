@@ -64,6 +64,31 @@
    Sem `estilo` no plano o `montar` para e pede o módulo referencia.
 5. ~~xml~~ — fora do fluxo (Fefo, 10/11/2026): não gerar XML nem script de import para o Premiere. `fluxo.py xml` só se o Fefo pedir.
 Opções: `--ate legendas` (para antes dos ADs), `--so AD2_neurobella`, `--forcar`.
+## Montagem por segmentos (Fefo, 17/11/2026)
+Pedido do Fefo: "trabalha uma vez no hold e nos hooks e no fim junta tudo; não remonta a cada ajuste; monta o final só quando eu aprovo hold e hooks individualmente". Origem: a BATCH#4380 remontou a batch inteira 12 vezes antes de ele ver.
+- **Decisões do Fefo (17/11/2026, "Aceito as 4"):** (1) trilha: hook desde o 0 e hold a partir do fim do hook mais longo é o padrão; `trilha_momentos` só para mudar numa batch. (2) Selo do revisor: no segmento é só sugestão (prévia, sala cedo); obrigatório só no final juntado, antes da entrega. (3) Ligado para toda batch nova; batch em andamento não muda. (4) Loudness do final pelo loudnorm linear em 2 passadas aceito (prova: até 0,1 LU do entregue).
+- **Liga** com `"por_segmentos": true` no `plano.json`. O `novo-plano` já cria com ele: vale para toda batch nova. Batch em andamento segue no `montar` antigo.
+- **Segmentos:** `hook<n>` e `hold_<marca>`. Cada um é montado sozinho, com o mesmo grafo do AD (corte, b-roll, legenda, textos, SFX, trilha), num intermediário de alta qualidade fora do Drive. **Uma pasta por segmento** (Fefo): `%TEMP%/linha_do_tempo/<batch>/<hook1|hold_<marca>>/` (intermediário, voz e trilha) e `08_auto/segmentos/<segmento>/` (prévia da sala). Cache por hash das entradas: o `fazer` refaz só o segmento que mudou. Hook igual nas duas marcas = um arquivo só.
+- **Trilha:** cada segmento leva o próprio momento da música (Fefo: "um momento pro hook e um pra hold"). Campo opcional `"trilha_momentos": {"hook": 0, "hold": 12.5}` (s da faixa). Sem o campo: hook do 0, hold do fim do hook mais longo da marca. A queda de volume na emenda continua dentro de cada segmento. No fim da hold a trilha cobre até o último quadro e sai em fade-out (`estilo.trilha_fade_s`, padrão 1 s; BATCH#4607: cortava seca no fim da voz).
+- **Ao mesmo tempo:** hook e hold do AD são montados em paralelo (2 de uma vez; `LDT_PARALELO=0` desliga). Cada pedaço tem a própria pasta de trabalho.
+- **Cache e estado (Central, 17/11/2026, defeitos da M1WK3B8):** o hash do segmento cobre só entradas e parâmetros que mudam imagem e som; código do montador (`.py`) nunca entra (é ignorado com aviso). Mudou a saída de propósito: troque à mão `formato=` no `Linha.segmento` (ou o `MOTOR` do `linha_do_tempo.py`). O `segmentos.json` tem trava entre processos (`segmentos.json.lock`) e escrita atômica: corpo e hook podem montar ao mesmo tempo em faixas diferentes da fila.
+- **Sala:** `08_auto/segmentos/<segmento>/<id>.mp4`. A hold vai sozinha; cada hook vai com 2 s da hold depois dele. Diga na sala que é por segmento.
+- **OK do Fefo:** `fluxo.py segmentos <batch> aprovar hook1 hold_neurobella` (papel ou id). O segmento aprovado fica **travado**: o AD continua com ele mesmo que as entradas mudem. Só refaz com pedido do Fefo: `fluxo.py segmentos <batch> reabrir hook1`.
+- **Final:** só roda com todos os segmentos do AD aprovados (`fazer` ou `fluxo.py segmentos <batch> montar [--so AD1_neurobella]`). Ele junta os pedaços e aplica só o que atravessa a emenda: banner (`estilo.overlays`), loudnorm em 2 passadas, 720p e o lado do checklist. Um encode só. Com `PREVIA=1` o final sai em NVENC com o marcador.
+- `fluxo.py segmentos <batch>` mostra cada AD com os segmentos e o OK. Estado em `08_auto/segmentos.json` (fora do `plano.json`: gravar no plano faria o `fazer` achar a batch inteira desatualizada). `limpar` apaga do cache o que nenhum AD usa.
+- Fora do modo por segmentos: `one_take` e layout `cartao` (usam o `montar` antigo).
+
+## Script de batch só para o que é único dela (Central, 17/11/2026)
+Origem: desde 01/11 as batches copiaram scripts próprios em `08_auto/` (`gemini_tts.py` em 9 batches, `gerar_quadros.py` e `gerar_clipes.py` em 6, `gerar_vo.py`, `monta_lote.py`, `legenda_topo.py`). Conserto feito numa cópia não chegava às outras, e o `gemini_tts.py` lia a chave do Kie direto, sem as travas do `kie.py`.
+- **O que se repete mora no núcleo** (`@CLIENTES/_FLUXO/scripts`), como comando ou opção do `fluxo.py`/`kie.py`:
+  - voz Gemini: `kie.py gemini-tts TEXTO.txt SAIDA.wav --voz Sulafat [--estilo] [--ritmo] [--cena] [--contexto] [--perfil]` (no lugar do `gemini_tts.py`);
+  - quadros, clipes e VO do `plano.json`: `fluxo.py pedidos <batch> quadros|clipes|vo [--so IDs] [--voz ...]` grava `08_auto/pedidos_<tipo>.json` e **não gasta**; depois do ok de crédito, `kie.py lote <json>` (no lugar de `gerar_quadros.py`, `gerar_clipes.py`, `gerar_vo.py` e `monta_lote.py`). `ref "-"`: padrão = sem quadro, clipe só de texto; `--traco quadro` = quadro sem referência;
+  - clipe preto com a voz da fala para o montador: `fluxo.py vo-clipes <batch>`;
+  - legenda mais alta numa cena (frasco na bancada): campo `legenda_y` da cena no `plano.json`, ou `estilo.legenda.y_trechos` (no lugar do `legenda_topo.py`).
+- **Script novo em `08_auto/` só para o que é único da batch:** o `montar_plano.py` (conteúdo do plano), um formato visto pela 1ª vez (split da 4293, texto por palavra-chave da 4205, packshot da 4382). Nada de whisper, loudnorm, silêncio, legenda, export nem chamada ao Kie dentro dele.
+- **Repetiu numa 2ª batch = vai para o núcleo, pela Central.** Não copie o script de uma batch para outra: anote no estado da batch, siga com o contorno e mande à Central uma linha com o caminho e o que falta (trava 3 de `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`). A Central muda o núcleo com backup `*.bak_<data>_<motivo>`.
+- Batch com sessão aberta segue com os scripts dela até fechar (ordem do Fefo, 17/11/2026).
+
 ## Resolução
 Regra do Fefo (02/11/2026): vídeo gerado e AD final sempre em **720p** (720x1280). `fluxo.py`, `cartao.py` e `umtake.py` compõem em
 1080x1920 (por isso posições e overlays seguem em px de 1920) e descem na saída.

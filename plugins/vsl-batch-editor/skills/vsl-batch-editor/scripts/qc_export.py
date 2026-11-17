@@ -109,16 +109,17 @@ def folha(video, planos, saida):
 def transcreve(video, saida):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import transcricao_cache as tc       # a do checklist, se já rodou (16/11/2026)
-    w = tc.ler(video)
+    idi = tc.idioma(video)       # batch.json/job.json → plano → "en" (17/11/2026)
+    w = tc.ler(video, idi)
     if w:
         w = [list(x) for x in w]; json.dump(w, open(saida / "palavras.json", "w")); return w
     wav = saida / "_audio16k.wav"
     subprocess.run([FF, "-v", "error", "-y", "-i", video, "-vn", "-ac", "1", "-ar", "16000", str(wav)], check=True)
     import checklist      # o mesmo Whisper do checklist (GPU no PC, vocabulário do job, tapa buraco pulado; 16/11/2026)
-    w = [[x, round(a, 3), round(b, 3), round(p, 3)] for x, a, b, p in checklist.transcrever(str(wav), "en", tc.vocabulario(video))]
+    w = [[x, round(a, 3), round(b, 3), round(p, 3)] for x, a, b, p in checklist.transcrever(str(wav), idi, tc.vocabulario(video))]
     json.dump(w, open(saida / "palavras.json", "w"))
     wav.unlink()
-    tc.gravar(video, w, "en", "qc_export")
+    tc.gravar(video, w, idi, "qc_export")
     return w
 
 

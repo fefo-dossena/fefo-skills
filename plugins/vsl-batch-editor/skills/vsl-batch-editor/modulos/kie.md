@@ -22,8 +22,10 @@ confirmar com ele. Detalhe: `@CLIENTES/_FLUXO/LEIA-ME.md`.
 | B-roll e fala padrão | `kie.py kling3 P.txt QUADRO.png S.mp4 --dur 5 --sem-som [--fim FIM.png]` | `kling-3.0/video` (`-` no lugar do quadro = só texto) |
 | Voz igual entre falas | `kie.py kling4 P.txt S.mp4 --dur 6 --video F01.mp4 [--imagem A.png] [--voz Nome=A.mp3]` | `kling-4.0/reference-to-video` |
 | Só Drama ad | `kie.py seedance P.txt S.mp4 --dur 8 --imagem A.png --audio F01.mp3` | `bytedance/seedance-2-5` |
+| Avatar falando um áudio pronto (lip-sync), 17/11 | `kie.py omnihuman IMAGEM.png AUDIO.mp3 SAIDA.mp4 [--prompt P.txt]` (720p, sem marca d'água; áudio 4–300 s, até 15 MB). Modelo novo no fluxo: só com ok do Fefo | `omnihuman-2-0` (14 cr/s; 30 s = 420 cr) |
+| Upscale de clipe (intermediário), 17/11 | `kie.py upscale VIDEO.mp4 SAIDA.mp4 [--fator 1|2|4]` (MP4/MOV/MKV até 50 MB). O arquivo final desce ao teto da ficha (`kie.upscale_res_max`; sem o campo, 720p). Acima de 720p só com o ok escrito do Fefo gravado na ficha. O export segue a regra de resolução | `topaz/video-upscale` (8 cr/s em 1x/2x, 14 cr/s em 4x; 5 s em 2x = 40 cr) |
 | Voz pronta do catálogo | `kie.py tts T.txt S.mp3 --voz ID` | `elevenlabs/text-to-speech-multilingual-v2` |
-| VO quando o ElevenLabs falha (03/11) | `python3 BATCH#3826/08_auto/gemini_tts.py T.txt S.wav VOZ` | `google/gemini-2-5-pro-tts` (~0,8 cr/11 s) |
+| VO quando o ElevenLabs falha (03/11) | `kie.py gemini-tts T.txt S.wav --voz Sulafat [--estilo] [--ritmo] [--cena] [--contexto] [--perfil]` (desde 17/11; não copiar o `gemini_tts.py` das batches). Falas do plano: `fluxo.py pedidos <batch> vo --voz Sulafat` + `kie.py lote` | `google/gemini-2-5-pro-tts` (~0,8 cr/11 s) |
 
 - Kling 4.0: toda menção no prompt (`@video_1`, `@image_1`, `@Nome`) precisa de arquivo no pedido, senão falha. O nome
   da voz leva só letras, dígitos e `_`. Sem vídeo de referência, sempre sai com som. Não há `mode`.

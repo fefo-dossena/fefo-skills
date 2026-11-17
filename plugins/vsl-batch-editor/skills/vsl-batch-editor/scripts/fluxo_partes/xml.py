@@ -121,7 +121,8 @@ def cmd_novo_plano(a):
     plano = {"batch": os.path.basename(B).split(" ")[0], "produtos": ["neurobella", "visiovance"],
              "marca_nome": {"neurobella": "Neurobella", "visiovance": "VisioVance"},
              "hold": [l.replace("Neurobella", "{MARCA}") for l in hold], "hooks": {str(k): v for k, v in hk.items()},
-             "personagens": {}, "frascos": {}, "falas": [], "cenas": []}
+             "personagens": {}, "frascos": {}, "falas": [], "cenas": [],
+             "por_segmentos": True}     # montagem por segmentos (Fefo, 17/11/2026): hook e hold uma vez, final só com o OK
     out = f"{B}/{AUTO}/plano.json"
     if os.path.exists(out): raise SystemExit("plano.json já existe; não sobrescrevo.")
     json.dump(plano, open(out, "w"), indent=1, ensure_ascii=False); print("ok", out)

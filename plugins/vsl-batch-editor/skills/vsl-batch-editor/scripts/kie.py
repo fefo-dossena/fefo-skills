@@ -22,6 +22,17 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
         # Nano Banana Pro (até 8 --ref). Avatar a partir de quadro real de UGC: ver modulos/03_personagens.md.
   python3 kie.py omni PROMPT.txt IMAGEM SAIDA.mp4 --dur 8 [--res 720p]
         # Gemini Omni com som. --dur só 4, 6, 8 ou 10. Liberado junto do Kling em 02/11/2026; custo ainda não medido.
+  python3 kie.py omnihuman IMAGEM.png AUDIO.mp3 SAIDA.mp4 [--prompt P.txt] [--res 720p] [--marca-dagua]
+        # OmniHuman 2.0 (ByteDance, `omnihuman-2-0`; docs.kie.ai/market/omnihuman-2-0, 17/11/2026): a pessoa da imagem
+        # fala o áudio (lip-sync). Sai em 720p, com a duração do áudio. 14 cr/s (30 s = 420 cr). Áudio MP3/WAV de 4 a
+        # 300 s e até 15 MB; imagem até 30 MB, lados 300-6000 px, proporção 0,4-2,5. Prompt opcional (até 300 caracteres;
+        # com --prompt, passa pela folha do prompt_qa como todo vídeo). Sem marca d'água (o Kie liga por padrão).
+  python3 kie.py upscale VIDEO.mp4 SAIDA.mp4 [--fator 2]
+        # Topaz Video Upscale (`topaz/video-upscale`, kie.ai/topaz-video-upscale, 17/11/2026). Fator 1, 2 ou 4. 8 cr/s em
+        # 1x/2x, 14 cr/s em 4x (30 s em 2x = 240 cr). Vídeo MP4/MOV/MKV até 50 MB. Teto do arquivo final = `kie.upscale_res_max`
+        # da ficha (sem o campo, o `video_res_max`, hoje 720p): o que o Topaz devolve acima disso desce aqui (lanczos).
+        # Liberar 1080p num cliente = gravar `"upscale_res_max": "1080p"` na ficha dele, só com o ok escrito do Fefo.
+        # Intermediário: o export continua na regra de resolução do cliente.
   python3 kie.py kling3 PROMPT.txt IMAGEM SAIDA.mp4 --dur 5 [--mode std] [--sem-som] [--fim FIM.png]
         # IMAGEM = quadro inicial, ou "-" para só texto (sai 9:16).
   python3 kie.py kling4 PROMPT.txt SAIDA.mp4 --dur 5 [--video F01.mp4] [--imagem A.png] [--voz nome=AUDIO.mp3] [--res 720p]
@@ -30,6 +41,11 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
         # Só em Drama ad. Referências, sem quadro inicial: o Kie não aceita os dois juntos.
   python3 kie.py tts TEXTO.txt SAIDA.mp3 --voz ID [--speed 1]
         # ElevenLabs Multilingual v2. Só vozes prontas do catálogo, sem voz clonada.
+  python3 kie.py gemini-tts TEXTO.txt SAIDA.wav --voz Sulafat [--estilo Empathetic] [--ritmo Natural] [--sotaque "American (Gen)"]
+        [--cena CENA.txt|"texto"] [--contexto CTX.txt|"texto"] [--perfil PERFIL.txt|"texto"] [--temperatura 1]
+        # Gemini 2.5 Pro TTS (EV, narração de 60+). Substitui os gemini_tts.py copiados nas batches (Central, 17/11/2026):
+        # mesma chamada, agora com as travas do núcleo (conta, pasta, task.json, --teste, lote). Os 3 textos aceitam
+        # arquivo ou texto; padrão = o das batches 3826-3855 (narradora americana de 60 e poucos anos, calma).
   python3 kie.py suno ESTILO.txt SAIDA.mp3 --titulo "Nome" [--letra LETRA.txt] [--instrumental] [--voz m|f]
         [--dur 120] [--modelo V5_5] [--persona ID] [--sem-estilo "edm, autotune"] [--peso-estilo 0.6] [--peso-audio 0.75]
         # Música pela API da Suno no Kie. Sai mais de uma faixa por pedido: SAIDA_1.mp3, SAIDA_2.mp3...
@@ -49,7 +65,8 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
         # Dispara um kie.py por pedido, em paralelo (0,6 s entre disparos; o Kie aceita 20 a cada 10 s), espera
         # todos e imprime uma linha por pedido
         # (saída, status ok/erro/barrado, taskId, cr). Resumo em PEDIDOS.resultado.tsv, logs em PEDIDOS.logs/.
-        # Pedido com SAIDA.task.json já existente vira `espera` (não cobra de novo). --teste repassa --teste.
+        # Pedido com SAIDA.task.json já existente vira `espera` (não cobra de novo) só quando a saída ainda não foi
+        # baixada e o prompt é o mesmo; senão o lote recusa (17/11/2026). --forcar refaz (cobra). --teste repassa --teste.
 
 O taskId sai na tela e fica em SAIDA.task.json assim que a tarefa é criada: se cair a conexão, use `espera`,
 não reenvie (cobra duas vezes). A mídia gerada some em 14 dias: baixar sempre.
@@ -57,12 +74,18 @@ As chaves e a impressão (12 caracteres do SHA-256) moram em @CLIENTES/_CHAVES/ 
 ~/.vsl-batch-editor/, que tem atalhos para lá (_CHAVES/ligar_chaves.sh). Nunca no zip, perfil.json, ficha, nota ou módulo.
 """
 import hashlib, json, mimetypes, re, os, secrets, sys, time, urllib.parse, urllib.request, urllib.error
+for _s in (sys.stdout, sys.stderr):   # Windows cp1252: ✔ e → quebravam a saída (BATCH#4607, 17/11/2026)
+    try: _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception: pass
 
 API = 'https://api.kie.ai'
 UPLOAD = 'https://kieai.redpandaai.co/api/file-stream-upload'   # host do exemplo dos docs
 UA = 'fefo-vsl/1.0'
 ESPERA_MAX = 1200   # s
 TESTE = '--teste' in sys.argv
+FORCAR = '--forcar' in sys.argv     # lote: refaz pedido cuja saída já tem tarefa velha (cobra de novo)
+if FORCAR:
+    sys.argv.remove('--forcar')
 
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -401,12 +424,60 @@ def _sobe(caminho):
     return caminho if TESTE else upload(caminho)
 
 
+def _dur_audio(caminho):
+    """Duração do áudio em s (ffprobe do PATH); None se não der para medir."""
+    import shutil, subprocess
+    fp = shutil.which('ffprobe')
+    if not fp:
+        return None
+    try:
+        return float(subprocess.run([fp, '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', caminho],
+                                    capture_output=True, text=True, timeout=60).stdout.strip())
+    except (ValueError, subprocess.SubprocessError, OSError):
+        return None
+
+
+def _dims(caminho):
+    """(largura, altura) do vídeo pelo ffprobe do PATH; None se não der."""
+    import shutil, subprocess
+    fp = shutil.which('ffprobe')
+    if not fp:
+        return None
+    try:
+        w, h = subprocess.run([fp, '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height',
+                               '-of', 'csv=p=0:s=x', caminho], capture_output=True, text=True, timeout=60).stdout.strip().split('x')[:2]
+        return int(w), int(h)
+    except (ValueError, subprocess.SubprocessError, OSError):
+        return None
+
+
+LADO_MENOR = {'480p': 480, '720p': 720, '1080p': 1080, '2K': 1440, '4K': 2160}
+
+
+def _desce_ao_teto(saida, teto):
+    """Arquivo baixado com o lado menor acima do teto: reduz (lanczos, CRF 16, áudio copiado). Devolve as dimensões finais."""
+    import shutil, subprocess
+    d = _dims(saida)
+    if not d or min(d) <= teto:
+        return d
+    ff = shutil.which('ffmpeg') or sys.exit('upscale: sem ffmpeg para descer ao teto')
+    w, h = d
+    nw, nh = (teto, round(h * teto / w / 2) * 2) if w <= h else (round(w * teto / h / 2) * 2, teto)
+    tmp = saida + '.teto.mp4'
+    subprocess.run([ff, '-nostdin', '-v', 'error', '-y', '-i', saida, '-vf', f'scale={nw}:{nh}:flags=lanczos,setsar=1',
+                    '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-c:a', 'copy',
+                    '-movflags', '+faststart', tmp], check=True, timeout=900)
+    os.replace(tmp, saida)
+    print(f'upscale: {w}x{h} do Topaz -> {nw}x{nh} (teto da ficha)', flush=True)
+    return nw, nh
+
+
 def _texto(caminho):
     return open(caminho, encoding='utf-8').read().strip()
 
 
 # Posição da SAIDA entre os args de cada subcomando (args = o que vem depois do nome do subcomando).
-POS_SAIDA = {'sunburst': 1, 'nanopro': 1, 'seedream': 1, 'omni': 2, 'kling3': 2, 'kling4': 1, 'seedance': 1, 'tts': 1,
+POS_SAIDA = {'sunburst': 1, 'nanopro': 1, 'seedream': 1, 'omni': 2, 'omnihuman': 2, 'upscale': 1, 'kling3': 2, 'kling4': 1, 'seedance': 1, 'tts': 1, 'gemini-tts': 1,
              'suno': 1, 'suno-ref': 2, 'espera': 1}
 BARRADO = re.compile(r'sensitive|moderat|policy|nsfw|inappropriate|prohibit|violat|safety|copyright|'
                      r'celebrit|public figure', re.I)
@@ -417,6 +488,28 @@ def _excecao(cmd, saidas):
     ex = (FICHA['kie'].get('excecoes') or {}).get(cmd) or {}
     pastas = ex.get('pastas') or []
     return bool(saidas) and all(any(p in os.path.abspath(s) for p in pastas) for s in saidas)
+
+
+def _tarefa_velha(saida, args):
+    """SAIDA.task.json que não é a retomada deste pedido (BATCH#4607, 17/11/2026: um suno novo para trilha.mp3 virou
+    espera da trilha antiga, sem aviso). Devolve o motivo, ou None quando é retomada legítima."""
+    try:
+        t = json.load(open(saida + '.task.json', encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if os.path.exists(saida):
+        return f'{os.path.basename(saida)} já foi gerada e baixada pela tarefa {t.get("taskId")}'
+    guardado = json.dumps(t.get('input') or {}, ensure_ascii=False)
+    textos = []
+    for x in args:   # prompt direto ou arquivo .txt de prompt
+        if len(x) > 3 and x.lower().endswith('.txt') and os.path.isfile(x):
+            try: x = open(x, encoding='utf-8').read()
+            except OSError: continue
+        if len(x) >= 20 and not os.path.exists(x):
+            textos.append(x.strip())
+    if textos and guardado != '{}' and not any(tx[:200] in guardado or json.dumps(tx[:200], ensure_ascii=False)[1:-1] in guardado for tx in textos):
+        return f'a tarefa {t.get("taskId")} em {os.path.basename(saida)}.task.json é de outro prompt'
+    return None
 
 
 def lote(caminho, intervalo=0.6):
@@ -449,8 +542,19 @@ def lote(caminho, intervalo=0.6):
             motivo = _trava_folha(cmd, args)
             if motivo:
                 sys.exit(f'RECUSADO: pedido {n}: {motivo}')
-        if not TESTE and os.path.exists(saida + '.task.json'):   # já criada: só espera e baixa, sem cobrar
+        if os.path.exists(saida + '.task.json'):
+            velha = _tarefa_velha(saida, args)
+            if velha and FORCAR:   # pedido novo de propósito: guarda a tarefa velha e cobra de novo
+                os.replace(saida + '.task.json', saida + f'.task.{time.strftime("%Y%m%d-%H%M%S")}.json')
+                print(f'  {n:02d} --forcar: {velha}; a tarefa velha foi guardada e o pedido sai novo (cobra)', flush=True)
+                motivo = _trava_folha(cmd, args)
+                if motivo:
+                    sys.exit(f'RECUSADO: pedido {n}: {motivo}')
+            elif velha:
+                sys.exit(f'RECUSADO: pedido {n}: {velha}. Use um nome de saída novo ou --forcar (cobra de novo).')
+        if not TESTE and os.path.exists(saida + '.task.json'):   # já criada e não baixada: só espera e baixa, sem cobrar
             task = json.load(open(saida + '.task.json')).get('taskId')
+            print(f'  {n:02d} retomada: {os.path.basename(saida)} já tem a tarefa {task}; só espera e baixa (0 cr)', flush=True)
             cmd, args = 'espera', [task, saida]
         if TESTE:
             args = args + ['--teste']
@@ -504,8 +608,16 @@ VIDEO = ('omni', 'kling3', 'kling4', 'seedance')
 
 
 def _trava_folha(cmd, args):
-    """Clipe de vídeo só com ok na folha de lógica (PDF do Lucas, 16/11/2026; _FLUXO/QUALIDADE_DO_BATCH.md, 1.4)."""
-    if TESTE or cmd not in VIDEO or not args:
+    """Clipe de vídeo só com ok na folha de lógica (PDF do Lucas, 16/11/2026; _FLUXO/QUALIDADE_DO_BATCH.md, 1.4).
+    omnihuman: o prompt é opcional (--prompt); sem ele não há texto para a folha (o áudio e a imagem já vêm aprovados)."""
+    if TESTE or not args:
+        return None
+    if cmd == 'omnihuman':
+        pr = _opcao(args, '--prompt')
+        if not pr:
+            return None
+        args = [pr]
+    elif cmd not in VIDEO:
         return None
     aqui = os.path.dirname(os.path.abspath(__file__))     # núcleo: checagens/; skill publicada: scripts/ (ao lado)
     sys.path[:0] = [os.path.join(aqui, 'checagens'), aqui]
@@ -597,6 +709,52 @@ def main():
         entrada = {'prompt': prompt, 'image_urls': [_sobe(imagem)], 'duration': _opcao(a, '--dur', '8'),
                    'aspect_ratio': '9:16', 'resolution': _res(a, 'video')}
         espera(cria('gemini-omni-video', entrada, saida), saida)
+    elif a[0] == 'omnihuman':
+        imagem, audio, saida = a[1], a[2], a[3]
+        if _res(a, 'video') != '720p':
+            sys.exit('RECUSADO: o OmniHuman 2.0 do Kie só sai em 720p.')
+        for arq, lim in ((imagem, 30), (audio, 15)):
+            if not os.path.isfile(arq):
+                sys.exit(f'omnihuman: não achei {arq}')
+            if os.path.getsize(arq) > lim * 1024 * 1024:
+                sys.exit(f'RECUSADO: {os.path.basename(arq)} passa de {lim} MB (limite do OmniHuman 2.0).')
+        dur = _dur_audio(audio)
+        if dur is not None and not 4 <= dur <= 300:
+            sys.exit(f'RECUSADO: áudio de {dur:.1f} s; o OmniHuman 2.0 aceita de 4 a 300 s.')
+        entrada = {'image_urls': [_sobe(imagem)], 'audio_url': _sobe(audio), 'enable_watermark': '--marca-dagua' in a}
+        if _opcao(a, '--prompt'):
+            pr = _texto(_opcao(a, '--prompt'))
+            if len(pr) > 300:
+                sys.exit(f'RECUSADO: prompt com {len(pr)} caracteres; o OmniHuman 2.0 aceita até 300.')
+            entrada['prompt'] = pr
+        if dur is not None:
+            print(f'omnihuman: áudio {dur:.1f} s -> ~{dur * 14:.0f} cr (14 cr/s)', flush=True)
+        espera(cria('omnihuman-2-0', entrada, saida), saida)
+    elif a[0] == 'upscale':
+        video, saida = a[1], a[2]
+        fator = int(float(_opcao(a, '--fator', '2')))
+        if fator not in (1, 2, 4):
+            sys.exit('upscale: --fator só 1, 2 ou 4 (Topaz no Kie)')
+        if not os.path.isfile(video):
+            sys.exit(f'upscale: não achei {video}')
+        if os.path.splitext(video)[1].lower() not in ('.mp4', '.mov', '.mkv'):
+            sys.exit('RECUSADO: o Topaz do Kie aceita MP4, MOV ou MKV.')
+        if os.path.getsize(video) > 50 * 1024 * 1024:
+            sys.exit('RECUSADO: vídeo acima de 50 MB (limite do Topaz no Kie).')
+        k = FICHA['kie']
+        teto_nome = k.get('upscale_res_max') or k.get('video_res_max') or '720p'
+        teto = LADO_MENOR.get(teto_nome, 720)
+        d = _dims(video)
+        if d and min(d) >= teto:
+            sys.exit(f'RECUSADO: o vídeo já tem {d[0]}x{d[1]} e o teto de {FICHA["nome"]} para upscale é {teto_nome}: '
+                     'o upscale não melhoraria nada. Liberar mais exige "upscale_res_max" na ficha, com o ok escrito do Fefo.')
+        dur = _dur_audio(video)
+        if d:
+            print(f'upscale: {d[0]}x{d[1]} x{fator} = {d[0] * fator}x{d[1] * fator} no Topaz; arquivo final até {teto_nome}', flush=True)
+        if dur is not None:
+            print(f'upscale: {dur:.1f} s -> ~{dur * (14 if fator == 4 else 8):.0f} cr ({14 if fator == 4 else 8} cr/s)', flush=True)
+        espera(cria('topaz/video-upscale', {'video_url': _sobe(video), 'upscale_factor': str(fator)}, saida), saida)
+        _desce_ao_teto(saida, teto)
     elif a[0] == 'kling3':
         prompt, imagem, saida = _texto(a[1]), a[2], a[3]
         entrada = {'prompt': prompt, 'sound': '--sem-som' not in a, 'duration': _opcao(a, '--dur', '5'),
@@ -636,6 +794,20 @@ def main():
                      'Tire as tags ou gere no v3/v4 (Trendscale: elevenlabs.py).')
         entrada = {'text': texto, 'voice': voz, 'speed': float(_opcao(a, '--speed', '1'))}
         espera(cria('elevenlabs/text-to-speech-multilingual-v2', entrada, saida), saida)
+    elif a[0] == 'gemini-tts':
+        texto, saida = _texto(a[1]), a[2]
+        voz = _opcao(a, '--voz') or sys.exit('gemini-tts pede --voz NOME (ex.: Sulafat)')
+        def _arq_ou_txt(nome, padrao):
+            v = _opcao(a, nome)
+            return padrao if not v else (_texto(v) if os.path.isfile(v) else v)
+        entrada = {'temperature': float(_opcao(a, '--temperatura', '1')),
+                   'scene': _arq_ou_txt('--cena', 'A calm voiceover for a short health video for Americans over 60.'),
+                   'sample_context': _arq_ou_txt('--contexto', 'Warm, caring, sincere storyteller; steady natural pace; not salesy.'),
+                   'speakers': [{'speaker_id': 'Speaker 1', 'voice_name': voz, 'accent': _opcao(a, '--sotaque', 'American (Gen)'),
+                                 'audio_profile': _arq_ou_txt('--perfil', 'warm, mature American woman in her 60s, gentle and trustworthy narrator'),
+                                 'style': _opcao(a, '--estilo', 'Empathetic'), 'pace': _opcao(a, '--ritmo', 'Natural')}],
+                   'dialogue_turns': [{'speaker_id': 'Speaker 1', 'text': texto}]}
+        espera(cria('google/gemini-2-5-pro-tts', entrada, saida), saida)
     elif a[0] == 'suno':
         estilo, saida = _texto(a[1]), a[2]
         titulo = _opcao(a, '--titulo') or sys.exit('suno pede --titulo')

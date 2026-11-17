@@ -47,7 +47,8 @@ def itens(B):
             dep += sorted({clipe_direita(B, c, p) for c in plano["cenas"] if clipe_direita(B, c, p)
                            and (c["tipo"] != "hook" or int(c["hook"]) == n)})
             dep += sorted(glob.glob(f"{B}/{AUDIO}/trilha/*.mp3") + glob.glob(f"{B}/{AUDIO}/trilha/*.wav"))
-            out.append(("ads", export(B, plano, p, n), dep, ("montar", p, n), f"AD{n}_{p}"))
+            # por segmentos (Fefo, 17/11/2026): o fazer monta hook e hold no cache (só o que mudou) e o final só com o OK
+            out.append(("ads", export(B, plano, p, n), dep, ("segmentos" if plano.get("por_segmentos") else "montar", p, n), f"AD{n}_{p}"))
     # XML do Premiere saiu do fazer/status (Fefo, 10/11/2026: sem utilidade na EV e na TS). Só por `fluxo.py xml <batch>`.
     return out
 

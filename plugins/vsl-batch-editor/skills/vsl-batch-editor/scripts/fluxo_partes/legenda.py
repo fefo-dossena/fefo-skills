@@ -115,7 +115,26 @@ def srt(palavras_json, texto, out, cfg, inteiras=(), separar=()):
             B2[i][1] = round(min(B2[i][0] + 0.7, B2[i + 1][0] if i + 1 < len(B2) else B2[i][0] + 0.7), 3)
     escrever_srt(B2, out)
 
-def ts(t): return "%02d:%02d:%02d,%03d" % (t // 3600, t % 3600 // 60, t % 60, round((t % 1) * 1000) % 1000)
+def legenda_final(bl, plano, chaves):
+    """Texto final da legenda, escrito à mão no plano (BATCH#4607, 17/11/2026: o `fazer` refazia o SRT e apagava a
+    edição manual). plano.legenda_final = {"<chave>": [{"de": "texto gerado", "para": "texto final"}, ...]}, com chave
+    "*" (todas), "HOLD_<p>", o nome do SRT do hook (ex.: "H1_neurobella") ou "AD<n>_<p>". "de" é um trecho do bloco
+    (sem diferença de maiúscula); "para" troca só esse trecho. Edite aqui, nunca o .srt: o .srt é refeito."""
+    regras = [r for c in chaves for r in (plano.get("legenda_final") or {}).get(c, []) or []]
+    if not regras: return bl
+    out = []
+    for a, b, t in bl:
+        for r in regras:
+            de, para = str(r.get("de", "")), str(r.get("para", ""))
+            if de: t = re.sub(re.escape(de), lambda _m: para, t, flags=re.I)
+        out.append((a, b, re.sub(r"\s+", " ", t).strip()))
+    return [x for x in out if x[2]]
+
+def legenda_final_arquivo(p, plano, chaves):
+    if (plano.get("legenda_final") or {}) and os.path.exists(p):
+        escrever_srt(legenda_final(ler_srt(p), plano, chaves), p)
+
+def ts(t): return"%02d:%02d:%02d,%03d" % (t // 3600, t % 3600 // 60, t % 60, round((t % 1) * 1000) % 1000)
 def escrever_srt(bl, out): open(out, "w").write("\n".join(f"{i+1}\n{ts(a)} --> {ts(b)}\n{t}\n" for i, (a, b, t) in enumerate(bl)))
 def ler_srt(p):
     out = []

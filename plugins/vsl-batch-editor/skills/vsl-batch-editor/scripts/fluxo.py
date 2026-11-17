@@ -18,6 +18,9 @@ Subcomandos:
   status <batch>                         o que falta / está desatualizado, e o próximo passo
   fazer  <batch> [--ate cortes|previas|legendas|ads] [--so AD1_neurobella] [--forcar] [--aceitar-sem-voz] [--teste]
   montar <batch> <produto> <hook>        renderiza um AD final (09_export)        (motor plano)
+  segmentos <batch> [status|aprovar X|reabrir X|montar [--so AD1_neurobella]|limpar]
+                                         montagem por segmentos (plano.json "por_segmentos": true; Fefo 17/11/2026): hook e
+                                         hold montados uma vez (cache por hash), sala por segmento, final só com tudo aprovado
   xml    <batch>                         timeline Premiere, só se o Fefo pedir (fora do fazer desde 10/11/2026)
   identificar <videos...> --quadros <pasta>   casa cada vídeo baixado com o quadro inicial (1º frame)   (motor plano)
   novo-plano <batch>                     gera um plano.json vazio a partir do roteiro.txt (para o Claude preencher)   (motor plano)
@@ -27,6 +30,8 @@ Subcomandos:
   instalar <raiz>                        (fluxo.py da pasta da skill) monta/atualiza <raiz>/_FLUXO_VSL e _BATCH_MODELO
   empacotar                              (só no _FLUXO_VSL do Fefo) gera o zip da skill; zips antigos vão para old/
   publicar "<mensagem>"                  (só no _FLUXO_VSL do Fefo) manda a skill para o GitHub (plugin com auto-update)
+  pedidos <batch> quadros|clipes|vo [--so IDs] [--voz V]  PEDIDOS.json do `kie.py lote` a partir do plano.json (não gasta)   (motor plano)
+  vo-clipes <batch>                      clipe preto com a voz de cada fala gerada (para o montador)   (motor plano)
   renomear <batch>                       exports com o nome antigo (BATCH<n>_AD<k>_<p>) → nome do card, sem renderizar
 
 O código está dividido por assunto em fluxo_partes/ (para a sessão ler só o trecho que vai mexer):
@@ -39,6 +44,7 @@ O código está dividido por assunto em fluxo_partes/ (para a sessão ler só o 
   montar.py    montagem final do AD
   xml.py       timeline do Premiere, identificar e novo-plano
   pastas.py    motor "pastas" (status e fazer) e o comando checar
+  pedidos.py   pedidos de geração do plano.json (quadros, clipes, vo) e vo-clipes
 Todas rodam no mesmo espaço de nomes, na ordem acima, como se fossem um arquivo só. Os nomes das pastas viram globais
 da ficha: AUTO, EXPORT, CFG, ROTEIRO, REFS, AUDIO, ELEMENTOS, PROJETO, BRUTOS.
 
@@ -46,6 +52,9 @@ Os atalhos dos clientes (ex. @EMPIRE VISION/2026/_FLUXO_VSL/scripts/fluxo.py) de
 do fluxo do cliente) e NUCLEO_DIR, e executam este arquivo no próprio espaço de nomes: `import fluxo` continua dando
 as funções (F.carregar, F.L...). Cópia de antes: @CLIENTES/_FLUXO/old/antes_fluxo_2026-11-09/."""
 import argparse, difflib, glob, json, os, re, shutil, subprocess, sys, tempfile
+for _s in (sys.stdout, sys.stderr):   # Windows cp1252: ✔ e → quebravam a saída (BATCH#4607, 17/11/2026)
+    try: _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception: pass
 
 # ---------------------------------------------------------------- onde estamos
 AQUI = globals().get("NUCLEO_DIR") or os.path.dirname(os.path.abspath(__file__))     # pasta scripts/ deste fluxo.py
@@ -99,6 +108,15 @@ def _cliente_do_caminho(caminho):
     partes = os.path.abspath(caminho).split(os.sep)
     for f in FICHAS.values():
         if f.get("pasta") and f["pasta"] in partes: return f["id"]
+    # Fora da pasta do cliente (cópia no TEMP, outro disco): o arquivo de config do job diz o cliente
+    # (EV batch.json, TS job.json). Só vale se um cliente só bate. BATCH#4607, 17/11/2026.
+    d = os.path.abspath(caminho)
+    d = d if os.path.isdir(d) else os.path.dirname(d)
+    for _ in range(4):
+        achou = {f["id"] for f in FICHAS.values() if (f.get("pastas") or {}).get("config") and os.path.isfile(os.path.join(d, f["pastas"]["config"]))}
+        if len(achou) == 1: return achou.pop()
+        if achou or os.path.dirname(d) == d: break
+        d = os.path.dirname(d)
     return None
 
 def _nome_cliente(cid): return FICHAS[cid].get("nome", cid)
@@ -150,7 +168,7 @@ if FICHA.get("scripts_cliente"):                                    # módulos a
     if os.path.isdir(_sc) and _sc not in sys.path: sys.path.append(_sc)
 
 _PARTES_DIR = os.path.join(AQUI, "fluxo_partes")
-for _parte in ("skill.py", "plano.py", "status.py", "acoes.py", "legenda.py", "broll.py", "montar.py", "xml.py", "pastas.py"):
+for _parte in ("skill.py", "plano.py", "status.py", "acoes.py", "legenda.py", "broll.py", "montar.py", "xml.py", "pastas.py", "pedidos.py"):
     _arq = os.path.join(_PARTES_DIR, _parte)
     exec(compile(open(_arq, encoding="utf-8").read(), _arq, "exec"), globals())
 del _parte, _arq
@@ -191,10 +209,13 @@ def _argumentos():
     p = sp.add_parser("status"); p.add_argument("batch"); p.set_defaults(fn=_status)
     p = sp.add_parser("fazer"); p.add_argument("batch"); p.add_argument("--ate", choices=ORDEM[2:]); p.add_argument("--so"); p.add_argument("--forcar", action="store_true"); p.add_argument("--aceitar-sem-voz", action="store_true"); p.add_argument("--teste", action="store_true"); p.set_defaults(fn=_fazer)
     p = sp.add_parser("montar"); p.add_argument("batch"); p.add_argument("produto"); p.add_argument("hook"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "montar"), montar(a.batch.rstrip("/"), a.produto, a.hook)))
+    p = sp.add_parser("segmentos"); p.add_argument("batch"); p.add_argument("acao", nargs="?", choices=["status", "aprovar", "reabrir", "montar", "limpar"]); p.add_argument("alvos", nargs="*"); p.add_argument("--so"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "segmentos"), cmd_segmentos(a)))
     p = sp.add_parser("xml"); p.add_argument("batch"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "xml"), gerar_xml(a.batch.rstrip("/"))))
     p = sp.add_parser("identificar"); p.add_argument("videos", nargs="+"); p.add_argument("--quadros", required=True); p.set_defaults(fn=_identificar)
     p = sp.add_parser("novo-plano"); p.add_argument("batch"); p.set_defaults(fn=_novo_plano)
-    p = sp.add_parser("checar"); p.add_argument("batch"); p.add_argument("videos", nargs="*"); p.add_argument("--so"); p.add_argument("--json", action="store_true"); p.add_argument("--tudo", action="store_true", help="roda as pesadas mesmo com falha nas baratas"); p.add_argument("--baratas", action="store_true", help="só as baratas (prévia de ajuste); qc e checklist ficam para o export final"); p.set_defaults(fn=cmd_checar)
+    p = sp.add_parser("checar"); p.add_argument("batch"); p.add_argument("videos", nargs="*"); p.add_argument("--so"); p.add_argument("--json", action="store_true"); p.add_argument("--tudo", action="store_true", help="roda as pesadas mesmo com falha nas baratas"); p.add_argument("--baratas", action="store_true", help="só as baratas (prévia de ajuste) e os itens 3 e 6 do checklist; qc e o resto do checklist ficam para o export final"); p.set_defaults(fn=cmd_checar)
+    p = sp.add_parser("pedidos"); p.add_argument("batch"); p.add_argument("tipo", choices=["quadros", "clipes", "vo"]); p.add_argument("--so"); p.add_argument("--modelo"); p.add_argument("--res"); p.add_argument("--ratio", default="9:16"); p.add_argument("--dur", default="5"); p.add_argument("--traco", choices=["pula", "quadro"], default="pula"); p.add_argument("--voz"); p.add_argument("--estilo"); p.add_argument("--ritmo"); p.add_argument("--cena"); p.add_argument("--contexto"); p.add_argument("--perfil"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "pedidos"), cmd_pedidos(a)))
+    p = sp.add_parser("vo-clipes"); p.add_argument("batch"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "vo-clipes"), cmd_vo_clipes(a)))
     p = sp.add_parser("perfil"); p.set_defaults(fn=cmd_perfil)
     p = sp.add_parser("instalar"); p.add_argument("raiz"); p.set_defaults(fn=cmd_instalar)
     p = sp.add_parser("empacotar"); p.set_defaults(fn=cmd_empacotar)

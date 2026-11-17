@@ -35,7 +35,8 @@
   "suno_modelo": "V5_5",
   "imagem_res_padrao": "2K",
   "video_res_max": "720p",
-  "proibidos": {}
+  "proibidos": {},
+  "upscale_res_max": "1080p"
  },
  "obs": "Seedance só em Drama ad (ordem do cliente, 30/10/2026): o script não sabe o formato, a regra fica com a sessão.",
  "checklist": {
