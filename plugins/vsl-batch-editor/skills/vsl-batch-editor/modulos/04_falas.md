@@ -53,6 +53,9 @@ POSITIVE LOCKS: face, hair, outfit and setting stay exactly as in the start fram
   baixo da F10 da 3214 (faixa escura em 18/18 quadros) — o prompt da mesa vai sem "phone".
 - Pronúncia da marca: ver "Marca e números" abaixo.
 
+## Fala de UGC em modo fala (Fefo, 18/11/2026)
+Take de uma pessoa falando para a câmera pode usar o **modo fala**: 1ª linha `MODO: FALA`, prompt em linguagem comum, fala entre aspas com as ações entre parênteses, `@image1` como quadro exato e os negativos fixos. Regra, acústica do cômodo na voz e o que o canário confere: `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seção "Fala de UGC". O `prompt_qa.py` reconhece o modo e confere sozinho.
+
 ## Travar o prompt numa fala só (desde 02/11/2026)
 Vale para Kling e Seedance. A inconsistência entre falas vem de mexer no prompt a cada clipe.
 1. Gere 1 fala e julgue com rigor. Refaça a **mesma** fala até energia, enquadramento, ritmo e jeito ficarem certos.

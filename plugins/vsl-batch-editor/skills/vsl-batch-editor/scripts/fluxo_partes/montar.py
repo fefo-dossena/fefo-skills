@@ -1,5 +1,14 @@
 # Parte do fluxo.py: montagem final do AD. Roda no mesmo espaço de nomes do fluxo.py (não importar sozinho).
 import linha_do_tempo as LDT   # LDT.locais: overlay do Drive vira cópia no TEMP antes do ffmpeg (18/11/2026)
+
+
+def _voz_ambiente(plano):
+    """plano.estilo.voz_ambiente ("banheiro" ou dict): a voz ganha o som do cômodo na mixagem (ambiente_voz.py, Fefo
+    18/11/2026). Sem a chave devolve None e nada muda. O stem [vzm] do checklist continua seco."""
+    v = (plano.get("estilo") or {}).get("voz_ambiente")
+    if not v: return None
+    import ambiente_voz
+    return ambiente_voz.config(v)
 # ---------------------------------------------------------------- montagem final
 # Regra do Fefo (02/11/2026): export sempre em 720p. A composição continua em 1080x1920 (posições em px de 1920)
 # e só a saída desce; usado também em cartao.py e umtake.py.
@@ -491,6 +500,10 @@ def montar(B, p, n, janela=None):
     if janela:
         return _janela(B, plano, p, n, janela, ins, g, trilha, cfg, hq, ts, tl, HD, DP, ext, total,
                        tmp, lista if est["pilula"] else None, alt, est)
+    va = "aa"; amb = _voz_ambiente(plano)
+    if amb:
+        import ambiente_voz
+        g.append(ambiente_voz.cadeia(amb, "aa", "aamb", sr=44100)); va = "aamb"
     if trilha:
         vol = cfg.get("audio", {}).get("trilha_volume_db", -22); it = ins.count("-i"); ins += ["-stream_loop", "-1", "-i", trilha[0]]
         fim_db = plano.get("estilo", {}).get("trilha_final_db")      # trilha sobe quando a voz acaba (tela final)
@@ -499,10 +512,10 @@ def montar(B, p, n, janela=None):
             gv = f"volume='{v1:.5f}+({v2 - v1:.5f})*clip((t-{T:.3f})/0.5,0,1)':eval=frame"
         else: gv = f"volume={vol}dB"
         gv += f",volume=0.25:enable='between(t,{ts + 0.04:.3f},{hq + max(tl - 0.03, 0):.3f})'"   # trilha cai ~12 dB no silêncio hook -> hold (a pausa aparece no mix)
-        g.append(f"[{it}:a]{gv},aresample=44100,aformat=channel_layouts=stereo,atrim=end={total + 0.5:.3f},asplit=2[tr][trm];[aa][tr]amix=inputs=2:duration=first:normalize=0[mx]")
+        g.append(f"[{it}:a]{gv},aresample=44100,aformat=channel_layouts=stereo,atrim=end={total + 0.5:.3f},asplit=2[tr][trm];[{va}][tr]amix=inputs=2:duration=first:normalize=0[mx]")
         g.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB[aout]")
     else:
-        g.append(f"[aa]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB[aout]")
+        g.append(f"[{va}]loudnorm=I={lufs}:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB[aout]")
     # asetpts=N/SR/TB (17/11/2026, BATCH#4382): no fim do arquivo o loudnorm solta os ~3 s da janela dele com o PTS errado e o
     # AAC grava um salto de ~0,07 s nos tempos (VisioVance em 65,22 s): o player toca a voz atrasada daí até o fim. Refazer o
     # PTS pela contagem de amostras tira o salto sem mexer no som (teste: atraso 0 ms antes e depois do ponto do salto).
@@ -551,7 +564,10 @@ def _janela(B, plano, p, n, janela, ins, g, trilha, cfg, hq, ts, tl, HD, DP, ext
     t0, d = f0 / FPS, (f1 - f0) / FPS
     if parte == "hold":     # fim real do vídeo: o último b-roll pode passar do fim da voz (trilha e fade vão até ele)
         d = max(d, max([b for _, _, b, _ in segmentos(B, p, n)[0]] + [0]) - t0)
-    aud = "aa"
+    aud = "aa"; amb = _voz_ambiente(plano)
+    if amb:
+        import ambiente_voz
+        g.append(ambiente_voz.cadeia(amb, "aa", "aamb", sr=44100)); aud = "aamb"
     if trilha:
         vol = cfg.get("audio", {}).get("trilha_volume_db", -22); it = ins.count("-i"); ins += ["-stream_loop", "-1", "-i", trilha[0]]
         fim_db = plano.get("estilo", {}).get("trilha_final_db")
@@ -569,7 +585,7 @@ def _janela(B, plano, p, n, janela, ins, g, trilha, cfg, hq, ts, tl, HD, DP, ext
         if parte == "hold":
             fd = float(plano.get("estilo", {}).get("trilha_fade_s", 1.0))
             fade = f",afade=t=out:st={max(t0, fim - fd):.3f}:d={min(fd, d):.3f}"
-        g.append(f"[aa]apad=whole_dur={fim:.6f}[aaj]")
+        g.append(f"[{aud}]apad=whole_dur={fim:.6f}[aaj]")
         g.append(f"[{it}:a]{mom}{gv}{fade},aresample=44100,aformat=channel_layouts=stereo,atrim=end={fim + 0.1:.3f},asplit=2[tr][trm];[aaj][tr]amix=inputs=2:duration=first:normalize=0[mx]")
         aud = "mx"
     corta = lambda r: f"aresample=48000,asetpts=N/SR/TB,atrim=start={t0:.6f}:end={t0 + d:.6f},asetpts=PTS-STARTPTS,apad=whole_dur={d:.6f},atrim=end={d:.6f}"
@@ -636,6 +652,7 @@ def _chaves_segmentos(B, plano, cfg, p, n):
               "hook_header": plano.get("hook_header", {}).get(str(n)), "hook_card": plano.get("hook_card", {}).get(str(n)),
               "titulo_hook": plano.get("titulo_hook", {}).get(str(n)), "trilha": trilha, "ofs": ofs_hook, "audio": aud,
               "barra": [[r3(a), r3(b), t] for a, b, t in evs] if barra else None}
+    if _voz_ambiente(plano): k_hook["voz_ambiente"] = _voz_ambiente(plano)
     hc = plano.get("hook_card", {}).get(str(n))
     f_hook = [fala_mp4(B, f, pm)] + [x for cid, a, b, fl in plan if a < HD - 0.01 for x in arq(cid, fl)] + trilha
     if hc: f_hook.append(f"{B}/{hc['png']}".replace("{p}", p))
@@ -645,6 +662,7 @@ def _chaves_segmentos(B, plano, cfg, p, n):
               "cenas": [[cid, r3(a - HD), r3(b - HD), cen.get(cid, {})] for cid, a, b, _ in plan if b + 0.1 > HD + 0.01],
               "estilo": es, "header": plano.get("header") if es.get("header_ate_fim") else None,
               "trilha": trilha, "ofs": ofs_hold, "audio": aud, "barra": [r3(HD)] + k_hook["barra"] if barra else None}
+    if _voz_ambiente(plano): k_hold["voz_ambiente"] = _voz_ambiente(plano)
     f_hold = [previa(B, p)] + [x for cid, a, b, fl in plan if b + 0.1 > HD + 0.01 for x in arq(cid, fl)] + trilha
     return k_hook, f_hook, ofs_hook, k_hold, f_hold, ofs_hold, plan, HD, evs
 

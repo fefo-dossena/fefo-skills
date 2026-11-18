@@ -19,6 +19,14 @@ prompt completo nunca cabe nisso) dispensa os 12 campos e as 140 palavras, mas p
 ou uma frase de restrição ("never", "do not", "must not", "stays identical/still/unchanged", "no ..."). A folha e o ok
 continuam obrigatórios, com o mesmo hash.
 
+MODO FALA (Fefo, 18/11/2026: "Sim, aplica"; origem: vídeo do Ad Creators Lab sobre AI UGC realista): take de pessoa
+falando para a câmera (UGC, talking head) pode usar um prompt em linguagem comum, sem os 12 campos nem as 140 palavras.
+A 1ª linha do arquivo tem de ser "MODO: FALA". O prompt precisa de: a fala entre aspas; "@image1" como quadro e cenário
+exatos; os negativos "no music", "no zoom", "no captions", "no logo" e "same voice"; e, com a duração escrita
+("30 seconds"), no máximo 3,5 palavras por segundo. Avisa quando falta ação entre parênteses dentro da fala
+("(takes out the jar)"), sotaque ou olhar para a câmera. B-roll, cena com mais de uma pessoa e drama seguem no modo
+completo. A folha e o ok continuam obrigatórios, com o mesmo hash.
+
 A trava do kie.py usa exigir_ok(): clipe de vídeo só sai com ok na folha_logica.json da pasta do prompt
 (ou de até 3 pastas acima) e com o mesmo texto do ok.
 """
@@ -224,6 +232,54 @@ def checar_curto(t):
     return erros, avisos, {'NEVER': ' '.join(trava), 'modo': 'curto'}
 
 
+MODO_FALA = re.compile(r'^\s*(?:MODO|MODE)\s*:\s*(?:FALA|TALK\w*)\b[^\n]*\n?', re.I)
+NEG_FALA = [('no music', r'\bno music\b'), ('no zoom', r'\bno zoom'), ('no captions', r'\bno (?:captions?|subtitles?)\b'),
+            ('no logo', r'\bno (?:\w+ )?(?:logos?|watermarks?)\b'), ('same voice', r'\bsame voice\b')]
+
+
+def fala(t):
+    return bool(MODO_FALA.match(t))
+
+
+def checar_fala(t):
+    """Modo fala: prompt em linguagem comum para take de pessoa falando para a câmera. Devolve (erros, avisos, blocos)."""
+    corpo = MODO_FALA.sub('', t, count=1)
+    erros, avisos = [], []
+    falas = re.findall(r'["“]([^"”]{8,})["”]', corpo)
+    if not falas:
+        erros.append('modo fala sem a fala entre aspas')
+    if not re.search(r'@\s*image\s*_?\s*1\b', corpo, re.I):
+        erros.append('modo fala sem "@image1" como quadro e cenário exatos '
+                     '(ex.: "use @image1 as the exact frame and setting for the whole video")')
+    faltam = [n for n, rx in NEG_FALA if not re.search(rx, corpo, re.I)]
+    if faltam:
+        erros.append('modo fala sem os negativos: ' + ', '.join(faltam))
+    dito = ' '.join(falas)
+    pal = len(re.findall(r"[A-Za-zÀ-ÿ0-9'’%$-]+", re.sub(r'\([^)]*\)', ' ', dito)))
+    fora = corpo
+    for x in falas:
+        fora = fora.replace(x, ' ')
+    m = re.search(r'\b(\d+(?:\.\d+)?)\s*(?:s|sec|seconds?)\b', fora, re.I)
+    if m and float(m.group(1)) > 0:
+        ps = pal / float(m.group(1))
+        if ps > 3.5:
+            erros.append(f'fala com {pal} palavras em {float(m.group(1)):g} s = {ps:.1f} palavras/s (máximo 3,5; fala nunca acelerada)')
+        elif ps > 3.0:
+            avisos.append(f'fala com {pal} palavras em {float(m.group(1)):g} s = {ps:.1f} palavras/s (acima de 3; confira o ritmo natural)')
+    else:
+        avisos.append(f'sem duração no prompt ("30 seconds"): não conferi palavras por segundo ({pal} palavras na fala)')
+    if falas and not re.search(r'\([^)]{3,}\)', dito):
+        avisos.append('nenhuma ação entre parênteses dentro da fala (ex.: "(takes out the jar)", "(speak normally)")')
+    if not re.search(r'\baccent\b', corpo, re.I):
+        avisos.append('sem sotaque (ex.: "she has an American accent")')
+    if not re.search(r'\b(?:camera|lens|viewer)\b', fora, re.I):
+        avisos.append('sem olhar para a câmera (ex.: "she looks into the camera the whole time")')
+    frases = [x.strip() for x in re.split(r'(?<=[.!?])\s+', fora) if x.strip()]
+    trava = [x for x in frases if RESTRICAO.search(x)]
+    return erros, avisos, {'NEVER': ' '.join(trava)[:400], 'modo': 'fala', 'STATE AT START': 'quadro e cenário = @image1',
+                           'Shots': [('fala: ' + dito)[:90]] if falas else []}
+
+
 def texto(p):
     return open(p, encoding='utf-8').read().strip()
 
@@ -289,6 +345,8 @@ def cena_de(b, arq):
 def checar_um(arq, anterior=None, imagem=False):
     """Devolve (erros, avisos, blocos). Prompt de até LIMITE_CURTO caracteres vai pelo modo curto."""
     t = texto(arq)
+    if fala(t):
+        return checar_fala(t)
     if curto(t):
         return checar_curto(t)
     b, ordem = blocos(t)
@@ -366,7 +424,7 @@ def cmd_checar(a):
     for r in res:
         st = 'FALHA' if r['erros'] else ('aviso' if r['avisos'] else 'ok')
         ruins += bool(r['erros'])
-        print(f'{st:6} {r["cena"]:6} {os.path.basename(r["arquivo"])}' + ('  (modo curto)' if r['b'].get('modo') == 'curto' else ''))
+        print(f'{st:6} {r["cena"]:6} {os.path.basename(r["arquivo"])}' + (f"  (modo {r['b']['modo']})" if r['b'].get('modo') in ('curto', 'fala') else ''))
         for x in r['erros']:
             print(f'         ✖ {x}')
         for x in r['avisos']:
@@ -417,7 +475,7 @@ def cmd_folha(a):
     cel = lambda s: (s or '').replace('|', '/').replace('\n', ' ')[:220]
     for c in clipes:
         chk = ('✖ ' + '; '.join(c['erros'])) if c['erros'] else ('· ' + '; '.join(c['avisos']) if c['avisos'] else 'ok')
-        md.append(f"| {c['clipe']}{' (curto)' if c.get('modo') == 'curto' else ''} | {c['cena']} | {cel(c['start'])} | {cel(' / '.join(c['planos']))} | {cel(c['end'])} | "
+        md.append(f"| {c['clipe']}{' (' + c['modo'] + ')' if c.get('modo') in ('curto', 'fala') else ''} | {c['cena']} | {cel(c['start'])} | {cel(' / '.join(c['planos']))} | {cel(c['end'])} | "
                   f"{cel(c['never'])} | {cel(c['quadro'])} | {cel(chk)} | {'ok' if c['ok'] else ''} |")
     open(os.path.join(pasta, 'folha_logica.md'), 'w', encoding='utf-8').write('\n'.join(md) + '\n')
     falhas = sum(bool(c['erros']) for c in clipes)
