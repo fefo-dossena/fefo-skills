@@ -88,6 +88,22 @@ def ficha_de(caminho):
     return fs.get(os.environ.get("FLUXO_CLIENTE_ID", ""))
 
 
+AREA_PLATAFORMA = {"nome": "zona segura de Meta e TikTok", "x0": 0.111, "y0": 0.14, "x1": 0.889, "y1": 0.65, "tolerancia": 0.006}
+
+
+def norma_legenda(B, P):
+    """"plataforma" quando o job pede a legenda na zona segura de Meta e TikTok (Fefo, 18/11/2026): EV plano.json
+    estilo.legenda.norma; TS job.json legenda.norma. Sem a chave: None (o job segue na margem antiga)."""
+    for arq, caminho in ((os.path.join(B, P["auto"], "plano.json"), ("estilo", "legenda", "norma")),
+                         (os.path.join(B, P.get("config", "job.json")), ("legenda", "norma"))):
+        try:
+            d = json.load(open(arq, encoding="utf-8"))
+            for k in caminho: d = (d or {}).get(k) if isinstance(d, dict) else None
+            if str(d or "").strip().lower() == "plataforma": return "plataforma"
+        except (OSError, ValueError): pass
+    return None
+
+
 def config_de(ficha):
     c = _mescla(PADRAO, (ficha or {}).get("checklist", {}))
     if os.environ.get("FLUXO_CHECKLIST_FORCAR") == "1": c["ativo"] = True      # só teste (cópia no TEMP)
@@ -1231,6 +1247,8 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
             cam = lado_montar(B, P, video, "camadas", dg)
             zt, ezt = zonas_tela(B, P, video)
             cfg = dict(cfg, _banner_bf=bool(re.search(r"\bBF(CM)?\b", os.path.basename(video))))   # banner BF Late/BFCM (18/11/2026)
+            if norma_legenda(B, P) == "plataforma":      # legenda na zona segura de Meta e TikTok (job com a chave "norma")
+                cfg = dict(cfg, area_legenda=dict(AREA_PLATAFORMA), legenda_centro_max=min(cfg["legenda_centro_max"], 0.63))
             ok1, r1, o1, legendas = item_texto(qs, vis, words, cfg, cam, tamanho(video), img, vocab_cena(B, P), zt)
             if zt: r1 += f"; texto de tela do plano em {', '.join(f'{mmss(a)}–{mmss(b)}' for a, b in zt)}"
             if ezt: ok1, o1 = False, ezt + o1

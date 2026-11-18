@@ -98,12 +98,30 @@ MARGEM = 0.3                                         # folga mínima entre a pí
 # os outros textos continuam no 4:5 (EV) ou 1:1 (TS).
 MARGEM_LEGENDA = (0.057, 0.139, 0.943, 0.78)       # 18/11/2026: base até 78% (margem do TikTok/Reels, Fefo)
 
-def area_legenda(tela=(W, H), prop="4:5"):
-    """(x0, y0, x1, y1) onde a legenda pode ficar. Tela vertical (altura > 1,6 x largura): a margem do Fefo de 16/11/2026.
-    Outra tela (1:1, 4:5, 16:9): o retângulo `prop` central, como antes."""
+# NORMA DE PLATAFORMA (Fefo, 18/11/2026): a legenda fica na zona segura de Meta e TikTok. Meta, guia oficial de anúncio
+# no Reels: livres 14% no topo, 35% no fundo e 6% de cada lado. TikTok In-Feed (medição de terceiro sobre o template
+# oficial): topo 240, fundo 660 e lados 120 px em 1080x1920. Interseção: x 11,1%-88,9% e y 14%-65% (1080x1920 = x 120-960,
+# y 269-1248). Liga por job: estilo.legenda.norma = "plataforma" (EV) ou legenda.norma no job.json (TS, que chega aqui
+# pela variável LEGENDA_NORMA). Job sem a chave segue na MARGEM_LEGENDA (regra congelada por job).
+MARGEM_PLATAFORMA = (0.111, 0.14, 0.889, 0.65)
+Y_PLATAFORMA = 0.60      # centro padrão na norma: bloco de 2 linhas acaba em ~63% da altura
+
+
+def norma_de(cfg_leg=None):
+    v = (cfg_leg or {}).get("norma") or os.environ.get("LEGENDA_NORMA") or ""
+    return "plataforma" if str(v).strip().lower() == "plataforma" else None
+
+
+def y_padrao(cfg_leg=None):
+    return Y_PLATAFORMA if norma_de(cfg_leg) else PADRAO["y"]
+
+
+def area_legenda(tela=(W, H), prop="4:5", norma=None):
+    """(x0, y0, x1, y1) onde a legenda pode ficar. Tela vertical (altura > 1,6 x largura): a margem do Fefo de 16/11/2026,
+    ou a zona segura de Meta e TikTok quando norma = "plataforma". Outra tela (1:1, 4:5, 16:9): o retângulo `prop` central."""
     w, h = tela
     if h / max(w, 1) > 1.6:
-        a, b, c, d = MARGEM_LEGENDA; return w * a, h * b, w * c, h * d
+        a, b, c, d = MARGEM_PLATAFORMA if norma == "plataforma" else MARGEM_LEGENDA; return w * a, h * b, w * c, h * d
     return area_central(tela, prop)
 
 def area_45(tela=(W, H)):
@@ -215,7 +233,7 @@ def quadro(legenda, header=None, cfg_leg=None, cfg_hd=None, tela=(W, H)):
         _linhas(img, ls, cfg_hd.get("y", 190) * k, tam, topo=True, area=ar, arq=FONTE_HD, raio=0.26, vao=-1)
     if legenda:
         _avisar_fixos(cfg_leg)
-        ar = area_legenda(tela, cfg_leg.get("area", "4:5"))   # margem da legenda (Fefo, 16/11/2026)
+        ar = area_legenda(tela, cfg_leg.get("area", "4:5"), norma_de(cfg_leg))   # margem da legenda (16/11) ou norma de plataforma (18/11)
         tam = PADRAO["tamanho"] * k
         lin = caber(quebrar(legenda, cfg_leg.get("quebra", PADRAO["quebra"])), tam, ar[2] - ar[0] - 2 * tam * MARGEM)
         ls = [(t, None, None) for t in lin]
@@ -228,7 +246,7 @@ def quadro(legenda, header=None, cfg_leg=None, cfg_hd=None, tela=(W, H)):
                     a, b = max(i0 - o, 0), min(i1 - o, len(t))
                     if a < b: ls[n] = (t, cor, (a, b))
                     o += len(t) + 1
-        _legenda_nativa(img, ls, _y_px(cfg_leg.get("y", PADRAO["y"]), tela[1]), tam, ar)
+        _legenda_nativa(img, ls, _y_px(cfg_leg.get("y", y_padrao(cfg_leg)), tela[1]), tam, ar)
     return img
 
 def gerar(eventos, header, HD, total, pasta, plano, alturas=(), tela=(W, H), fps=FPS):
@@ -256,7 +274,7 @@ def gerar(eventos, header, HD, total, pasta, plano, alturas=(), tela=(W, H), fps
         leg = ev[2] if ev else None
         hd = header if header and t < HD else None
         ini = ev[0] if ev else t
-        y = ev[3] if ev and ev[3] is not None else next((yy for s, f, yy in alturas if s - 0.05 <= ini < f), cl.get("y", PADRAO["y"]))
+        y = ev[3] if ev and ev[3] is not None else next((yy for s, f, yy in alturas if s - 0.05 <= ini < f), cl.get("y", y_padrao(cl)))
         k = hashlib.md5(f"{leg}|{hd}|{y}|{tela}".encode()).hexdigest()[:10]
         if k not in feitos:
             p = os.path.abspath(f"{pasta}/q_{k}.png"); quadro(leg, hd, dict(cl, y=y), ch, tela).save(p, compress_level=1); feitos[k] = p

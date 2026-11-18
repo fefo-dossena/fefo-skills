@@ -87,7 +87,7 @@ repete e o que dá sensação. Sem ref: procure ads e conteúdo orgânico do que
   "fonte": "01_refs/<arquivo>",
   "avatar": {"pb": false, "enquadramento": "tela_cheia"},
   "broll": {"layout": "tela_cheia"},
-  "legenda": {"estilo": "pilula", "y": 0.72, "quebra": 26},
+  "legenda": {"estilo": "pilula", "norma": "plataforma", "quebra": 26},
   "ritmo": "corte a cada ~2-3 s",
   "elementos": ["seta no CTA", "banner no topo"],
   "observacoes": "texto livre: cenário do avatar, tipo de b-roll (live-action, 3D, stickers), CTA, música"
