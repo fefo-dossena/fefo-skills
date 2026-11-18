@@ -1,4 +1,5 @@
 # Parte do fluxo.py: montagem final do AD. Roda no mesmo espaço de nomes do fluxo.py (não importar sozinho).
+import linha_do_tempo as LDT   # LDT.locais: overlay do Drive vira cópia no TEMP antes do ffmpeg (18/11/2026)
 # ---------------------------------------------------------------- montagem final
 # Regra do Fefo (02/11/2026): export sempre em 720p. A composição continua em 1080x1920 (posições em px de 1920)
 # e só a saída desce; usado também em cartao.py e umtake.py.
@@ -187,7 +188,7 @@ def pip_pngs(w, h, raio, borda, pasta, s=12):
     ImageDraw.Draw(sombra).rounded_rectangle([s, s + 4, W - s - 1, H - s + 3], raio + borda, fill=110)
     fr = Image.new("RGBA", (W, H), (0, 0, 0, 0)); fr.putalpha(sombra.filter(ImageFilter.GaussianBlur(7)))
     ImageDraw.Draw(fr).rounded_rectangle([s, s, W - s - 1, H - s - 1], raio + borda, fill=(255, 255, 255, 255))
-    mk.save(f"{pasta}/pip_mascara.png"); fr.save(f"{pasta}/pip_moldura.png")
+    mk.save(f"{pasta}/pip_mascara.png", compress_level=1); fr.save(f"{pasta}/pip_moldura.png", compress_level=1)
     return f"{pasta}/pip_mascara.png", f"{pasta}/pip_moldura.png", s
 
 def srt_com_altura(sub, out, evs, alt, div=()):
@@ -274,12 +275,56 @@ def _banner(B, plano, evs, plan, fim_v, ins, g, cur, n, p):
                 a, b = (0.0 if ini0 else evs[i][0]), (fim_v + 0.5 if fim == "fim" else evs[j][1])
             jo = ins.count("-i"); ins += ["-stream_loop", "-1", "-i", f"{B}/{ov['arquivo']}"]
             sai = f",fade=out:st={b - fd:.3f}:d={fd}:alpha=1" if b < fim_v - 0.05 else ""
-            g.append(f"[{jo}:v]trim=0:{b - a:.3f},setpts=PTS-STARTPTS+{a:.3f}/TB,fps=30,format=rgba,"
+            g.append(f"[{jo}:v]trim=0:{b - a:.3f},setpts=PTS-STARTPTS+{a:.3f}/TB,fps={FPS},format=rgba,"
                      f"fade=in:st={a:.3f}:d={fd}:alpha=1{sai}[ov{q}_{r}]")
             # "y": desloca o .mov em px de 1920 (faixa BF de cima para dentro do 4:5, 285–1635: "text wont fit within 4:5", 3465 V1)
             g.append(f"[{cur}][ov{q}_{r}]overlay=0:{int(ov.get('y', 0))}:eof_action=pass:format=auto:enable='between(t,{a:.3f},{b:.3f})'[ovo{q}_{r}]")
             cur = f"ovo{q}_{r}"
     return cur
+
+
+def _planos_trava(B, plano, p, n, plan, HD, T):
+    """Linha do tempo do AD em planos visíveis, para a trava (checagens/trava_timeline.py, Fefo 18/11/2026). Pela previsão
+    (cortes das falas e broll_posicoes), sem ler vídeo: avatar = trechos entre emendas (cortes do hook, hook -> hold,
+    cortes e trocas de fala da hold); b-roll por cima com a mesma conta de quadros do overlay (entra no quadro round(a),
+    fica até t <= b + 0,1 por baixo da seguinte)."""
+    q = lambda t: int(round(t * FPS)); NT = q(T); lab = [None] * NT
+    f, pm, _ = hook_marca(plano, n, p); cen = {c["id"]: c for c in plano["cenas"]}
+    def pinta(a, b, fonte, tipo, s0, ex):
+        qa = max(0, q(a))
+        for k in range(qa, min(NT, b)): lab[k] = (fonte, tipo, None if s0 is None else s0 + (k - qa) / FPS, ex)
+    st = fala_stem(f, pm); qt = 0
+    for i, (s, e) in enumerate(json.load(open(corte(B, st)))):
+        nq = q(e) - q(s); pinta(qt / FPS, qt + nq, f"avatar:{st}", "avatar", s, {"_id": f"{st}#{i}", "nome": f"avatar {st} corte {i + 1}"}); qt += nq
+    qh = q(HD); PL = q(pulo_hold(B, plano, p, n)); acc = 0; ult = None
+    for fa in falas_hold(plano):
+        sh = fala_stem(fa, p if fa.get("marca") else None)
+        for i, (s, e) in enumerate(json.load(open(corte(B, sh)))):
+            nq = q(e) - q(s); a0 = qh + acc - PL; acc += nq
+            if a0 + nq <= qh: continue
+            ult = (sh, i, s); pinta(max(a0, qh) / FPS, a0 + nq, f"avatar:{sh}", "avatar", s + max(0, qh - a0) / FPS,
+                                    {"_id": f"{sh}#{i}", "nome": f"avatar {sh} corte {i + 1}"})
+    for k in range(NT):           # tela final depois da fala: o último quadro do avatar segura (tpad)
+        if lab[k] is None and k and lab[k - 1] is not None and lab[k - 1][1] == "avatar": lab[k] = lab[k - 1]
+    for k, (cid, a, b, fl) in enumerate(plan):
+        c = cen.get(cid, {}); b2 = b + 0.1 if k + 1 < len(plan) else b
+        if c.get("formato") == "inset" and (k + 1 == len(plan) or plan[k + 1][1] - b > 0.02): b2 = b
+        fim = int(b2 * FPS + 1e-6) + 1 if k + 1 < len(plan) else q(b2)
+        pinta(a, fim, fl, "broll", cena_inicio(c, p), {"_id": cid, "nome": cid, **({"dur_min": c["dur_min"]} if c.get("dur_min") is not None else {})})
+    import trava_timeline as TT
+    return TT.de_quadros(lab, FPS)
+
+
+def trava_ad(B, p, n, plan=None, HD=None, T=None):
+    """Recusa o render do AD se a linha do tempo tiver lasca (sai com código 3). Escape: plano.aceitar_lasca."""
+    import trava_timeline as TT
+    plano, _ = carregar(B); n = int(n)
+    if plano.get("one_take") or estilo_do_plano(plano, carregar(B)[1])["layout"] == "cartao": return []
+    if plan is None:
+        plan, HD = segmentos(B, p, n)
+        PL = pulo_hold(B, plano, p, n); DP = duracao(previa(B, p)) - PL
+        T = max([HD + DP] + [b for _, _, b, _ in plan])
+    return TT.trava(_planos_trava(B, plano, p, n, plan, HD, T), FPS, f"AD{n}_{p}", T, plano.get("aceitar_lasca", []), ad=f"AD{n}_{p}")
 
 
 def montar(B, p, n, janela=None):
@@ -295,9 +340,10 @@ def montar(B, p, n, janela=None):
     # por segmentos: pasta própria por pedaço (hook e hold rodam ao mesmo tempo; Fefo, 17/11/2026)
     tmp = tmp_montar(B, f"_tmp_{janela['parte']}_AD{n}_{p}") if janela else tmp_montar(B); os.makedirs(tmp, exist_ok=True)
     segs = g30(json.load(open(corte(B, fala_stem(f, pm))))); hook = f"{tmp}/hook{n}.mp4"
-    fc = ";".join(f"[0:v]{vtrim(s, e)[0]},scale=720:1280{punch(plano, i)},fps=30{vtrim(s, e)[1]},setsar=1[v{i}];[0:a]atrim={s}:{e},asetpts=PTS-STARTPTS{afade(e - s)}{ganho(f, pm)},aresample=44100,aformat=channel_layouts=stereo[a{i}]" for i, (s, e) in enumerate(segs))
+    prepara_fontes([fala_mp4(B, f, pm)] + _clipes_do_ad(B, plano, p, n))     # 60 fps: clipes de 24 interpolados uma vez (cache)
+    fc = ";".join(f"[0:v]{vtrim(s, e)[0]},scale=720:1280{punch(plano, i)},fps={FPS}{vtrim(s, e)[1]},setsar=1[v{i}];[0:a]atrim={s}:{e},asetpts=PTS-STARTPTS{afade(e - s)}{ganho(f, pm)},aresample=44100,aformat=channel_layouts=stereo[a{i}]" for i, (s, e) in enumerate(segs))
     fc += ";" + "".join(f"[v{i}][a{i}]" for i in range(len(segs))) + f"concat=n={len(segs)}:v=1:a=1[v][a]"
-    subprocess.run([FF, "-nostdin", "-v", "error", "-y", "-i", fala_mp4(B, f, pm), "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
+    subprocess.run([FF, "-nostdin", "-v", "error", "-y", "-i", fonte(fala_mp4(B, f, pm)), "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
                     "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-b:a", "192k", hook], check=True)
     plan, HD = segmentos(B, p, n)
     json.dump(plan, open(f"{B}/{AUTO}/broll_posicoes_AD{n}_{p}.json", "w"), indent=1)
@@ -311,7 +357,7 @@ def montar(B, p, n, janela=None):
     ins = ["-i", hook, "-i", previa(B, p)]
     # o AAC do hook completa o último pacote (1024 amostras): o áudio saía até 23 ms mais longo que o vídeo, o concat
     # começava a hold depois dele e o AD pulava 2 quadros na emenda hook -> hold (hooks 1 e 3, BATCH#3215)
-    hq = sum(int((e - s) * 30 + 1e-6) for s, e in segs) / 30
+    hq = sum(int((e - s) * FPS + 1e-6) for s, e in segs) / FPS
     # Silêncio REAL entre o fim da fala do hook e a 1ª palavra da hold (o ruído do clipe do Kling, -38 a -45 dB, enchia a pausa e o
     # envelope mostrava ~0,1 s, V2 da 4083): o áudio do hook cai a zero 40 ms depois da última palavra e a hold só entra 30 ms antes da
     # 1ª palavra. Total medido impresso abaixo; meta >= 0,30 s (`respiro_hook_s_<hook>` no batch.json aumenta o fim do hook).
@@ -320,7 +366,7 @@ def montar(B, p, n, janela=None):
     sp = _silencio_real(previa(B, p), PL, 1.5); tl = next((e for a0, e in sp if a0 < 0.05 and e is not None), 0.0)
     sil = (hq - ts - 0.04) + max(tl - 0.03, 0)
     print(f"   hook {n}: silêncio real hook→hold {sil:.2f} s (fala do hook acaba em {ts:.2f}, hold entra em {tl:.2f})" + ("  AVISO < 0,30 s" if sil < 0.30 else ""))
-    g = [f"[0:v]scale=720:1280,fps=30,setsar=1[hv];[0:a]atrim=end={hq:.6f},afade=t=out:st={ts:.3f}:d=0.04[ha];[1:v]trim=start={PL:.6f},setpts=PTS-STARTPTS,scale=720:1280,fps=30,setsar=1[pv];[1:a]atrim=start={PL:.6f},asetpts=PTS-STARTPTS,afade=t=in:st={max(tl - 0.03, 0):.3f}:d=0.03[pa];[hv][ha][pv][pa]concat=n=2:v=1:a=1[av0][aa0]",
+    g = [f"[0:v]scale=720:1280,fps={FPS},setsar=1[hv];[0:a]atrim=end={hq:.6f},afade=t=out:st={ts:.3f}:d=0.04[ha];[1:v]trim=start={PL:.6f},setpts=PTS-STARTPTS,scale=720:1280,fps={FPS},setsar=1[pv];[1:a]atrim=start={PL:.6f},asetpts=PTS-STARTPTS,afade=t=in:st={max(tl - 0.03, 0):.3f}:d=0.03[pa];[hv][ha][pv][pa]concat=n=2:v=1:a=1[av0][aa0]",
          f"[av0]null{pad}[av];[aa0]anull{apad}" + (",asplit=3[aa][voz][vzm]" if os.environ.get("DUMP_VOZ") else ",asplit=2[aa][vzm]")]
     if est["pip"]: g.append("[av]split[avb][avp]")      # avp = o médico na janela (picture-in-picture, BATCH#3217)
     g.append(f"[{'avb' if est['pip'] else 'av'}]scale=1080:1920" + (",hue=s=0,eq=contrast=1.08" if est["pb"] else "") + "[b0]")
@@ -329,7 +375,7 @@ def montar(B, p, n, janela=None):
     cur = "b0"
     import elementos_hook as EH
     for k, (cid, a, b, fl) in enumerate(plan):
-        c = cen.get(cid, {}); j = ins.count("-i"); ins += ["-i", fl]
+        c = cen.get(cid, {}); j = ins.count("-i"); ins += ["-i", fonte(fl)]
         i0 = cena_inicio(c, p)
         # cada cena passa 3 quadros do fim por baixo da seguinte: sem isso o 1º quadro do clipe novo cai depois
         # do corte e aparece 1 quadro do fundo (preto quando não tem avatar)
@@ -339,33 +385,33 @@ def montar(B, p, n, janela=None):
         if c.get("formato") == "inset" and oy == 0:
             # antes/depois num cartão por cima do avatar, que continua falando (BATCH#3223; elementos_hook.inset_*)
             mk, mo, (ix, iy, il) = EH.inset_pngs(plano.get("estilo", {}).get("inset"), c.get("rotulo"), f"{tmp}/inset", cid)
-            jm = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{b2 - a + 0.3:.3f}", "-i", mk]
-            jf = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{b2 + 0.3:.3f}", "-i", mo]
+            jm = ins.count("-i"); ins += ["-loop", "1", "-framerate", str(FPS), "-t", f"{b2 - a + 0.3:.3f}", "-i", mk]
+            jf = ins.count("-i"); ins += ["-loop", "1", "-framerate", str(FPS), "-t", f"{b2 + 0.3:.3f}", "-i", mo]
             g.append(EH.inset_filtro(j, jm, i0, b2 - a, a, k, il, float(c.get("inset_cy", 0.4)), c.get("inset_filtro", ""), c.get("recorte")))
             g.append(f"[{cur}][x{k}]overlay={ix}:{iy}:eof_action=pass:format=auto:enable='between(t,{a},{b2})'[oi{k}]")
             g.append(f"[{jf}:v]format=rgba[fm{k}];[oi{k}][fm{k}]overlay=0:0:eof_action=pass:format=auto:"
                      f"enable='between(t,{a},{b2})'[o{k}]"); cur = f"o{k}"
             continue
         if clipe_direita(B, c, p):       # tela dividida (tipo B de hooks.md): esquerda = resultado, direita = produto
-            jr = ins.count("-i"); ins += ["-i", clipe_direita(B, c, p)]
+            jr = ins.count("-i"); ins += ["-i", fonte(clipe_direita(B, c, p))]
             g.append(EH.split_filtro(j, jr, i0, float(c.get("inicio_direita", 0)), b2 - a, a, k, 1920 - oy, int(c.get("divisoria", 0))))
         else:
-            # quadros do b-roll meio quadro antes da grade de 30 fps: com a hold começando exatamente na grade (emenda AAC,
+            # quadros do b-roll meio quadro antes da grade do FPS: com a hold começando exatamente na grade (emenda AAC,
             # 3215) o overlay empatava por microssegundos com o quadro principal e pulava/triplicava quadros (BATCH#3214 AD2)
             # cena com "push_in" (zoom por segundo): b-roll com trecho parado ou clipe mais curto que a cena; o último
             # quadro se repete e o zoom continua, em subpixel (BATCH#3825: freezedetect em 9 cenas do Kling)
             r = float(c.get("push_in") or 0); z0 = float(c.get("zoom") or 0)   # "zoom": 0.18 = enquadramento 1,18x fixo (corte em punch-in no 2º corte do mesmo clipe)
             zp = ""
             if (r or z0) and oy == 0:
-                kz = f"({z0}+{r}*in/30)"
+                kz = f"({z0}+{r}*in/{FPS})"
                 x0, y0, w, h = f"540*{kz}/(1+{kz})", f"960*{kz}/(1+{kz})", f"1080/(1+{kz})", f"1920/(1+{kz})"
-                zp = (f",tpad=stop_mode=clone:stop_duration=3,trim=end_frame={int((b2 - a) * 30) + 2},"
+                zp = (f",tpad=stop_mode=clone:stop_duration=3,trim=end_frame={int((b2 - a) * FPS) + max(2, FPS // 15)},"
                       f"perspective=x0='{x0}':y0='{y0}':x1='{x0}+{w}':y1='{y0}':x2='{x0}':y2='{y0}+{h}':"
                       f"x3='{x0}+{w}':y3='{y0}+{h}':interpolation=cubic:eval=frame")
             rc = c.get("recorte")    # [x, y, w, h] em fração do clipe: recorte antes do enquadramento (ex.: organizador sem o frasco)
             rec = f"crop=trunc(iw*{rc[2]}/2)*2:trunc(ih*{rc[3]}/2)*2:iw*{rc[0]}:ih*{rc[1]}," if rc else ""
-            g.append(f"[{j}:v]trim={i0:.3f}:{i0+b2-a:.3f},setpts=PTS-STARTPTS,{rec}{geo},fps=30{zp},settb=1/90000,"
-                     f"setpts=PTS+{round(a * 30) / 30 - 1 / 60:.6f}/TB,setsar=1[x{k}]")
+            g.append(f"[{j}:v]trim={i0:.3f}:{i0+b2-a:.3f},setpts=PTS-STARTPTS,{rec}{geo},fps={FPS}{zp},settb=1/90000,"
+                     f"setpts=PTS+{round(a * FPS) / FPS - 0.5 / FPS:.6f}/TB,setsar=1[x{k}]")
         g.append(f"[{cur}][x{k}]overlay=0:{oy}:eof_action=repeat:enable='between(t,{a},{b2})'[o{k}]"); cur = f"o{k}"
     evs = ler_srt(sub); nt = lambda s: re.sub(r"[^a-z0-9% ]", "", s.lower())
     total = HD + DP + max(ext, 0)
@@ -376,8 +422,8 @@ def montar(B, p, n, janela=None):
         pp = est["pip"]; x, y, w, h = (int(pp[k]) for k in ("x", "y", "w", "h")); bd = int(pp.get("borda", 6))
         rx, ry, rw, rh = pp.get("recorte", [0, 40, 720, 960])
         mk, fr, s = pip_pngs(w, h, int(pp.get("raio", 28)), bd, f"{tmp}/pip")
-        jm = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{total + 1:.3f}", "-i", mk]
-        jf = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{total + 1:.3f}", "-i", fr]
+        jm = ins.count("-i"); ins += ["-loop", "1", "-framerate", str(FPS), "-t", f"{total + 1:.3f}", "-i", mk]
+        jf = ins.count("-i"); ins += ["-loop", "1", "-framerate", str(FPS), "-t", f"{total + 1:.3f}", "-i", fr]
         # cena com "pip": false (frasco em close, rótulo no canto da janela): a janela some só durante a cena
         fora = [(a, b) for cid, a, b, _ in plan if cen.get(cid, {}).get("pip") is False]
         en = (":enable='not(" + "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in fora) + ")'") if fora else ""
@@ -385,6 +431,7 @@ def montar(B, p, n, janela=None):
         g.append(f"[{cur}][{jf}:v]overlay={x - bd - s}:{y - bd - s}:eof_action=pass:format=auto{en}[pf];"
                  f"[pf][pa]overlay={x}:{y}:eof_action=pass:format=auto{en}[pip]"); cur = "pip"
     fim_v = max([total] + [b for _, _, b, _ in plan])     # a última cena pode passar uns quadros do fim da fala
+    trava_ad(B, p, n, plan, HD, fim_v)                    # trava da linha do tempo: lasca = não renderiza (Fefo, 18/11/2026)
     if not janela:                                        # por segmentos: o banner entra no final (atravessa a emenda)
         cur = _banner(B, plano, evs, plan, fim_v, ins, g, cur, n, p)
     # card de abertura do hook em PNG (caixa branca, emoji colorido, BATCH#3375): plano.hook_card = {"<n>": {"linhas":
@@ -394,7 +441,7 @@ def montar(B, p, n, janela=None):
         import elementos_hook as EH2
         png = f"{B}/{hc['png']}".replace("{p}", p)     # "{p}" = card por marca (BATCH#3846)
         if not os.path.exists(png): EH2.hook_card(hc["linhas"], plano.get("estilo", {}).get("hook_card", {}), png)
-        jc = ins.count("-i"); ins += ["-loop", "1", "-framerate", "30", "-t", f"{HD:.3f}", "-i", png]
+        jc = ins.count("-i"); ins += ["-loop", "1", "-framerate", str(FPS), "-t", f"{HD:.3f}", "-i", png]
         g.append(f"[{cur}][{jc}:v]overlay=0:0:eof_action=pass:format=auto:enable='between(t,0,{HD:.3f})'[hcard]"); cur = "hcard"
     # elementos de hook (modulos/hooks.md, scripts/elementos_hook.py), por baixo da legenda:
     # estilo.barra_tempo = barra de progresso dos marcos no topo (tipo A, ref NoMore), troca pelo texto da legenda;
@@ -403,11 +450,11 @@ def montar(B, p, n, janela=None):
     if EH.vale(es.get("barra_tempo"), n):
         lb, yb = EH.barra_tempo(es["barra_tempo"], evs, fim_v, f"{tmp}/barra")
         jb = ins.count("-i"); ins += ["-f", "concat", "-safe", "0", "-i", lb]
-        g.append(f"[{jb}:v]fps=30,format=rgba[bt];[{cur}][bt]overlay=0:{yb}:eof_action=pass:format=auto[bto]"); cur = "bto"
+        g.append(f"[{jb}:v]fps={FPS},format=rgba[bt];[{cur}][bt]overlay=0:{yb}:eof_action=pass:format=auto[bto]"); cur = "bto"
     if EH.vale(es.get("tag_nativa"), n):
         tn, yt = EH.tag_nativa(es["tag_nativa"], tmp); ta, tb = EH.janela_tag(es["tag_nativa"], HD)
         jt = ins.count("-i"); ins += ["-loop", "1", "-t", f"{tb + 0.2:.3f}", "-i", tn]
-        g.append(f"[{jt}:v]fps=30,format=rgba[tn];[{cur}][tn]overlay=0:{yt}:eof_action=pass:format=auto:"
+        g.append(f"[{jt}:v]fps={FPS},format=rgba[tn];[{cur}][tn]overlay=0:{yt}:eof_action=pass:format=auto:"
                  f"enable='between(t,{ta:.3f},{tb:.3f})'[tno]"); cur = "tno"
     ass = f"{tmp}/textos_AD{n}_{p}.ass"
     alt = [(a, b, cen[cid]["legenda_y"]) for cid, a, b, _ in plan if "legenda_y" in cen.get(cid, {})]; div = []
@@ -427,9 +474,10 @@ def montar(B, p, n, janela=None):
         # header_pilula.y_hook = {"3": 960}: outra altura do header num hook (BATCH#3465: no topo cobria o rosto do H3-01)
         hp = plano.get("estilo", {}).get("header_pilula", {}); hy = hp.get("y_hook", {}).get(str(n))
         pl = plano if hy is None else {**plano, "estilo": {**plano["estilo"], "header_pilula": {**hp, "y": hy}}}
-        lista = pilula.gerar(evs, plano.get("header"), total if plano.get("estilo", {}).get("header_ate_fim") else HD, total, f"{tmp}/pilula", pl, alt)   # header_ate_fim: header no AD inteiro (ref 4380, 16/11/2026)
+        pl = {**pl, "_ad": {"n": n, "p": p, "marca": plano.get("marca_nome", {}).get(p, p)}}   # camadas_remotion: hooks, marcas, {marca}
+        lista = pilula.gerar(evs, plano.get("header"), total if plano.get("estilo", {}).get("header_ate_fim") else HD, total, f"{tmp}/pilula", pl, alt, fps=FPS)   # header_ate_fim: header no AD inteiro (ref 4380, 16/11/2026)
         jc = ins.count("-i"); ins += ["-f", "concat", "-safe", "0", "-i", lista]
-        g.append(f"[{jc}:v]fps=30,format=rgba[cap];[{cur}][cap]overlay=0:0:eof_action=pass:format=auto[pl]")
+        g.append(f"[{jc}:v]fps={FPS},format=rgba[cap];[{cur}][cap]overlay=0:0:eof_action=pass:format=auto[pl]")
         g.append(f"[pl]subtitles={fpath(ass)}[vout]" if ass_textos(B, plano, plan, HD, ass, n, sem_header=True) else "[pl]null[vout]")
     else:
         if alt:   # legenda ASS/subtitles com altura por cena (legenda_y) ou trecho (y_trechos); sem o campo, nada muda (BATCH#3829)
@@ -468,7 +516,7 @@ def montar(B, p, n, janela=None):
     # stem não acaba nunca (teste de 13/11/2026 na cópia da 4083: 30 GB antes de ser parado)
     extra += ["-map", "[vzm]", "-t", f"{total + 0.5:.3f}", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", f"{tmp}/stem_voz.wav"]
     if trilha: extra += ["-map", "[trm]", "-t", f"{total + 0.5:.3f}", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", f"{tmp}/stem_trilha.wav"]
-    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, FCS, sc, *extra, "-map", "[v720]", "-map", "[aout]",
+    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *LDT.locais(ins), FCS, sc, *extra, "-map", "[v720]", "-map", "[aout]",
                     *_codec_final(["-c:v", "libx264", "-preset", "medium", "-crf", "20"]), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                     "-movflags", "+faststart", out], check=True)
     _loudnorm_2p(out, lufs)
@@ -498,9 +546,9 @@ def _janela(B, plano, p, n, janela, ins, g, trilha, cfg, hq, ts, tl, HD, DP, ext
     """Recorta o grafo do AD no trecho do hook [0, hq) ou da hold [hq, fim) e grava o intermediário (sem loudnorm)."""
     import linha_do_tempo as LDT
     parte = janela["parte"]
-    f0 = 0 if parte == "hook" else int(round(hq * 30))
-    f1 = int(round(hq * 30)) if parte == "hook" else int(round((hq + DP + max(ext, 0)) * 30))
-    t0, d = f0 / 30, (f1 - f0) / 30
+    f0 = 0 if parte == "hook" else int(round(hq * FPS))
+    f1 = int(round(hq * FPS)) if parte == "hook" else int(round((hq + DP + max(ext, 0)) * FPS))
+    t0, d = f0 / FPS, (f1 - f0) / FPS
     if parte == "hold":     # fim real do vídeo: o último b-roll pode passar do fim da voz (trilha e fade vão até ele)
         d = max(d, max([b for _, _, b, _ in segmentos(B, p, n)[0]] + [0]) - t0)
     aud = "aa"
@@ -540,7 +588,7 @@ def _janela(B, plano, p, n, janela, ins, g, trilha, cfg, hq, ts, tl, HD, DP, ext
     extra = ["-map", "[vzs]", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", pre + ".voz.wav"]
     if trilha: extra += ["-map", "[trs]", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", pre + ".trilha.wav"]
     elif os.path.exists(pre + ".trilha.wav"): os.remove(pre + ".trilha.wav")
-    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *ins, FCS, sc, *extra, "-map", "[vseg]", "-map", "[aseg]",
+    subprocess.run([FF, "-nostdin", "-v", "error", "-y", *LDT.locais(ins), FCS, sc, *extra, "-map", "[vseg]", "-map", "[aseg]",
                     *LDT.codec_intermediario(), *LDT.audio_intermediario(), *(["-shortest"] if parte == "hold" else []),
                     "-f", "matroska", janela["saida"]], check=True)
     cam = []
@@ -572,7 +620,16 @@ def _chaves_segmentos(B, plano, cfg, p, n):
     arq = lambda cid, fl: [fl] + ([clipe_direita(B, cen[cid], p)] if cid in cen and clipe_direita(B, cen[cid], p) else [])
     aud = cfg.get("audio", {})
     barra = EH_vale(es.get("barra_tempo"), n)
+    # tudo o que muda imagem ou som (Central, 18/11/2026: prévia saiu do cache velho com fim e título mudados):
+    # início e fim de cada pedaço, títulos/textos e posição (estilo, hook_header, titulo_hook...), fps e legenda da ficha.
+    cen_ = {c["id"]: c for c in plano["cenas"]}
+    DP = duracao(previa(B, p)) - pulo_hold(B, plano, p, n)
+    ext = max([b for cid, a, b, fl in plan if pos_fala(cen_.get(cid, {}))] + [0]) - (HD + DP)
+    fim_v = max([HD + DP + max(ext, 0)] + [b for _, _, b, _ in plan])
+    comum = {"fps": FPS, "ficha_legenda": FICHA.get("legenda"), "ficha_fps": [FICHA.get("fps"), FICHA.get("fps_interp")],
+             "layout": plano.get("estilo", {}).get("broll", {}).get("layout"), "formato": plano.get("formato")}
     k_hook = {"parte": "hook", "fala": f, "pm": pm, "corte": json.load(open(corte(B, fala_stem(f, pm)))), "HD": r3(HD),
+              "inicio": 0.0, "fim": r3(HD), "comum": comum,
               "legenda": [[r3(a), r3(b), t] for a, b, t in evs if a < HD - 0.01],
               "cenas": [[cid, r3(a), r3(b), cen.get(cid, {})] for cid, a, b, _ in plan if a < HD - 0.01],
               "estilo": es, "header": plano.get("header"), "tag_hook": plano.get("tag_hook"),
@@ -583,12 +640,21 @@ def _chaves_segmentos(B, plano, cfg, p, n):
     f_hook = [fala_mp4(B, f, pm)] + [x for cid, a, b, fl in plan if a < HD - 0.01 for x in arq(cid, fl)] + trilha
     if hc: f_hook.append(f"{B}/{hc['png']}".replace("{p}", p))
     k_hold = {"parte": "hold", "PL": pulo_hold(B, plano, p, n), "falas": falas_hold(plano),
+              "inicio": r3(HD), "fim": r3(fim_v - HD), "DP": r3(DP), "ext": r3(ext), "comum": comum,
               "legenda": [[r3(a - HD), r3(b - HD), t] for a, b, t in evs if b > HD + 0.01],
               "cenas": [[cid, r3(a - HD), r3(b - HD), cen.get(cid, {})] for cid, a, b, _ in plan if b + 0.1 > HD + 0.01],
               "estilo": es, "header": plano.get("header") if es.get("header_ate_fim") else None,
               "trilha": trilha, "ofs": ofs_hold, "audio": aud, "barra": [r3(HD)] + k_hook["barra"] if barra else None}
     f_hold = [previa(B, p)] + [x for cid, a, b, fl in plan if b + 0.1 > HD + 0.01 for x in arq(cid, fl)] + trilha
     return k_hook, f_hook, ofs_hook, k_hold, f_hold, ofs_hold, plan, HD, evs
+
+
+def _clipes_do_ad(B, plano, p, n):
+    """Clipes de vídeo do AD que passam pela montagem (b-roll, metade direita), para a interpolação de fps."""
+    plan, _ = segmentos(B, p, n); cen = {c["id"]: c for c in plano["cenas"]}
+    out = [fl for _, _, _, fl in plan]
+    out += [clipe_direita(B, cen[cid], p) for cid, _, _, _ in plan if cid in cen and clipe_direita(B, cen[cid], p)]
+    return out
 
 
 def EH_vale(v, n):
@@ -606,6 +672,8 @@ def segmentos_do_ad(B, p, n, forcar=()):
     Ldt = LDT.Linha(f"{B}/{AUTO}")
     k_hook, f_hook, ofs_hook, k_hold, f_hold, ofs_hold, plan, HD, evs = _chaves_segmentos(B, plano, cfg, p, n)
     papel_hold = f"hold_{p}" if not k_hold["PL"] else f"hold_{p}_sem{k_hold['PL']:.1f}s"
+    # 60 fps (18/11/2026): todos os clipes de 24 do AD interpolados de uma vez, em paralelo, antes de hook e hold
+    prepara_fontes([fala_mp4(B, *hook_marca(plano, n, p)[:2])] + _clipes_do_ad(B, plano, p, n))
     # hook e hold ao mesmo tempo (independentes; LDT_PARALELO=0 = um depois do outro)
     import concurrent.futures
     tarefas = [(f"hook{n}", k_hook, f_hook, lambda dst: montar(B, p, n, {"parte": "hook", "saida": dst, "trilha_ofs": ofs_hook}),
@@ -613,7 +681,7 @@ def segmentos_do_ad(B, p, n, forcar=()):
                (papel_hold, k_hold, f_hold, lambda dst: montar(B, p, n, {"parte": "hold", "saida": dst, "trilha_ofs": ofs_hold}),
                 papel_hold in forcar or "hold" in forcar)]
     with concurrent.futures.ThreadPoolExecutor(max_workers=1 if os.environ.get("LDT_PARALELO") == "0" else 2) as ex:
-        fut = [ex.submit(Ldt.segmento, pa, k, fo, r, ad, fz) for pa, k, fo, r, fz in tarefas]
+        fut = [ex.submit(Ldt.segmento, pa, k, fo, r, ad, fz, None, FPS) for pa, k, fo, r, fz in tarefas]
         (ih, hook), (io, hold) = [f.result() for f in fut]
     Ldt.liga_ad(ad, [ih, io])
     # sala por segmento: a hold sozinha; o hook com 2 s da hold depois dele
@@ -647,6 +715,7 @@ def montar_por_segmentos(B, p, n, forcar=()):
     out = export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
     lufs = cfg.get("audio", {}).get("loudness_lufs", -20)
     tmp = tmp_montar(B, "_tmp_final"); os.makedirs(tmp, exist_ok=True)
+    trava_ad(B, p, n, plan, HD, fim_v)       # trava da linha do tempo do AD inteiro antes do final (18/11/2026)
     LDT.final([hook, hold], out, lufs, -1.5, 720, 1280, banner, _codec_final(["-c:v", "libx264", "-preset", "medium", "-crf", "20"]), tmp)
     _marca_previa(out)
     try:      # lado do checklist: stems e camadas dos segmentos juntados
@@ -667,6 +736,22 @@ def montar_por_segmentos(B, p, n, forcar=()):
     return True
 
 
+def cmd_trava(a):
+    """fluxo.py trava <batch> [--so AD1_neurobella]: confere a linha do tempo de cada AD (sem render). Código 3 = lasca."""
+    B = a.batch.rstrip("/"); plano, _ = carregar(B); ruim = 0
+    if plano.get("take_unico"):
+        import take_unico; take_unico.trava_batch(B, plano, FPS, FPS_MODO); return
+    for n in hooks(plano):
+        for p in plano["produtos"]:
+            if a.so and a.so not in (p, f"AD{n}_{p}"): continue
+            try: e = trava_ad(B, p, n)
+            except SystemExit as x:
+                if x.code != 3: raise
+                ruim += 1; continue
+            print(f"   AD{n}_{p}: linha do tempo ok")
+    if ruim: raise SystemExit(3)
+
+
 def cmd_segmentos(a):
     """fluxo.py segmentos <batch> [status | aprovar X.. | reabrir X.. | montar [--so AD1_neurobella] | limpar]"""
     import linha_do_tempo as LDT
@@ -678,6 +763,10 @@ def cmd_segmentos(a):
     elif cmd == "limpar": print(f"{Ldt.limpar()} intermediários sem uso apagados")
     elif cmd == "montar":
         plano, _ = carregar(B)
+        if plano.get("take_unico"):      # hold em take único com mapa A1/A7 (núcleo take_unico.py, 18/11/2026; origem 4614/4615)
+            import take_unico
+            ps = [p for p in plano["produtos"] if not a.so or a.so in (p, f"AD1_{p}")]
+            take_unico.montar_batch(B, plano, ps, Ldt, FPS, modo=FPS_MODO); return
         for p in plano["produtos"]:
             for n in hooks(plano):
                 if a.so and a.so != f"AD{n}_{p}": continue

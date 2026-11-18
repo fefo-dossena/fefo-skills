@@ -1,26 +1,26 @@
 # Parte do fluxo.py: posição do b-roll e segmentos. Roda no mesmo espaço de nomes do fluxo.py (não importar sozinho).
 # ---------------------------------------------------------------- posição do b-roll
 def emendas_reais(mp4, aprox):
-    """Onde cada emenda prevista (s, relativo ao mp4) cai de fato no grid de 30 fps: o quadro de maior diferença a ±4
+    """Onde cada emenda prevista (s, relativo ao mp4) cai de fato na grade do FPS: o quadro de maior diferença a ±4
     quadros do previsto. Trecho de clipe de 24 fps vira 30 fps arredondando para um lado ou outro e o erro acumula
     (até 2 quadros na BATCH#1977). Sem o vídeo, fica a previsão."""
     import numpy as np
     if not aprox or not os.path.exists(mp4): return list(aprox)
-    raw = subprocess.run([FF, "-nostdin", "-v", "error", "-i", mp4, "-vf", "fps=30,scale=90:160,format=gray", "-f", "rawvideo", "-"],
+    raw = subprocess.run([FF, "-nostdin", "-v", "error", "-i", mp4, "-vf", f"fps={FPS},scale=90:160,format=gray", "-f", "rawvideo", "-"],
                          capture_output=True).stdout
-    fr = np.frombuffer(raw, np.uint8).reshape(-1, 160, 90); out = []
+    fr = np.frombuffer(raw, np.uint8).reshape(-1, 160, 90); out = []; w = max(4, round(4 * FPS / 30))
     for t in aprox:
-        k = int(round(t * 30)); lo, hi = max(1, k - 4), min(len(fr) - 1, k + 4)
+        k = int(round(t * FPS)); lo, hi = max(1, k - w), min(len(fr) - 1, k + w)
         if hi < lo: out.append(t); continue
         d = [np.abs(fr[j].astype(np.int16) - fr[j - 1]).mean() for j in range(lo, hi + 1)]
-        out.append(round((lo + int(np.argmax(d))) / 30, 3))
+        out.append(round((lo + int(np.argmax(d))) / FPS, 3))
     return out
 
 def pulo_hold(B, plano, p, n):
     """Segundos do começo da hold que o AD<n> pula: falas com `pular_hooks` contendo n, só no começo da hold (BATCH#3375:
     a F01 'He started taking...' sai nos hooks 2 e 3, que já dizem que ele começou a tomar)."""
     if n is None: return 0.0
-    d = lambda s, e: (round(e * 30) - round(s * 30)) / 30; t = 0.0
+    d = lambda s, e: (round(e * FPS) - round(s * FPS)) / FPS; t = 0.0
     for fa in falas_hold(plano):
         if int(n) not in [int(x) for x in fa.get("pular_hooks", [])]: break
         t += sum(d(s, e) for s, e in json.load(open(corte(B, fala_stem(fa, p if fa.get("marca") else None)))))
@@ -29,7 +29,7 @@ def pulo_hold(B, plano, p, n):
 def emendas_avatar(B, plano, p, n, HD):
     """Emendas do avatar na linha do tempo do AD: cortes do hook, hook -> hold, cortes e trocas de fala da hold."""
     f, pm, _ = hook_marca(plano, n, p)
-    d = lambda s, e: (round(e * 30) - round(s * 30)) / 30
+    d = lambda s, e: (round(e * FPS) - round(s * FPS)) / FPS
     hs = json.load(open(corte(B, fala_stem(f, pm)))); hk = [sum(d(s, e) for s, e in hs[:i]) for i in range(1, len(hs))]
     hd, t = [], 0.0
     for fa in falas_hold(plano):
@@ -96,7 +96,7 @@ def segmentos(B, p, n):
     enq = plano.get("estilo", {}).get("avatar", {}).get("enquadramento")
     sem_avatar = enq in ("nenhum", "pip")     # pip: o avatar fica numa janela e o b-roll cobre a tela o AD inteiro
     if out and not sem_avatar and not any(pos_fala(c) for c in plano["cenas"]):
-        T = HD + dur_corte_hold(B, plano, p) - PL; em = emendas_avatar(B, plano, p, n, HD); q = 1 / 30
+        T = HD + dur_corte_hold(B, plano, p) - PL; em = emendas_avatar(B, plano, p, n, HD); q = 1 / FPS
         lim = lambda c, a, f: a + dur_util(B, cen[c], f, p) - 0.05
         # 1ª cena logo depois de uma emenda (troca de fala): o laço abaixo só olha o buraco ENTRE cenas, e o avatar novo
         # piscava 1 quadro antes da 1ª cena (BATCH#2481: F03 -> F04 em 19,50 s e S01 em 19,52 s). Começa 1 quadro antes dela.
@@ -122,7 +122,7 @@ def segmentos(B, p, n):
                 nid, na, nb, nf = out[k + 1]; na = round(min(na, rente[0] - q), 3)
                 out[k + 1] = (nid, na, round(min(nb, lim(nid, na, nf)), 3), nf)
             for x, y in zip(pts, pts[1:] + ([T] if ult else [])):
-                if y - x < 0.5: print(f"   AVISO AD{n} {p}: trecho de avatar de {(y - x) * 30:.0f} quadros em {x:.2f} s (corte curto demais)")
+                if y - x < 0.5: print(f"   AVISO AD{n} {p}: trecho de avatar de {(y - x) * FPS:.0f} quadros em {x:.2f} s (corte curto demais)")
         fechar_buracos()        # cena que começou antes pode terminar antes (fim do clipe) e abrir buraco com a seguinte
     if enq == "pip" and out:
         # médico em picture-in-picture sobre b-roll (BATCH#3217, build da 3213): nenhum quadro do avatar em tela cheia.
@@ -165,7 +165,7 @@ def segmentos(B, p, n):
             cid, a, b, f = out[k]
             if cen[cid].get("formato") != "inset": continue
             ea, eb = perto(a), perto(b)
-            ea, eb = round(ea * 30) / 30 - 1 / 60, round(eb * 30) / 30 - 1 / 60     # meio quadro antes: o quadro da emenda já é do PiP novo
+            ea, eb = round(ea * FPS) / FPS - 0.5 / FPS, round(eb * FPS) / FPS - 0.5 / FPS     # meio quadro antes: o quadro da emenda já é do PiP novo
             a2 = ea if abs(ea - a) <= 0.3 and (k == 0 or ea >= out[k - 1][2] - 1e-3) else a
             b2 = eb if abs(eb - b) <= 0.3 and eb - a2 >= 1.0 and eb <= a2 + dur_util(B, cen[cid], f, p) - 0.05 else b
             if k + 1 < len(out): b2 = min(b2, out[k + 1][1]) if out[k + 1][1] >= a2 else b2

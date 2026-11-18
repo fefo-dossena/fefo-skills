@@ -63,7 +63,8 @@ def cmd_cut(a):
     json.dump(k, open(a.out, "w"))
     print(f"{len(k)} trechos, {sum(e-s for s,e in k):.1f}s de {len(db)*HOP:.1f}s")
 
-def fcp_xml(segs, src_path, src_dur, seq_name, fps=30, w=1080, h=1920, sw=720, sh=1280):
+def fcp_xml(segs, src_path, src_dur, seq_name, fps=None, w=1080, h=1920, sw=720, sh=1280):
+    import os; fps = fps or int(os.environ.get("FLUXO_FPS", "30"))     # fps do cliente (EV 60 desde 18/11/2026)
     name = src_path.split("/")[-1]; url = "file://" + urllib.parse.quote(src_path)
     f = lambda t: int(round(t * fps))
     rate = f"<rate><timebase>{fps}</timebase><ntsc>FALSE</ntsc></rate>"

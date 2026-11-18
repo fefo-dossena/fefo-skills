@@ -3,7 +3,7 @@
 def gerar_xml(B):
     import urllib.parse
     from xml.sax.saxutils import escape
-    plano, _ = carregar(B); FPS, W, H = 30, 1080, 1920; fr = lambda t: int(round(t * FPS))
+    plano, _ = carregar(B); W, H = 1080, 1920; fr = lambda t: int(round(t * FPS))
     if plano.get("one_take"):
         import umtake; return umtake.gerar_xml(sys.modules[__name__], B)
     info, fid = {}, {}

@@ -12,7 +12,7 @@ ordem. Prompt de **imagem** (personagem, quadro inicial no Sunburst) usa só os 
 | 03 | **Location Map** | Espaço em camadas, câmera no mapa | espaço | ● |
 | 04 | **First Frame** | Frame zero: cheio, posicionado, certo | espaço | ● |
 | 05 | **Format Mode** | Shot contínuo ou sequência de cortes | tempo | |
-| 06 | **Optics** | FOV em graus — nunca em milímetros | câmera | ● |
+| 06 | **Optics** | FOV em graus, com mm entre parênteses: `47° (50mm)` | câmera | ● |
 | 07 | **Camera** | Operador físico com job dramático | câmera | |
 | 08 | **Action** | O que acontece e quando, separado | tempo | |
 | 09 | **Performance** | Sistema de atuação — não lista de tics | identidade | ● (expressão) |
@@ -30,9 +30,14 @@ ordem. Prompt de **imagem** (personagem, quadro inicial no Sunburst) usa só os 
   ("camera at the kitchen island, he stands behind it, window at back left").
 - **04 First Frame** — como o quadro 0 já começa: enquadramento cheio, sujeito posicionado, ação já em curso. Com
   `start_image`, descreva o que está nele ("as in the start frame"); o vídeo não deve "montar" a cena nem começar posando.
+  Feche com `Already in motion at frame one; no static or posed hold.` Com start frame ou último quadro do clipe anterior,
+  antes dela: `Continues directly from @imageN: same people, wardrobe, place, light; motion resumes within the first
+  quarter second; no re-establish.` (Fefo, 18/11/2026, skills do Joey.)
 - **05 Format Mode** — nossos clipes são **um shot contínuo** ("single continuous shot, no cuts"); os cortes são feitos
   na edição. Sequência de cortes só se o ref pedir um clipe multi-shot.
-- **06 Optics** — campo de visão em graus ("~70° horizontal FOV, selfie distance"; close "~30° FOV"), nunca "35mm".
+- **06 Optics** — campo de visão em graus, com a lente em mm entre parênteses (Fefo, 18/11/2026, skills do Joey). Graus =
+  campo diagonal: selfie de celular "~80° (26mm), selfie distance"; "63° (35mm)"; "47° (50mm)"; close "29° (85mm)". Nunca
+  só "35mm". Close de tele: `LONG lens: compressed background thrown soft, one face sharp; not wide-angle, no edge distortion.`
 - **07 Camera** — a câmera como um operador com intenção: "handheld selfie held at arm's length by him, small natural
   sway", "slow push-in that leans toward the label". Nada de movimento sem motivo.
 - **08 Action** — beats separados e na ordem, com tempo: "0–1 s he lifts the bottle; 1–3 s turns the label to camera;
@@ -90,8 +95,8 @@ de filme, sem "cinematic" e com FOV em graus). Guia completo: `Pesquisas/Prompti
 ## Reforços para Drama ad e peça cinematográfica (kaye.creatives, 30/10/2026) — a testar
 Somam-se aos 14 blocos e **não valem para UGC**. Ainda sem teste nosso: confirmar com o Fefo antes de gastar crédito. Fonte
 e o que ficou de fora: `Pesquisas/Realismo em filme de IA.md` no segundo cérebro.
-- **Folha de personagem**: tríptico em fundo branco liso (close de frente, corpo inteiro, perfil a 90°), mesma luz e roupa
-  nos 3 painéis. Personagem que muda de idade ou de roupa ganha uma folha por fase, com a mesma referência de rosto.
+- **Personagem**: rosto em close e corpo inteiro em imagens separadas, nunca tríptico nem folha com várias vistas (PDF do
+  Lucas; o tríptico saiu em 18/11/2026). Mudança de idade ou roupa parte do rosto aprovado: método em `03_personagens.md`.
 - **Folha de cenário**: uma imagem por local antes das cenas (camadas, materiais, fonte de luz, paleta em %), usada como
   referência em todo shot daquele local. Sem ela o lugar muda a cada plano.
 - **02 Active References**: além da referência, copie um **bloco de identidade** igual em todo prompt (rosto, cabelo, marcas,
@@ -105,6 +110,20 @@ e o que ficou de fora: `Pesquisas/Realismo em filme de IA.md` no segundo cérebr
 - **Rascunho**: `seedance_2_5` em 480p (3/s) para testar movimento; só o plano certo sobe de resolução. Não serve para
   testar fala: no site o Draft sai mudo.
 - **Roteiro**: uma virada emocional clara, tons alternados (choro, alegria, rotina) e final contido em vez de melodrama.
+
+## Reforços das skills do Joey (Fefo, 18/11/2026: "Aplica as 5")
+Valem para UGC e Drama ad, nos campos do PDF do Lucas. O texto do prompt fica em inglês, igual abaixo. Regra única e o que o
+`prompt_qa.py` confere: `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seção 1.2.
+- **FORMAT:** `No on-screen text of any kind: no captions, subtitles, titles, watermarks or logos; only real printed text on
+  physical objects.` O rótulo real do frasco é texto impresso em objeto: continua valendo.
+- **POSITION:** profundidade e direção rotulada. `<A> foreground at the counter, <B> mid-ground by the door; directions are
+  screen-left/right unless written as "her own right".`
+- **SOUND:** `These are the only words spoken, by the assigned speakers, in this order: no invented, repeated or substituted
+  words, no off-frame voices.` Fecha com `no music, no score, no soundtrack, no humming, no ambient pad, no swell, no drone,
+  no off-frame voices.`
+- **Dois personagens e um fala:** o outro ganha ação. `<B> says nothing in this shot: <concrete action>.` No LIP-SYNC
+  SAFETY: `Each line belongs to one mouth; listeners' mouths stay closed or resting, never mouthing along.`
+- **Modo curto (OmniHuman, até 300 caracteres):** frase que estoura o limite não entra.
 
 ## Frasco em vídeo (Kling): sempre parado (Fefo, 09/11/2026)
 Com a mão girando o frasco, o rótulo deforma a partir de ~6 s ("15-IN-1" virou "75-IN-1", 4205). Todo prompt de vídeo

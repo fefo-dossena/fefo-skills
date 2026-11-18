@@ -4,9 +4,9 @@ revisão. Dispensa do Fefo não vale para estes itens (decisão dele, 13/11/2026
 (clientes/<cliente>.json -> "checklist": {"ativo": true, ...}); limites e área segura também vêm da ficha.
 
   1 texto_45      todo texto dentro da área segura (EV: 4:5 = y 285–1635 em 1920) em todo quadro, e o centro da
-                  legenda até 0,65 da altura (margem do Daniel). OCR a 2 fps + camadas gravadas pelo montar.
-                  LEGENDA na tela vertical (Fefo, 16/11/2026, EV e TS): a pílula inteira dentro de x 5,7%–94,3% e
-                  y 13,9%–64,9% (area_legenda; 1080x1920 = x 62-1018, y 267-1246).
+                  legenda até legenda_centro_max da ficha (0,75 desde 18/11/2026). OCR a 2 fps + camadas gravadas pelo montar.
+                  LEGENDA na tela vertical (Fefo, 16/11/2026, EV e TS): o bloco inteiro dentro de x 5,7%–94,3% e
+                  y 13,9%–78% (area_legenda; 1080x1920 = x 62-1018, y 267-1498; 18/11/2026).
   2 texto_estilo  legenda na lista fechada (pílula ou branca com contorno): sem 3D, sombra deslocada, degradê, cor.
   3 vo            Whisper no AD inteiro contra o roteiro: palavra trocada, faltando, repetida, fim cortado, marca,
                   pausa acima do limite (padrão 0,45 s).
@@ -47,9 +47,9 @@ PADRAO = {
     "ativo": False,
     "itens": [1, 2, 3, 4, 5, 6],
     "area_segura": {"nome": "4:5", "y0": 285 / 1920, "y1": 1635 / 1920, "x0": 0.0, "x1": 1.0, "tolerancia": 0.006},
-    "legenda_centro_max": 0.65,
+    "legenda_centro_max": 0.75,   # 18/11/2026: legenda embaixo, margem do TikTok/Reels (Fefo)
     # margem da LEGENDA na tela vertical (Fefo, 16/11/2026, EV e TS; mesma conta do pilula.MARGEM_LEGENDA)
-    "area_legenda": {"nome": "margem da legenda", "x0": 0.057, "y0": 0.139, "x1": 0.943, "y1": 0.649, "tolerancia": 0.006},
+    "area_legenda": {"nome": "margem da legenda", "x0": 0.057, "y0": 0.139, "x1": 0.943, "y1": 0.78, "tolerancia": 0.006},
     "estilos_legenda": ["pilula", "branca_contorno"],
     "ocr": {"fps": 2, "altura_min": 0.012, "persistencia_s": 1.0},
     "vo": {"pausa_max_s": 0.45, "pausa_tolerancia_mix_s": 0.10, "pausa_emenda_max_s": 0.8, "pausa_abaixo_db": 8.0, "prob_min": 0.6, "idioma": "en"},
@@ -209,14 +209,9 @@ def true_peak(mp4):
 # ---------------------------------------------------------------- whisper
 _MODELO = None
 def _cuda_ok():
-    if os.name != "nt": return False
-    import ctypes
-    for b in glob.glob(os.path.join(os.environ.get("APPDATA", ""), "Python", "Python3*", "site-packages", "nvidia", "*", "bin")):
-        try: os.add_dll_directory(b)
-        except OSError: pass
-        os.environ["PATH"] = b + os.pathsep + os.environ["PATH"]
-    try: ctypes.WinDLL("cublas64_12.dll"); ctypes.WinDLL("cudnn64_9.dll"); return True
-    except OSError: return False
+    """DLLs CUDA pelo helper do nucleo (_FLUXO/scripts/cuda_dlls.py, via transcricao_cache; Central, 17/11/2026)."""
+    import transcricao_cache as tc
+    return tc.gpu()
 
 
 def _modelo():
@@ -262,6 +257,48 @@ def confirma_repeticoes(wav, occ, idioma="en", hotwords=None, janela=5.0, pad=0.
         else:
             o["nivel"] = "aviso"; n += 1
             o["msg"] += f" só no arquivo inteiro; a janela de ±{janela:g} s ouviu \"{' '.join(ouv)[:80]}\" (provável alucinação do Whisper)"
+    return n
+
+
+_GRANDE = None
+
+
+def confirma_trocadas(wav, occ, idioma="en", janela=5.0, pad=0.5, por_palavra=0.4, modelo="large-v3"):
+    """Palavra "trocada" do arquivo inteiro pode ser alucinação do Whisper medium (M1WK3B8 H3 V4, 17/11/2026: "peppermint",
+    "nebulizer", "mucinex mucinex" entre 1:56 e 2:22, com o corpo idêntico ao do H2, que passou). Cada "trocada" em erro é
+    refeita só na janela (±janela s em volta do trecho, mais `por_palavra` s por palavra esperada) com o large-v3 na GPU
+    (cuda_dlls.whisper), sem hotwords. Se a janela ouve as palavras do roteiro (mesma régua de grafia do item 3: 0,75),
+    vira aviso. Se não ouve, segue erro "(confirmada no large-v3)". Devolve quantas viraram aviso."""
+    global _GRANDE
+    sus = [o for o in occ if o.get("regra") == "trocada" and o.get("nivel") == "erro" and o.get("esperado")]
+    if not sus: return 0
+    import numpy as np
+    with wave.open(wav, "rb") as f:
+        sr = f.getframerate(); a = np.frombuffer(f.readframes(f.getnframes()), np.int16).astype(np.float32) / 32768
+    n = 0
+    for o in sus:
+        e = o["esperado"]; je = "".join(e)
+        t0 = o["t"] + pad; t1 = max(o.get("t_fim", o["t"]) + pad, t0 + por_palavra * len(e))
+        tr = a[int(max(0.0, t0 - janela) * sr):int((t1 + janela) * sr)]
+        try:
+            if _GRANDE is None:
+                sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # _FLUXO/scripts
+                import cuda_dlls
+                _GRANDE = cuda_dlls.whisper(modelo)
+            segs, _ = _GRANDE.transcribe(tr, word_timestamps=True, vad_filter=False, language=idioma,
+                                         condition_on_previous_text=False, beam_size=5)
+            ouv = [x for sg in segs for ww in (sg.words or []) for x in palavras(ww.word)]
+        except Exception as ex:
+            o["msg"] += f" (janela não refeita no {modelo}: {ex})"; continue
+        k = len(e); melhor = 0.0
+        for L in {max(1, k - 1), k, k + 1}:
+            for i in range(0, max(1, len(ouv) - L + 1)):
+                melhor = max(melhor, difflib.SequenceMatcher(None, je, "".join(ouv[i:i + L])).ratio())
+        if melhor >= 0.75:
+            o["nivel"] = "aviso"; n += 1
+            o["msg"] += f" só no medium do arquivo inteiro; o {modelo} na janela ouviu o roteiro ({melhor:.2f}; provável alucinação do Whisper)"
+        else:
+            o["msg"] += f" (confirmada no {modelo} na janela: \"{' '.join(ouv)[:80]}\")"
     return n
 
 
@@ -324,13 +361,34 @@ def _num(n):
     return str(n)
 
 
+# Número por extenso no idioma da fala (18/11/2026, BATCH#4615 ES: o Whisper escreve "4." e o plano diz "Cuatro";
+# com a tabela só em inglês o L3 via "four" contra "cuatro" e travava a entrega).
+IDIOMA_NUM = "en"
+_UN_ES = ("cero uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece catorce quince dieciseis diecisiete "
+          "dieciocho diecinueve veinte veintiuno veintidos veintitres veinticuatro veinticinco veintiseis veintisiete "
+          "veintiocho veintinueve").split()
+_DZ_ES = "_ _ veinte treinta cuarenta cincuenta sesenta setenta ochenta noventa".split()
+_CT_ES = "_ ciento doscientos trescientos cuatrocientos quinientos seiscientos setecientos ochocientos novecientos".split()
+def _num_es(n):
+    n = int(n)
+    if n < 30: return _UN_ES[n]
+    if n < 100: return _DZ_ES[n // 10] + ("" if n % 10 == 0 else " y " + _UN_ES[n % 10])
+    if n == 100: return "cien"
+    if n < 1000: return _CT_ES[n // 100] + ("" if n % 100 == 0 else " " + _num_es(n % 100))
+    if n < 1000000: return ("mil" if n // 1000 == 1 else _num_es(n // 1000) + " mil") + ("" if n % 1000 == 0 else " " + _num_es(n % 1000))
+    return str(n)
+
+def _num_idioma(n):
+    return _num_es(n) if IDIOMA_NUM == "es" else _num(n)
+
+
 def palavras(txt):
     """Texto -> lista de palavras normalizadas (minúsculas, sem pontuação, números por extenso)."""
     t = str(txt).lower().replace("’", "'").replace("%", " percent ").replace("&", " and ")
     t = re.sub(r"(\d),(\d{3})", r"\1\2", t)
     t = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", t)
     t = re.sub(r"\b(\d*[2-9]0)'?s\b", lambda m: " " + _num(m[1])[:-1] + "ies ", t)   # "70s" = seventies (M1WK4B2 V6, 16/11/2026)
-    t = re.sub(r"\d+", lambda m: " " + _num(m[0]) + " ", t)
+    t = re.sub(r"\d+", lambda m: " " + _num_idioma(m[0]) + " ", t)
     t = re.sub(r"\b([ap])\s*\.?\s*m\b\.?", r"\1m", t)          # a.m. / a m / am (Whisper escreve de três jeitos)
     t = re.sub(r"[-/]", " ", t)
     ws = [w for w in (re.sub(r"[^a-z0-9]", "", x) for x in t.split()) if w]
@@ -476,7 +534,8 @@ def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False):
             if op == "replace":
                 forte = pmin >= c["prob_min"] and not all(x in FRACAS for x in e)
                 occ.append({"t": round(t, 2), "msg": f"palavra trocada: roteiro \"{' '.join(e)}\", ouvido \"{' '.join(w[0] for w in o)}\"",
-                            "nivel": "erro" if forte else "aviso", "regra": "trocada"})
+                            "nivel": "erro" if forte else "aviso", "regra": "trocada", "esperado": list(e),
+                            "t_fim": round(o[-1][2], 2)})
             elif op == "delete":
                 fortes = [x for x in e if x not in FRACAS]
                 fim = i2 == len(esp)
@@ -655,6 +714,9 @@ def _classe(img, q, l):
     return c
 
 
+FAIXA_BANNER = (0.150, 0.210)   # y do ticker dos banners BF_2026/BFCM_2026 no 9:16 (Louise, 17/11/2026)
+
+
 def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, vocab=frozenset(), tela=()):
     """Item 1. qs = [(t, quadro)], vis = OCR de cada quadro, img(q) = quadro em RGB. Devolve (ok, resumo, ocorrências, legendas)."""
     import numpy as np
@@ -685,6 +747,16 @@ def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, voc
         for l in linhas:
             x, y, w, h = l["b"]
             if h < hmin and l not in leg: continue
+            if vertical and cfg.get("_banner_bf") and FAIXA_BANNER[0] <= y + h / 2 <= FAIXA_BANNER[1]:
+                continue      # ticker do banner oficial de BF (overlay do cliente, sai pela borda de propósito; 4615, 18/11/2026)
+            if l in leg and w > 0:    # OCR que emendou lixo do b-roll na legenda (4615 "el doble de la fórmula" + "7; , ii")
+                perto = set()
+                for pw_, a_, b_, p_ in words:
+                    if a_ <= t + 2.5 and b_ >= t - 2.5: perto.update(palavras(pw_))
+                toks = l["t"].split(); limpos = [k for k in toks if palavras(k) and palavras(k)[0] in perto]
+                if limpos and len(limpos) < len(toks) and abs(x + w / 2 - 0.5) > 0.06:   # sobrou lixo e a caixa saiu do centro
+                    est = min(w, h * tam[1] / tam[0] * 0.5 * len(" ".join(limpos)))   # largura do texto falado
+                    x, w = 0.5 - est / 2, est                                          # a legenda é centrada: mede pelo texto
             if l in leg and img is not None and _CLASSES.get((q, tuple(l["b"]))) == "pilula" or (l in leg and _CLASSES.get("_pilula_dominante")):
                 c = y + h / 2; y, h = min(y, c - pil_h / 2), max(y + h, c + pil_h / 2) - min(y, c - pil_h / 2)   # mede a pílula, não só o texto
             Z = AL if l in leg else A                     # legenda: margem de 16/11/2026; outro texto: 4:5/1:1
@@ -1100,6 +1172,7 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
             w.writeframes((np.concatenate([np.zeros(8000, np.float32), a16]) * 32767).clip(-32768, 32767).astype(np.int16).tobytes())
         import transcricao_cache as tc       # uma transcrição por vídeo para checklist, qc e revisor (16/11/2026)
         idi = tc.idioma(video, cfg["vo"].get("idioma", "en"))   # batch.json/job.json → plano → ficha (4611 "es", 17/11/2026)
+        global IDIOMA_NUM; IDIOMA_NUM = idi                    # números por extenso no idioma da fala (18/11/2026)
         words = tc.ler(video, idi) or []
         if not words:
             try:
@@ -1126,7 +1199,8 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
                     pz = [(t, round(_fora(t, d), 2)) for t, d in pz]
         except (OSError, ValueError, AttributeError, KeyError): pass
         ok3, r3, o3 = item_vo(words, rot, marca, c3, dur, pz, exata=stems)
-        if confirma_repeticoes(wp, o3, idi, tc.vocabulario(video)):   # repetição só do Whisper vira aviso
+        if (confirma_repeticoes(wp, o3, idi, tc.vocabulario(video))     # repetição só do Whisper vira aviso
+                + confirma_trocadas(wp, o3, idi)):                        # troca só do medium vira aviso (17/11/2026)
             er = [o for o in o3 if o["nivel"] == "erro"]; ok3 = not er
             r3 = r3.split("; ")[0] + "; " + (f"{len(er)} problema(s)" if er else "nada errado") + (f", {len(o3) - len(er)} aviso(s)" if len(o3) > len(er) else "")
         poe(3, ok3, r3, o3, {"pausas": sorted(pz, key=lambda x: -x[1])[:8], "fonte_pausas": "stems" if stems else "mix"})
@@ -1156,6 +1230,7 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
         else:
             cam = lado_montar(B, P, video, "camadas", dg)
             zt, ezt = zonas_tela(B, P, video)
+            cfg = dict(cfg, _banner_bf=bool(re.search(r"\bBF(CM)?\b", os.path.basename(video))))   # banner BF Late/BFCM (18/11/2026)
             ok1, r1, o1, legendas = item_texto(qs, vis, words, cfg, cam, tamanho(video), img, vocab_cena(B, P), zt)
             if zt: r1 += f"; texto de tela do plano em {', '.join(f'{mmss(a)}–{mmss(b)}' for a, b in zt)}"
             if ezt: ok1, o1 = False, ezt + o1

@@ -139,13 +139,14 @@ def linha_do_tempo_plano(F, B, plano, cfg, p, n):
     cen = {c['id']: c for c in plano['cenas']}
     sem_avatar = plano.get('estilo', {}).get('avatar', {}).get('enquadramento') in ('nenhum', 'pip')
     # emendas do avatar pela conta dos cortes (cada trecho do corte troca o punch-in)
-    d = lambda s, e: (round(e * 30) - round(s * 30)) / 30
+    q = getattr(F, 'FPS', 30)     # fps do cliente (EV 60 desde 18/11/2026)
+    d = lambda s, e: (round(e * q) - round(s * q)) / q
     em, t = [], 0.0
-    for s, e in json.load(open(F.corte(B, F.fala_stem(f, pm)))):
+    for s, e in json.load(open(F.corte(B, F.fala_stem(f, pm)), encoding='utf-8')):
         t += d(s, e); em.append(t)
     t = 0.0
     for fa in F.falas_hold(plano):
-        for s, e in json.load(open(F.corte(B, F.fala_stem(fa, p if fa.get('marca') else None)))):
+        for s, e in json.load(open(F.corte(B, F.fala_stem(fa, p if fa.get('marca') else None)), encoding='utf-8')):
             t += d(s, e)
             if t - PL > 1e-3: em.append(HD + t - PL)
     out, cur = [], 0.0
@@ -163,8 +164,8 @@ def linha_do_tempo_plano(F, B, plano, cfg, p, n):
 def pausa_hook_hold_plano(F, B, plano, p, n, HD, PL):
     f, pm, hs = F.hook_marca(plano, n, p)
     try:
-        hk = json.load(open(F.L(B, f'palavras_{hs}.json')))
-        hd = json.load(open(F.L(B, f'palavras_hold_{p}.json')))
+        hk = json.load(open(F.L(B, f'palavras_{hs}.json'), encoding='utf-8'))
+        hd = json.load(open(F.L(B, f'palavras_hold_{p}.json'), encoding='utf-8'))
     except (OSError, ValueError):
         return None
     fim_hook = max(w['e'] for w in hk) if hk else HD
@@ -262,7 +263,9 @@ def transcrever_inicio(mp4, ate):
     tmp = tempfile.mkdtemp(prefix='lint_')
     wav = os.path.join(tmp, 'a.wav')
     subprocess.run([FF, '-nostdin', '-v', 'error', '-y', '-i', mp4, '-t', f'{ate:.2f}', '-ac', '1', '-ar', '16000', wav])
-    m = WhisperModel('small', device='cpu', compute_type='int8')
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import cuda_dlls                                            # GPU (cuda/float16), CPU só se falhar (Central, 17/11/2026)
+    m = cuda_dlls.whisper('small')                              # small de propósito: só os 16 s do começo
     try:
         import transcricao_cache as tc; idi = tc.idioma(mp4)      # batch.json/job.json → plano → "en" (17/11/2026)
     except Exception:
@@ -554,7 +557,80 @@ def lint_brief(B, plano, F):
     return ach
 
 
+MIX_DESDE = 1794970800     # 18/11/2026 00:00 (Brasília): trava de real x IA (Umut 17/11 + skill do Matthew, Fefo 18/11)
+WPS = 2.2                  # palavras por segundo da VO destes ADs (medido pelo Matthew: ~181 wpm)
+MECANISMO = ('mecanismo', 'mechanism', 'macula', 'mácula', 'retina', 'retin', 'barreira', 'barrier', 'vaso', 'vessel',
+             'fotorrecept', 'photorecept', 'pigmento', 'pigment', 'dentro do olho', 'inside', 'celula', 'célula', 'cell',
+             'sangue', 'blood', 'nervo', 'nerve', 'proteina', 'proteína', 'protein', 'cristalino', 'lens', '3d')
+
+def origem_cena(c):
+    """real | ia | avatar | camada. Campo "origem" do plano manda; sem ele, lê o texto de "fonte"/"banco"."""
+    o = str(c.get('origem', '')).strip().lower()
+    if o in ('real', 'ia', 'avatar', 'camada', 'packshot'): return 'real' if o == 'packshot' else o
+    t = ' '.join(str(c.get(k, '')) for k in ('fonte', 'banco', 'tipo')).lower()
+    if 'camada' in t or 'local (camada' in t: return 'camada'
+    if 'avatar' in t or 'omni' in t: return 'avatar'
+    if any(k in t for k in ('real', 'stock', 'packshot', 'reuse banco', 'banco ev', 'criador', 'ugc')): return 'real'
+    if any(k in t for k in ('ia', 'new', 'kling', 'seedance', '3d', 'gerad', 'ai')): return 'ia'
+    return '?'
+
+def dur_cena(c):
+    if isinstance(c.get('dur'), (int, float)) and c['dur'] > 0: return float(c['dur'])
+    return len(str(c.get('copy', '')).split()) / WPS
+
+def lint_mix(B, plano):
+    """Real x IA em SEGUNDOS de tela (Umut 17/11/2026: 70% b-roll real, IA só no mecanismo; skill do Matthew, Fefo
+    18/11/2026: "Aplica as duas"). Conta só b-roll (avatar e camada ficam fora). Batch criada a partir de 18/11: erro.
+    Antes: aviso. Também avisa cena com mais de 3 s sem 2+ planos ("planos" no plano) e IA fora do mecanismo."""
+    nova = criada_em(B) >= MIX_DESDE
+    nv = 'erro' if nova else 'aviso'
+    ach, soma, sem = [], {'real': 0.0, 'ia': 0.0, 'avatar': 0.0, 'camada': 0.0, '?': 0.0}, []
+    mae = {}                              # gêmea (ex. 4615 ES): a origem do b-roll vem do plano da mãe (ex. 4614)
+    try:
+        for irma in os.listdir(os.path.dirname(B)):
+            pm = os.path.join(os.path.dirname(B), irma, '08_auto', 'plano.json')
+            if irma != os.path.basename(B) and os.path.exists(pm):
+                dm = json.load(open(pm, encoding='utf-8'))
+                if str((dm.get('gemea') or {}).get('batch', '')) == os.path.basename(B):
+                    mae = {c.get('id'): c for c in dm.get('cenas', []) if isinstance(c, dict)}; break
+    except (OSError, ValueError):
+        pass
+    for c in plano.get('cenas', []) or []:
+        if not isinstance(c, dict): continue
+        o, d = origem_cena(c), dur_cena(c)
+        if o == '?' and c.get('id') in mae:
+            o = origem_cena(mae[c.get('id')])
+        soma[o] += d
+        if o == '?': sem.append(c.get('id'))
+        if o == 'ia':
+            txt = ' '.join(str(c.get(k, '')) for k in ('nome', 'mostra', 'copy', 'fonte', 'tipo')).lower()
+            if not any(k in txt for k in MECANISMO):
+                ach.append({'nivel': nv, 'regra': 'mix', 'ini': 0, 'fim': 0,
+                            'msg': f"{c.get('id')}: IA fora do mecanismo (\"{str(c.get('mostra') or c.get('copy'))[:70]}\"). "
+                                   "Busque vídeo real no banco (real=1) ou marque o porquê em \"origem_motivo\"."})
+        if o in ('real', 'ia') and d > 3.0 and int(c.get('planos', 1) or 1) < -(-d // 3) and not c.get('origem_motivo'):
+            ach.append({'nivel': 'aviso', 'regra': 'mix', 'ini': 0, 'fim': 0,
+                        'msg': f"{c.get('id')}: ~{d:.1f} s num plano só; nada passa de 3 s (Umut/Daniel): divida ou ponha \"planos\": {int(-(-d // 3))}"})
+    br = soma['real'] + soma['ia']
+    if br > 0:
+        pr = soma['real'] / br
+        msg = (f"b-roll real {soma['real']:.1f} s / {br:.1f} s = {pr:.0%} (mínimo 70%); IA {soma['ia']:.1f} s; "
+               f"avatar {soma['avatar']:.1f} s (fora da conta)")
+        if pr < 0.70:
+            ach.append({'nivel': nv, 'regra': 'mix', 'ini': 0, 'fim': 0, 'msg': msg + ". Troque cenas de IA por vídeo real do banco (real=1)."})
+        else:
+            print(f"mix: {msg}")
+    if sem:
+        ach.append({'nivel': 'aviso', 'regra': 'mix', 'ini': 0, 'fim': 0,
+                    'msg': f"sem origem clara: {', '.join(map(str, sem))}. Ponha \"origem\": real|ia|avatar|camada em cada cena."})
+    return ach
+
+
 def main():
+    try:                                  # console do Windows (cp1252) não imprime ✖ (18/11/2026)
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace'); sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('batch'); ap.add_argument('--ad', action='append', help='ex.: AD1_neurobella (padrão: todos)')
     ap.add_argument('--export', action='append', help='MP4 exportado (nome com ADn e a marca)')
@@ -586,7 +662,7 @@ def main():
                 alvos.append((p, n, None))
     tmp = tempfile.mkdtemp(prefix='lint_plano_')
     res, erros = {}, 0
-    ab = lint_brief(B, plano, F)
+    ab = lint_brief(B, plano, F) + lint_mix(B, plano)
     if ab:
         res['brief'] = {'achados': ab}; erros += sum(1 for x in ab if x['nivel'] == 'erro')
         print(f"brief: {sum(1 for x in ab if x['nivel'] == 'erro')} erro(s), {sum(1 for x in ab if x['nivel'] != 'erro')} aviso(s)")
@@ -604,7 +680,7 @@ def main():
     if a.json or os.environ.get('FLUXO_CHECAR'):
         out = os.path.join(B, F.AUTO, 'lint_plano.json' if not a.export else 'lint_export.json')
         json.dump({'batch': os.path.basename(B), 'modo': 'export' if a.export else 'plano', 'erros': erros, 'ads': res},
-                  open(out, 'w'), ensure_ascii=False, indent=1)
+                  open(out, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
         print(f'gravado {out}')
     print(f"lint_plano: {'TRAVA' if erros else 'ok'} ({erros} erro(s) em {len(res)} AD(s))")
     sys.exit(1 if erros else 0)

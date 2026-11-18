@@ -41,11 +41,44 @@ import threading
 
 MOTOR = "ldt-1"                    # muda quando o jeito de renderizar o segmento muda (invalida o cache, não o aprovado)
 TIMEOUT = int(os.environ.get("TS_TIMEOUT_FF", "900"))
-FPS = 30
+FPS = int(os.environ.get("FLUXO_FPS", "30"))   # padrão do processo (fluxo.py grava da ficha); segmento() recebe o dele
 SR = 48000
 # Intermediário: H.264 crf 14 veryfast (perda invisível; o final recodifica uma vez só). LDT_INTER=nvenc usa a placa.
 INTER_X264 = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-pix_fmt", "yuv420p"]
 INTER_NVENC = ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "15", "-b:v", "0", "-pix_fmt", "yuv420p"]
+
+
+EXT_OVERLAY = (".mov", ".png", ".webm", ".apng", ".gif", ".webp", ".mxf")
+_TRAVA_OV = threading.Lock()
+
+
+def local(arq):
+    """Overlay (.mov/.png...) fora do TEMP vira cópia local antes do ffmpeg (18/11/2026: o banner ProRes 4444 lido do
+    Drive com loop travou o ffmpeg 43 min na prova da 4614). Cache por hash de caminho+tamanho+data em
+    %TEMP%/linha_do_tempo/_overlays; arquivo mudou = cópia nova. Outros arquivos voltam como vieram."""
+    if not isinstance(arq, str) or not arq.lower().endswith(EXT_OVERLAY): return arq
+    a = os.path.abspath(arq); tmp = os.path.abspath(tempfile.gettempdir())
+    if os.path.normcase(a).startswith(os.path.normcase(tmp)) or not os.path.isfile(a): return arq
+    st = os.stat(a)
+    h = hashlib.sha1(f"{os.path.normcase(a)}|{st.st_size}|{int(st.st_mtime)}".encode()).hexdigest()[:16]
+    dst = os.path.join(tmp, "linha_do_tempo", "_overlays", h + os.path.splitext(a)[1].lower())
+    with _TRAVA_OV:
+        if not os.path.exists(dst):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            parte = f"{dst}.{os.getpid()}.part"
+            shutil.copyfile(a, parte); os.replace(parte, dst)
+    return dst
+
+
+def locais(cmd):
+    """Troca por cópia local todo overlay de entrada (-i X) e de movie='X' num comando do ffmpeg."""
+    out, ant = [], None
+    for c in cmd:
+        if ant == "-i": c = local(c)
+        elif isinstance(c, str) and "movie=" in c:
+            c = re.sub(r"movie='([^']+)'", lambda m: "movie='" + local(m[1].replace(r"\:", ":")).replace(chr(92), "/").replace(":", r"\:") + "'", c)
+        out.append(c); ant = c
+    return out
 
 
 def ff():
@@ -75,7 +108,7 @@ def _assina(f):
 _CODIGO = (".py", ".pyc", ".md", ".json.bak")
 
 
-def hash_de(chave, fontes=(), formato=None):
+def hash_de(chave, fontes=(), formato=None, fps=30):
     """Hash do segmento: SÓ entradas e parâmetros que mudam imagem e som (Central, 17/11/2026: na M1WK3B8 o corpo montou
     2x porque o código do montador entrou no cache). Script (.py) passado em `fontes` é ignorado com aviso; o código não
     entra. Mudou o jeito de renderizar e a saída muda: troque à mão `formato` (ex. "corpo-v2") ou o MOTOR daqui."""
@@ -85,8 +118,10 @@ def hash_de(chave, fontes=(), formato=None):
     if isinstance(chave, dict) and any(k in chave for k in ("codigo", "script", "fonte_py")):
         print("   aviso: a chave do segmento tem código do montador; mudança no script que não muda a saída refaz o segmento")
     fontes = [f for f in fontes if f and f not in codigo]
-    blob = json.dumps([MOTOR, formato, chave, sorted({os.path.normpath(f): _assina(f) for f in fontes}.items())],
-                      sort_keys=True, default=str, ensure_ascii=False)
+    blob = [MOTOR, formato, chave, sorted({os.path.normpath(f): _assina(f) for f in fontes}.items())]
+    if os.environ.get("FLUXO_CAMADAS", "").lower() == "remotion": blob.append({"camadas": "remotion"})   # 18/11/2026
+    if int(fps) != 30: blob.append({"fps": int(fps)})   # 60 fps da EV (18/11/2026); 30 fica fora para não refazer o cache antigo
+    blob = json.dumps(blob, sort_keys=True, default=str, ensure_ascii=False)
     return hashlib.sha1(blob.encode()).hexdigest()[:10]
 
 
@@ -179,16 +214,23 @@ class Linha:
             self.st = self._ler()
         return self.st
 
-    def segmento(self, papel, chave, fontes, render, ad=None, forcar=False, formato=None):
+    def segmento(self, papel, chave, fontes, render, ad=None, forcar=False, formato=None, fps=30, planos=None, aceitas=()):
         """Devolve o caminho do intermediário do segmento `papel` para o AD `ad`.
         render(dst) grava o MKV em dst (só chamado se o hash é novo). Segmento já aprovado para este AD com outro hash:
-        continua o aprovado (travado) e avisa."""
-        h = hash_de(chave, fontes, formato)
+        continua o aprovado (travado) e avisa. Exceção: aprovado em outro fps com as MESMAS entradas (só o fps do cliente
+        mudou, EV 30 -> 60 em 18/11/2026): refaz no fps novo e o OK passa para o novo (a imagem e o som são os mesmos)."""
+        h = hash_de(chave, fontes, formato, fps)
         sid = f"{papel}_{h}"
         self.fresco()
-        trav = self._travado(papel, sid, ad)
-        if trav:
+        trav = self._travado(papel, sid, ad, chave, fontes, formato, fps)
+        if trav == "herda":
+            herda = True
+        elif trav:
             return trav
+        else:
+            herda = False
+        if planos is not None:     # trava da linha do tempo (Fefo, 18/11/2026): lasca = não renderiza (sai com código 3)
+            _trava().trava(planos, fps, f"segmento {papel}" + (f" ({ad})" if ad else ""), _fim_planos(planos), aceitas, papel=papel, ad=ad)
         # uma pasta por segmento (Fefo, 17/11/2026: "uma pasta pra cada hook e uma pra hold"): <cache>/<papel>/<hash>.mkv
         os.makedirs(os.path.join(self.cache, papel), exist_ok=True)
         dst = os.path.join(self.cache, papel, h + ".mkv")
@@ -202,15 +244,36 @@ class Linha:
             novo = True
         else:
             print(f"   {papel}: do cache ({sid})")
-        return self.mexe(lambda st: self._registra(papel, h, sid, dst, ad, novo))
+        r = self.mexe(lambda st: self._registra(papel, h, sid, dst, ad, novo, fps))
+        if planos is not None:
+            pl = [{k: v for k, v in _trava()._norm(x).items() if k in ("ini", "fim", "fonte", "tipo", "src_ini", "src_fim", "dur_min", "nome", "_id")}
+                  for x in planos]
+            self.mexe(lambda st: st["segmentos"][sid].update(planos=pl))
+        if herda:
+            self.mexe(lambda st: st["segmentos"][sid].update(aprovado=True, aprovado_em=agora(), obs=f"OK herdado: só o fps mudou ({fps})"))
+            print(f"   {papel}: OK do aprovado mantido em {sid} (mesmas entradas, só o fps mudou para {fps})")
+        return r
 
-    def _travado(self, papel, sid, ad):
+    def planos_de(self, ids):
+        """Planos gravados de cada segmento (na ordem), para a trava do final. None se algum não tem."""
+        self.fresco(); out = [self.st["segmentos"].get(i, {}).get("planos") for i in ids]
+        return None if any(x is None for x in out) else out
+
+    def _travado(self, papel, sid, ad, chave=None, fontes=(), formato=None, fps=30):
         seg = self.st["segmentos"]
         # trava: este AD já tem um segmento aprovado com o mesmo papel
         if ad and ad in self.st["ads"]:
             for antigo in self.st["ads"][ad]:
                 s = seg.get(antigo)
                 if s and s["papel"] == papel and s.get("aprovado") and antigo != sid:
+                    fa = int(s.get("fps") or 30)
+                    if fa != int(fps):
+                        if chave is not None and antigo == f"{papel}_{hash_de(chave, fontes, formato, fa)}":
+                            print(f"   {papel}: aprovado {antigo} em {fa} fps, mesmas entradas: refazendo em {fps} fps com o OK")
+                            return "herda"
+                        raise SystemExit(f"   {papel}: aprovado {antigo} em {fa} fps e as entradas mudaram depois do OK; o final não "
+                                         f"mistura {fa} e {fps} fps. Rode `reabrir {antigo}` (o Fefo aprova de novo) ou fixe "
+                                         f"\"fps\": {fa} no plano.json da batch.")
                     if os.path.exists(s["arquivo"]):
                         print(f"   {papel}: aprovado e travado ({antigo}); entradas mudaram depois do OK. "
                               f"Para refazer, o Fefo pede e roda-se `reabrir {antigo}`.")
@@ -218,10 +281,10 @@ class Linha:
                     print(f"   ! {papel}: o aprovado {antigo} sumiu do cache; refazendo com as entradas atuais")
         return None
 
-    def _registra(self, papel, h, sid, dst, ad, novo):
+    def _registra(self, papel, h, sid, dst, ad, novo, fps=30):
         seg = self.st["segmentos"]
         s = seg.setdefault(sid, {"papel": papel, "hash": h, "arquivo": dst, "aprovado": False, "ads": []})
-        s["arquivo"] = dst
+        s["arquivo"] = dst; s["fps"] = int(fps)
         if novo or "dur" not in s:
             s["dur"] = round(dur(dst), 3)
             s["feito_em"] = agora()
@@ -305,7 +368,18 @@ def sala(hook, depois, saida, seg_depois=2.0, lufs=-14):
     return saida
 
 
-def final(segs, saida, lufs=-14, tp=-1.5, w_out=720, h_out=1280, overlay=None, codec=None, tmp=None):
+def _trava():
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "checagens")
+    if d not in sys.path: sys.path.insert(0, d)
+    import trava_timeline
+    return trava_timeline
+
+
+def _fim_planos(planos):
+    return max((float(_trava()._norm(p)["fim"]) for p in planos), default=0.0)
+
+
+def final(segs, saida, lufs=-14, tp=-1.5, w_out=720, h_out=1280, overlay=None, codec=None, tmp=None, planos=None, aceitas=(), ad=None):
     """Junta os intermediários `segs` (na ordem) e exporta o AD. Um encode de vídeo só.
     overlay(ins_base) -> (ins_extra, filtros, rotulo_saida) aplica o que atravessa a emenda (banner) sobre "[vj]" (o vídeo
     já juntado, na tela de trabalho); None = nada por cima.
@@ -316,6 +390,21 @@ def final(segs, saida, lufs=-14, tp=-1.5, w_out=720, h_out=1280, overlay=None, c
     tmp = tmp or tempfile.mkdtemp(prefix="ldt_final_")
     os.makedirs(tmp, exist_ok=True)
     n = len(segs)
+    fpss = {round(fps_de(s), 2) for s in segs}
+    if len(fpss) > 1:      # o concat de 30 com 60 sai com fps variável: recusa (18/11/2026)
+        raise SystemExit(f"final: segmentos com fps diferentes ({', '.join(f'{os.path.basename(s)} {fps_de(s):g}' for s in segs)}). "
+                         f"Refaça o segmento fora do fps (reabrir + montar) antes de juntar.")
+    if planos:      # trava da linha do tempo no AD juntado (as emendas entre segmentos), antes do render
+        # o miolo de cada segmento já passou na trava dele (com os escapes "segmento@mm:ss"): aqui só o que nasce na
+        # emenda (lasca, A-B-A ou buraco a até 0,6 s de cada junção)
+        T = _trava(); tl, ofs, emendas = [], 0.0, []
+        for s_, pl in zip(segs, planos):
+            tl += T.deslocar(pl, ofs); ofs += _dur_video(s_); emendas.append(ofs)
+        if os.environ.get("TRAVA_TIMELINE") != "0":
+            fps_f = round(fps_de(segs[0]))
+            er = [e for e in T.conferir(tl, fps_f, ofs, aceitas, saltos=False, ad=ad)
+                  if any(abs(e["t"] - x) <= 0.6 for x in emendas[:-1]) or (e["tipo"] == "buraco" and e["t"] >= ofs - 0.6)]
+            T.recusar(er, f"final {ad or os.path.basename(saida)}")
     ins = sum([["-i", s] for s in segs], [])
     cru = os.path.join(tmp, "audio_cru.wav")
     # áudio completado até o fim do vídeo juntado: o -shortest do encode cortava 1-2 quadros do fim (prova 4382 VV, 17/11)
@@ -343,7 +432,7 @@ def final(segs, saida, lufs=-14, tp=-1.5, w_out=720, h_out=1280, overlay=None, c
     local = os.path.join(tmp, os.path.basename(saida))
     fcs = "-/filter_complex" if _ff_versao() >= 7 else "-filter_complex_script"
     vc = codec or ["-c:v", "libx264", "-preset", "medium", "-crf", "20"]
-    subprocess.run([ff(), "-nostdin", "-v", "error", "-y", *ins_v, fcs, sc, "-map", "[vout]", "-map", f"{ia}:a", *vc,
+    subprocess.run([ff(), "-nostdin", "-v", "error", "-y", *locais(ins_v), fcs, sc, "-map", "[vout]", "-map", f"{ia}:a", *vc,
                     "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", local],
                    check=True, timeout=TIMEOUT)
     r = loudnorm.duas_passadas(local, lufs, tp, 0.5, ff())
@@ -353,12 +442,23 @@ def final(segs, saida, lufs=-14, tp=-1.5, w_out=720, h_out=1280, overlay=None, c
     return saida, r
 
 
+def fps_de(arq):
+    """fps do vídeo (r_frame_rate); FPS do processo se não ler."""
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate",
+                        "-of", "csv=p=0", arq], capture_output=True, text=True)
+    try:
+        a, _, b = r.stdout.strip().split(",")[0].partition("/"); v = float(a) / float(b or 1)
+        return v if 1 < v < 241 else FPS
+    except (ValueError, ZeroDivisionError):
+        return FPS
+
+
 def _dur_video(arq):
-    """Duração do vídeo pelo nº de quadros (FPS fixo do intermediário)."""
+    """Duração do vídeo pelo nº de quadros e o fps real do intermediário (30 na TS, 60 na EV desde 18/11/2026)."""
     r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets", "-show_entries",
                         "stream=nb_read_packets", "-of", "csv=p=0", arq], capture_output=True, text=True)
     try:
-        return int(r.stdout.strip().split(",")[0]) / FPS
+        return int(r.stdout.strip().split(",")[0]) / fps_de(arq)
     except ValueError:
         return dur(arq)
 

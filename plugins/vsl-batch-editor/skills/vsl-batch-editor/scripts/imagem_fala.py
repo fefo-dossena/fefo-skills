@@ -65,9 +65,10 @@ trechos = juntos
 
 # um processo só do ffmpeg: passa o vídeo uma vez e separa os quadros (o ~/bin/ffmpeg entra na fila)
 tmp = tempfile.mkdtemp(prefix="imagem_fala_")
-ns = [int((a + b) / 2 * 30) for a, b in trechos]
+Q = int(os.environ.get("FLUXO_FPS", "30"))     # grade de leitura dos quadros (fps do cliente)
+ns = [int((a + b) / 2 * Q) for a, b in trechos]
 sel = "+".join(f"eq(n,{n})" for n in ns)
-subprocess.run([FF, "-nostdin", "-v", "error", "-i", mp4, "-vf", f"fps=30,select='{sel}',scale={W}:-2",
+subprocess.run([FF, "-nostdin", "-v", "error", "-i", mp4, "-vf", f"fps={Q},select='{sel}',scale={W}:-2",
                 "-fps_mode", "passthrough", "-q:v", "3", f"{tmp}/q_%04d.jpg"], check=True)
 quadros = sorted(glob.glob(f"{tmp}/q_*.jpg"))
 if len(quadros) != len(trechos): print(f"aviso: {len(quadros)} quadros para {len(trechos)} trechos")

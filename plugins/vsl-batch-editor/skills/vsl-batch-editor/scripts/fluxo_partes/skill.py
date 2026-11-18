@@ -52,12 +52,12 @@ def itens_da_skill():
         itens = [(troca.get(rel, s), rel) for s, rel in itens if not rel.startswith("scripts/fluxo_partes/")]
         itens += [(s, "scripts/fluxo_partes/" + rel(s, f"{nucleo}/scripts/fluxo_partes")) for s in arvore(f"{nucleo}/scripts/fluxo_partes")]
         # fonte da legenda (TikTok Sans Medium, corte 36) ao lado de scripts/, onde o pilula.py procura (../fontes)
-        itens += [(f"{nucleo}/fontes/{a}", f"fontes/{a}") for a in ("TikTokSans-Legenda-Medium.ttf", "TikTokSans_OFL.txt")
+        itens += [(f"{nucleo}/fontes/{a}", f"fontes/{a}") for a in ("TikTokSans-Legenda-Medium.ttf", "TikTokSans-Legenda-Bold.ttf", "TikTokSans-Header-SemiBold.ttf", "TikTokSans_OFL.txt")   # Bold e SemiBold: legenda de 18/11/2026
                   if os.path.exists(f"{nucleo}/fontes/{a}")]
         itens.append((f"{nucleo}/clientes/empire-vision.json", "scripts/clientes/empire-vision.json"))
         itens.append((f"{nucleo}/scripts/loudnorm.py", "scripts/loudnorm.py"))   # loudnorm em 2 passadas, módulo único EV/TS (17/11/2026)
         # 17/11/2026: o montar.py importa linha_do_tempo; o pastas.py roda lint_plano; html_png é ferramenta comum
-        itens += [(f"{nucleo}/scripts/{a}", f"scripts/{a}") for a in ("linha_do_tempo.py", "lint_plano.py", "html_png.py")
+        itens += [(f"{nucleo}/scripts/{a}", f"scripts/{a}") for a in ("linha_do_tempo.py", "lint_plano.py", "html_png.py", "fps_fonte.py")
                   if os.path.exists(f"{nucleo}/scripts/{a}")]
         # checagens/ inteira (17/11/2026: a lista fixa deixava de fora qc_export, conferir_quadros e lado_montagem, e o
         # checar do plugin quebrava); vai em scripts/, onde o checar procura. lascas/ritmo já vieram pela troca acima.

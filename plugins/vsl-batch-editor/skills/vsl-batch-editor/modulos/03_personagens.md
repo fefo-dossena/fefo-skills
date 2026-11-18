@@ -15,6 +15,21 @@
 - Trocar só o frasco/marca: editar a imagem aprovada com o packshot da outra marca como 2ª referência ("Keep Image 1
   exactly the same... only replace the bottle with the one in Image 2") — sai idêntica.
 
+## Personagem de drama: rosto primeiro (método Castkit adaptado; Fefo, 18/11/2026, skills do Joey)
+Vale para personagem de Drama ad gerado do zero. Avatar de UGC a partir de quadro real segue a seção abaixo. Rosto e corpo
+ficam em imagens separadas, nunca folha com várias vistas. O texto do prompt fica em inglês, igual abaixo.
+1. **Rosto primeiro.** Roupa base: `plain black crew-neck tee, high neckline, no jewelry, no logos.` Fundo da ref:
+   `Flat 18% neutral gray field, uniform corner to corner, not a floor or wall; shadowless frontal light, both sides of the
+   face equal; no cast or contact shadow, no light bleed on the field.`
+2. **Marca ancorada**, com ponto e medida: `small mole 1cm below the left eye's outer corner`. Marca solta muda de lugar.
+3. **Rosto travado com versão no nome:** `<NOME>_ROSTO_v01`. Mudou o rosto = `v02`; nunca sobrescrever.
+4. **Figurino em texto antes da imagem.** Mostre ao Fefo e espere o ok.
+5. **Corpo e roupa só depois do rosto aprovado.** O rosto entra como Image 1, com `Skin tone identical to the face
+   reference, never darker, paler or cooler.`
+6. **Mudança** (roupa, idade, estado): `Everything except <change> stays identical to Image 1: head shape, bone structure,
+   eyes, brows, nose, lips, skin tone, build, every marker. Only <change> differs.`
+Regra única: `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seção 1.1.
+
 ## Avatar a partir de quadro real (desde 02/11/2026; sem teste nosso ainda)
 Fonte: vídeo e guia do Kristian Jennings (`3 Recursos/Pesquisas/Avatar realista de IA a partir de quadro real.md`, no segundo
 cérebro). Ideia central: o vídeo só anima o que está na imagem. Imagem gerada do zero não tem ruído de sensor nem poro de

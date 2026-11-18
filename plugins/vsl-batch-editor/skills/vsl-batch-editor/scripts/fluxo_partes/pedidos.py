@@ -105,7 +105,7 @@ def cmd_vo_clipes(a):
             wav, mp4 = f"{B}/02_audio/vo/{stem}.wav", fala_orig(B, f, p)
             if not os.path.exists(wav) or os.path.exists(mp4): continue
             os.makedirs(os.path.dirname(mp4), exist_ok=True)
-            subprocess.run([FF, "-nostdin", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=720x1280:r=30",
+            subprocess.run([FF, "-nostdin", "-y", "-loglevel", "error", "-f", "lavfi", "-i", f"color=c=black:s=720x1280:r={FPS}",
                             "-i", wav, "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "44100",
                             "-ac", "2", "-b:a", "192k", mp4], check=True, timeout=900)
             n += 1; print("  ", os.path.relpath(mp4, B))

@@ -61,7 +61,7 @@ AQUI = globals().get("NUCLEO_DIR") or os.path.dirname(os.path.abspath(__file__))
 NUCLEO_DIR_PAI = os.path.dirname(AQUI)                                                  # _FLUXO (ou a pasta da skill)
 _AQUI_ARQ = os.path.dirname(os.path.abspath(globals().get("__file__") or AQUI))        # onde está o arquivo que roda (atalho ou este)
 RAIZ_CLIENTES = os.path.dirname(NUCLEO_DIR_PAI)                                         # @CLIENTES (quando no núcleo)
-for _d in (AQUI, _AQUI_ARQ):
+for _d in (os.path.join(AQUI, "checagens"), AQUI, _AQUI_ARQ):   # checagens: trava_timeline (18/11/2026)
     if _d not in sys.path: sys.path.insert(0, _d)
 os.environ["PATH"] = os.path.expanduser("~/bin") + os.pathsep + os.environ.get("PATH", "")
 FF = shutil.which("ffmpeg") or "ffmpeg"
@@ -158,6 +158,12 @@ CLIENTE = _define_cliente()
 FICHA = FICHAS[CLIENTE]
 MOTOR = FICHA.get("motor", "plano")
 CHECAGENS = FICHA.get("checagens", [])
+# fps do export (Daniel, Loom de 18/11/2026: "every video should be in 60 frames per second"): ficha "fps" (EV 30 desde 18/11 à tarde, quando o 60 foi desfeito; TS 30,
+# padrão 30); plano.json "fps" vence para uma batch só (carregar() troca). "fps_interp": "mci" = clipe de origem abaixo
+# do fps é interpolado uma vez, com cache (scripts/fps_fonte.py); "dup" = só repete quadros. Nada de 30 fixo no núcleo.
+FPS = int(FICHA.get("fps", 30))
+FPS_MODO = FICHA.get("fps_interp", "dup")
+os.environ["FLUXO_FPS"] = str(FPS)          # módulos auxiliares (pilula, elementos_hook, lint) e filhos leem daqui
 _P = FICHA.get("pastas", {})        # mapa de nomes de pasta; o padrão é o formato da batch da Empire Vision
 CFG = _P.get("config", "batch.json"); AUTO = _P.get("auto", "08_auto"); EXPORT = _P.get("export", "09_export")
 ROTEIRO = _P.get("roteiro", "00_roteiro"); REFS = _P.get("refs", "01_refs"); AUDIO = _P.get("audio", "02_audio")
@@ -210,6 +216,7 @@ def _argumentos():
     p = sp.add_parser("fazer"); p.add_argument("batch"); p.add_argument("--ate", choices=ORDEM[2:]); p.add_argument("--so"); p.add_argument("--forcar", action="store_true"); p.add_argument("--aceitar-sem-voz", action="store_true"); p.add_argument("--teste", action="store_true"); p.set_defaults(fn=_fazer)
     p = sp.add_parser("montar"); p.add_argument("batch"); p.add_argument("produto"); p.add_argument("hook"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "montar"), montar(a.batch.rstrip("/"), a.produto, a.hook)))
     p = sp.add_parser("segmentos"); p.add_argument("batch"); p.add_argument("acao", nargs="?", choices=["status", "aprovar", "reabrir", "montar", "limpar"]); p.add_argument("alvos", nargs="*"); p.add_argument("--so"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "segmentos"), cmd_segmentos(a)))
+    p = sp.add_parser("trava", help="trava da linha do tempo (lasca recusa o render), sem render"); p.add_argument("batch"); p.add_argument("--so"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "trava"), cmd_trava(a)))
     p = sp.add_parser("xml"); p.add_argument("batch"); p.set_defaults(fn=lambda a: (_so_plano(a.batch, "xml"), gerar_xml(a.batch.rstrip("/"))))
     p = sp.add_parser("identificar"); p.add_argument("videos", nargs="+"); p.add_argument("--quadros", required=True); p.set_defaults(fn=_identificar)
     p = sp.add_parser("novo-plano"); p.add_argument("batch"); p.set_defaults(fn=_novo_plano)

@@ -142,9 +142,9 @@ def montar(F, B, p, n):
     ele = f"{B}/08_auto/elementos"; os.makedirs(ele, exist_ok=True)
     # hook cortado
     segs = json.load(open(F.corte(B, F.fala_stem(f)))); hook = f"{tmp}/hook{n}.mp4"
-    fc = ";".join(f"[0:v]trim={s}:{e},setpts=PTS-STARTPTS,scale=720:1280,fps=30,setsar=1[v{i}];[0:a]atrim={s}:{e},asetpts=PTS-STARTPTS,aresample=44100,aformat=channel_layouts=stereo[a{i}]" for i, (s, e) in enumerate(segs))
+    fc = ";".join(f"[0:v]trim={s}:{e},setpts=PTS-STARTPTS,scale=720:1280,fps={F.FPS},setsar=1[v{i}];[0:a]atrim={s}:{e},asetpts=PTS-STARTPTS,aresample=44100,aformat=channel_layouts=stereo[a{i}]" for i, (s, e) in enumerate(segs))
     fc += ";" + "".join(f"[v{i}][a{i}]" for i in range(len(segs))) + f"concat=n={len(segs)}:v=1:a=1[v][a]"
-    subprocess.run([F.FF, "-nostdin", "-v", "error", "-y", "-i", F.fala_mp4(B, f), "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
+    subprocess.run([F.FF, "-nostdin", "-v", "error", "-y", "-i", F.fonte(F.fala_mp4(B, f)), "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
                     "-c:v", "libx264", "-crf", "16", "-c:a", "aac", "-b:a", "192k", hook], check=True)
     plan, HD = F.segmentos(B, p, n)
     json.dump(plan, open(f"{B}/08_auto/broll_posicoes_AD{n}_{p}.json", "w"), indent=1)
@@ -160,7 +160,7 @@ def montar(F, B, p, n):
     lim[-1] = (lim[-1][0], total + 1)
     A = est["avatar"]; qx, qy, qw, qh = A["quadro"]; zs = A["punch_in"]
     ins = ["-i", hook, "-i", F.previa(B, p)]
-    g = ["[0:v]scale=720:1280,fps=30,setsar=1[hv];[1:v]scale=720:1280,fps=30,setsar=1[pv];[hv][0:a][pv][1:a]concat=n=2:v=1:a=1[av][aa]",
+    g = [f"[0:v]scale=720:1280,fps={F.FPS},setsar=1[hv];[1:v]scale=720:1280,fps={F.FPS},setsar=1[pv];[hv][0:a][pv][1:a]concat=n=2:v=1:a=1[av][aa]",
          f"[av]split={len(lim)}" + "".join(f"[s{i}]" for i in range(len(lim)))]
     ar = qw / qh
     for i, (a, b) in enumerate(lim):
@@ -178,7 +178,7 @@ def montar(F, B, p, n):
             poster = f"{B}/{est['cta']['poster'].replace('{p}', p)}"; d = total - a + 0.1
             ins += ["-loop", "1", "-t", f"{total:.3f}", "-i", poster]
             z = f"(1+0.025*t/{d:.3f})"   # título vai quase de borda a borda
-            g.append(f"[{j}:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps=30,trim=0:{d:.3f},setpts=PTS-STARTPTS,"
+            g.append(f"[{j}:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={F.FPS},trim=0:{d:.3f},setpts=PTS-STARTPTS,"
                      f"scale=w='trunc({W}*{z}/2)*2':h='trunc({H}*{z}/2)*2':eval=frame,crop={W}:{H},setsar=1,"
                      f"fade=in:st=0:d=0.25,setpts=PTS-STARTPTS+{a}/TB[x{k}]")
             g.append(f"[{cur}][x{k}]overlay=0:0:eof_action=pass:enable='gte(t,{a})'[o{k}]"); cur = f"o{k}"; continue
@@ -192,10 +192,10 @@ def montar(F, B, p, n):
                     "-loop", "1", "-t", f"{total:.3f}", "-i", seta]
             # frasco: entra subindo 40 px com fade (0,35 s) e faz push-in lento 1,00→1,05; seta pula a 1,6 Hz
             z = f"(1+0.05*t/{d:.3f})"
-            g.append(f"[{j+1}:v]fps=30,format=rgba,trim=0:{d:.3f},setpts=PTS-STARTPTS,"
+            g.append(f"[{j+1}:v]fps={F.FPS},format=rgba,trim=0:{d:.3f},setpts=PTS-STARTPTS,"
                      f"scale=w='trunc({fw}*{z}/2)*2':h='trunc({fh}*{z}/2)*2':eval=frame,fade=in:st=0:d=0.35:alpha=1[fr{k}]")
-            g.append(f"[{j+2}:v]fps=30,format=rgba,trim=0:{d:.3f},setpts=PTS-STARTPTS[st{k}]")
-            g.append(f"[{j}:v]fps=30,setsar=1,trim=0:{d:.3f},setpts=PTS-STARTPTS[bg{k}];"
+            g.append(f"[{j+2}:v]fps={F.FPS},format=rgba,trim=0:{d:.3f},setpts=PTS-STARTPTS[st{k}]")
+            g.append(f"[{j}:v]fps={F.FPS},setsar=1,trim=0:{d:.3f},setpts=PTS-STARTPTS[bg{k}];"
                      f"[bg{k}][fr{k}]overlay=x='(W-w)/2':y='{fy}+({fh}-h)/2+40*max(0,1-t/0.35)':eval=frame[bf{k}];"
                      f"[bf{k}][st{k}]overlay=x={(W - 120) // 2}:y='{topo + 300}+14*abs(sin(PI*1.6*t))':eval=frame,"
                      f"fade=in:st=0:d=0.2,setpts=PTS-STARTPTS+{a}/TB[x{k}]")
@@ -203,17 +203,17 @@ def montar(F, B, p, n):
         if fmt == "cta_final":
             png = f"{ele}/cta_{p}.png"; C = est["cta"]
             cta_png(C.get("titulo", "").replace("{MARCA}", F.marca_nome(plano, p)), C.get("rodape", ""), png)
-            ins += ["-loop", "1", "-t", f"{total:.3f}", "-i", png, "-i", fl]
-            g.append(f"[{j+1}:v]scale=900:900:force_original_aspect_ratio=increase,crop=900:900,fps=30,setsar=1,tpad=stop_mode=clone:stop_duration=30[pv{k}]")
-            g.append(f"[{j}:v]fps=30,setsar=1[bg{k}];[bg{k}][pv{k}]overlay=90:70:shortest=0,trim=0:{total - a + 0.1:.3f},setpts=PTS-STARTPTS+{a}/TB[x{k}]")
+            ins += ["-loop", "1", "-t", f"{total:.3f}", "-i", png, "-i", F.fonte(fl)]
+            g.append(f"[{j+1}:v]scale=900:900:force_original_aspect_ratio=increase,crop=900:900,fps={F.FPS},setsar=1,tpad=stop_mode=clone:stop_duration=30[pv{k}]")
+            g.append(f"[{j}:v]fps={F.FPS},setsar=1[bg{k}];[bg{k}][pv{k}]overlay=90:70:shortest=0,trim=0:{total - a + 0.1:.3f},setpts=PTS-STARTPTS+{a}/TB[x{k}]")
             g.append(f"[{cur}][x{k}]overlay=0:0:eof_action=pass:enable='gte(t,{a})'[o{k}]"); cur = f"o{k}"; continue
-        ins += ["-i", fl]
+        ins += ["-i", F.fonte(fl)]
         if fmt == "inset": x, y, w, h = Bz["inset"]; bd = Bz["inset_borda"]
         elif fmt == "avatar": x, y, w, h = est["avatar"]["quadro"]; bd = 0
         else: x, y, w, h = Bz["cartao"]; bd = Bz["cartao_borda"]
         iw, ih = w - 2 * bd, h - 2 * bd
         g.append(f"[{j}:v]trim=0:{b-a:.3f},setpts=PTS-STARTPTS+{a}/TB,scale={iw}:{ih}:force_original_aspect_ratio=increase,"
-                 f"crop={iw}:{ih},pad={w}:{h}:{bd}:{bd}:color=0x111111,fps=30,setsar=1" + (f",eq=saturation=0.95,vignette=angle=PI/4.5" if fmt == "avatar" else "") + f"[x{k}]")
+                 f"crop={iw}:{ih},pad={w}:{h}:{bd}:{bd}:color=0x111111,fps={F.FPS},setsar=1" + (f",eq=saturation=0.95,vignette=angle=PI/4.5" if fmt == "avatar" else "") + f"[x{k}]")
         g.append(f"[{cur}][x{k}]overlay={x}:{y}:eof_action=pass:enable='between(t,{a},{b})'[o{k}]"); cur = f"o{k}"
     # banner do hook
     HB = est["hook_banner"]
@@ -234,7 +234,7 @@ def montar(F, B, p, n):
     evs = [(a, b, cx(t)) for a, b, t in pilula.agrupar(pal, fim=fim_leg)]
     lista = pilula.gerar(evs, None, 0, total, f"{tmp}/pilula_{n}_{p}", {"estilo": {"legenda": {"y": L["y"]}}})
     j = ins.count("-i"); ins += ["-f", "concat", "-safe", "0", "-i", lista]
-    g.append(f"[{j}:v]fps=30,format=rgba[cap];[{cur}][cap]overlay=0:0:eof_action=pass:format=auto[vout]")
+    g.append(f"[{j}:v]fps={F.FPS},format=rgba[cap];[{cur}][cap]overlay=0:0:eof_action=pass:format=auto[vout]")
     # áudio
     import glob
     trilha = sorted(glob.glob(f"{B}/02_audio/trilha/*.mp3") + glob.glob(f"{B}/02_audio/trilha/*.wav"))

@@ -3,7 +3,18 @@
 def carregar(B):
     plano = json.load(open(f"{B}/{AUTO}/plano.json"))
     cfg = json.load(open(f"{B}/{CFG}")) if os.path.exists(f"{B}/{CFG}") else {}
+    if plano.get("fps"):                 # fps da batch (vence a ficha; um processo = uma batch)
+        global FPS; FPS = int(plano["fps"]); os.environ["FLUXO_FPS"] = str(FPS)
+    cam = plano.get("camadas") or FICHA.get("camadas")     # "remotion": camadas de texto pelo Remotion (18/11/2026)
+    if cam: os.environ["FLUXO_CAMADAS"] = str(cam)
     return plano, cfg
+
+def fonte(arq):
+    """Clipe de origem no fps do export: interpolado uma vez (mci, cache no TEMP) quando a ficha pede; senão o próprio."""
+    import fps_fonte; return fps_fonte.fonte(arq, FPS, FPS_MODO)
+def prepara_fontes(arqs):
+    """Interpola de uma vez (pedaços em paralelo) os clipes que vão entrar na montagem."""
+    import fps_fonte; fps_fonte.prepara(arqs, FPS, FPS_MODO)
 
 def marca_nome(plano, p): return plano.get("marca_nome", {}).get(p, p.capitalize())
 def num(plano): return str(plano["batch"]).replace("BATCH_", "").replace("BATCH#", "")
@@ -96,28 +107,28 @@ def punch(plano, i, fala=None):
     if z == 1: return ""
     return f",crop=iw/{z}:ih/{z}:(iw-iw/{z})/2:(ih-ih/{z})*{av.get('crop_y', 0.3)},scale=720:1280"
 def vtrim(s, e):
-    """Trecho de vídeo do clipe de 24 fps com a duração exata do atrim: pega 0,1 s a mais e corta já em 30 fps no nº de
+    """Trecho de vídeo do clipe de 24 fps com a duração exata do atrim: pega 0,1 s a mais e corta já no FPS no nº de
     quadros. Só com trim={s}:{e} o vídeo acabava ~0,1 s antes do áudio e o concat deixava o último quadro do hook parado
     0,2 s na emenda hook -> hold (6 quadros; BATCH#2480). Devolve (antes, depois) do scale/fps.
     Corte a menos de 0,1 s do fim do clipe (Seedance: teto = duração - 0,08) não tem essa sobra: o trecho saía 2 quadros
     mais curto que o áudio e o AD pulava 0,1 s na emenda hook -> hold (BATCH#3215). O tpad repete o último quadro
     (no máximo os que faltam) antes do corte por quadros."""
     return (f"trim={s}:{e + 0.1:.3f},setpts=PTS-STARTPTS",
-            f",tpad=stop_mode=clone:stop_duration=0.15,trim=end_frame={int((e - s) * 30 + 1e-6)}")
+            f",tpad=stop_mode=clone:stop_duration=0.15,trim=end_frame={int((e - s) * FPS + 1e-6)}")
 def g30(segs):
-    """Bordas do corte na grade de 30 fps (como dur_corte e emendas_avatar já contam): atrim e trim=end_frame ficam com a
+    """Bordas do corte na grade do FPS (era 30 fixo até 18/11/2026) (como dur_corte e emendas_avatar já contam): atrim e trim=end_frame ficam com a
     mesma duração em todo trecho. Com s/e soltos o vídeo perdia até 1 quadro por trecho e a prévia da hold saía ~1,3 s
     mais curta que o áudio (46 falas, BATCH#2481)."""
-    return [(round(s * 30) / 30, round(e * 30) / 30) for s, e in segs if round(e * 30) > round(s * 30)]
+    return [(round(s * FPS) / FPS, round(e * FPS) / FPS) for s, e in segs if round(e * FPS) > round(s * FPS)]
 def push(f, segs, q, cy=0.3):
     """Push-in contínuo na fala com pouco movimento (plano aberto do casal: freezedetect acusava 0,4-1,4 s; BATCH#2480).
     falas[i].push_in = zoom por segundo (0.02 = 2%/s, como o end card), contínuo de um corte de silêncio para o outro.
-    Zoom em subpixel (perspective com interpolação cúbica, depois do fps=30: t = in/30). O scale eval=frame + crop
+    Zoom em subpixel (perspective com interpolação cúbica, depois do fps=FPS: t = in/FPS). O scale eval=frame + crop
     andava em pixel inteiro: a médica ficava parada ~10 quadros e pulava 3 px ("why are the doctor videos shaking",
     BATCH#3214 V1)."""
     r = float(f.get("push_in") or 0)
     if not r: return ""
-    k = f"{r}*({sum(e - s for s, e in segs[:q]):.3f}+in/30)"
+    k = f"{r}*({sum(e - s for s, e in segs[:q]):.3f}+in/{FPS})"
     x0, y0, w, h = f"360*{k}/(1+{k})", f"1280*{k}*{cy}/(1+{k})", f"720/(1+{k})", f"1280/(1+{k})"
     return (f",perspective=x0='{x0}':y0='{y0}':x1='{x0}+{w}':y1='{y0}':x2='{x0}':y2='{y0}+{h}':"
             f"x3='{x0}+{w}':y3='{y0}+{h}':interpolation=cubic:eval=frame")

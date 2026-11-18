@@ -8,6 +8,9 @@
   "regra": "Tudo pelo Kie desde 02/11/2026. Higgsfield (HiggsEV) só com pedido do Fefo."
  },
  "motor": "plano",
+ "fps": 30,
+ "fps_interp": "dup",
+ "fps_obs": "Fefo, 18/11/2026: volta a 30 fps ('em 60 ta deixando muito rastro de movimento': a interpolação mci criava rastro). Antes, 60 fps pelo Loom do Daniel. plano.json 'fps' vence para uma batch só.",
  "pastas": {
   "config": "batch.json",
   "auto": "08_auto",
@@ -59,7 +62,7 @@
    "x1": 1.0,
    "tolerancia": 0.006
   },
-  "legenda_centro_max": 0.65,
+  "legenda_centro_max": 0.75,
   "estilos_legenda": [
    "pilula"
   ],
@@ -73,8 +76,8 @@
    "lufs_tol": 1.0
   },
   "preferencias": "@EMPIRE VISION/2026/_FLUXO_VSL/preferencias_daniel.md",
-  "estilos_obs": "Lista do montar: só pílula (Fefo, 13/11/2026). Outro estilo só com estilo.legenda.pedido_brief. No export, o checklist aceita a família da Louise: pílula ou branca com contorno fino; reprova sombra/borda pesada (3D) e cor.",
+  "estilos_obs": "Lista do montar: só o desenho 'pilula' do pilula.py, que desde 18/11/2026 sai sem caixa (branca com contorno; regra única no LEIA-ME do núcleo, seção Legenda). Outro estilo só com estilo.legenda.pedido_brief. No export, o checklist aceita a família da Louise: pílula ou branca com contorno fino; reprova sombra/borda pesada (3D) e cor.",
   "ligado": "13/11/2026, depois da calibração da Frente 4 (até ~1 falso positivo por AD nas versões de teste)",
-  "posicao": "Do PSD só o estilo; a pílula fica SEMPRE dentro do 4:5 central, y 0,63 e centro nunca abaixo de 0,65 (Fefo, 13/11/2026)."
+  "posicao": "Regra única no LEIA-ME do núcleo, seção Legenda (18/11/2026): centro y 0,72, bloco nunca abaixo de 78%; header no 4:5."
  }
 }

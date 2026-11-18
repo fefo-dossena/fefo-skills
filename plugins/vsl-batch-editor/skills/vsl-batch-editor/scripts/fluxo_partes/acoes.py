@@ -43,10 +43,11 @@ def executar(B, acao):
         json.dump(segs, open(corte(B, stem), "w"))
     elif k == "previa":
         p = acao[1]; ins, fc, n = [], [], 0
+        prepara_fontes([fala_mp4(B, f, p) for f in falas_hold(plano)])     # 60 fps: interpola as falas de 24 uma vez (cache)
         for f in falas_hold(plano):
-            segs = g30(json.load(open(corte(B, fala_stem(f, p))))); i = len(ins) // 2; ins += ["-i", fala_mp4(B, f, p)]
+            segs = g30(json.load(open(corte(B, fala_stem(f, p))))); i = len(ins) // 2; ins += ["-i", fonte(fala_mp4(B, f, p))]
             for q, (s, e) in enumerate(segs):
-                fc.append(f"[{i}:v]{vtrim(s, e)[0]},scale=720:1280{punch(plano, q, f)},fps=30{push(f, segs, q)}{vtrim(s, e)[1]},setsar=1[v{n}];"
+                fc.append(f"[{i}:v]{vtrim(s, e)[0]},scale=720:1280{punch(plano, q, f)},fps={FPS}{push(f, segs, q)}{vtrim(s, e)[1]},setsar=1[v{n}];"
                           f"[{i}:a]atrim={s}:{e},asetpts=PTS-STARTPTS{afade(e - s)}{ganho(f, p)},aresample=44100,aformat=channel_layouts=stereo[a{n}]"); n += 1
         fc.append("".join(f"[v{j}][a{j}]" for j in range(n)) + f"concat=n={n}:v=1:a=1[v][a]")
         sc = previa(B, p) + ".fc.txt"; open(sc, "w").write(";".join(fc))

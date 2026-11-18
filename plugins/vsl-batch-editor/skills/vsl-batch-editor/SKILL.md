@@ -16,7 +16,7 @@ Este arquivo é um índice. Cada regra mora num lugar só; aqui fica o ponteiro.
    - Trendscale: `@TRENDSCALE/CLAUDE.md` e `@TRENDSCALE/2026/_FLUXO/LEIA-ME.md` (fluxo próprio; daqui vêm o roteiro único e os agentes).
 3. **Sem ficha:** faça as perguntas de início numa mensagem só e grave as respostas em `clientes/<cliente>.md` antes de planejar:
    entrega (formato, duração, resolução, quantos vídeos e versões), gerador e conta (quem paga o crédito), referência e estilo,
-   legenda (padrão: pílula), loudness, quem aprova, onde entrega e como nomeia, prazo.
+   legenda (padrão: o de `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda), loudness, quem aprova, onde entrega e como nomeia, prazo.
 4. **Aprendizados:** antes de planejar, leia as ~10 entradas mais recentes do mesmo cliente em `@CLIENTES/_FLUXO/APRENDIZADOS.md`
    e cite no plano as que se aplicam (módulo `referencia`). Sem o arquivo (outra máquina): avise numa linha e siga.
 5. Ordem de quem manda: brief do pedido > referência da tarefa > ficha do cliente > padrão desta skill.
@@ -71,7 +71,7 @@ QUALIDADE 1.2. Hooks: `modulos/hooks.md`. Modelos permitidos: a ficha do cliente
 ## 6. Regras de todo cliente (moram aqui)
 - **Crédito só com OK**, com teto (regra 2 de REGRAS_DA_SESSAO). Caiu a conexão numa geração: `kie.py espera <taskId> <saída>`; nunca reenviar.
 - **Sempre 720p**, na geração e no export, salvo ficha.
-- **Legenda:** pílula TikTok Sans Medium do `pilula.py`, na margem de 16/11. Regra única: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda.
+- **Legenda:** desenho só pelo `pilula.py`. Estilo, margem e altura: regra única em `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda (não repetir aqui).
 - **Sem selo de IA** (rótulo, sticker, marca d'água de gerador) no vídeo final, mesmo se o brief pedir.
 - **Texto inventado pela IA = gerar de novo.** Personagem fotográfico com o bloco de pele realista (`modulos/03_personagens.md`).
 - **Não remendar palavra colando voz:** refazer a fala inteira.

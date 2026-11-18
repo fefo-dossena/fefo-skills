@@ -112,7 +112,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = ap.add_subparsers(dest="cmd", required=True)
     g = sp.add_parser("gerar"); g.add_argument("batch"); g.add_argument("--versao", required=True)
-    g.add_argument("--comentarios", required=True); g.add_argument("--fps", type=float, default=30.0); g.add_argument("--forcar", action="store_true"); g.add_argument("--cliente")
+    g.add_argument("--comentarios", required=True); g.add_argument("--fps", type=float, default=float(os.environ.get("FLUXO_FPS", "30"))); g.add_argument("--forcar", action="store_true"); g.add_argument("--cliente")
     r = sp.add_parser("respostas"); r.add_argument("batch"); r.add_argument("--versao", required=True); r.add_argument("--cliente")
     a = ap.parse_args()
     return gerar(a) if a.cmd == "gerar" else respostas(a)

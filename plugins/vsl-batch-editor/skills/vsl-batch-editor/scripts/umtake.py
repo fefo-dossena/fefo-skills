@@ -119,8 +119,8 @@ def montar(F, B, p, n):
     tmp = F.tmp_montar(B, f"_tmp_take_{p}"); os.makedirs(tmp, exist_ok=True)
     titulo_png(plano, p, f"{tmp}/titulo.png")
     blocos = F.ler_srt(F.L(B, f"AD{n}_{p}.srt"))
-    ins = ["-ss", str(a), "-to", str(b), "-i", mp4, "-loop", "1", "-i", f"{tmp}/titulo.png"]
-    g = [f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps=30,setsar=1[v0]",
+    ins = ["-ss", str(a), "-to", str(b), "-i", F.fonte(mp4), "-loop", "1", "-i", f"{tmp}/titulo.png"]
+    g = [f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={F.FPS},setsar=1[v0]",
          "[1:v]format=rgba[tt]", "[v0][tt]overlay=0:150:shortest=1[c0]"]
     cur = "c0"; yleg = plano.get("estilo", {}).get("legenda", {}).get("y")     # centro da pílula; sem campo, o do PSD
     for k, (s, e, txt) in enumerate(blocos):
@@ -148,7 +148,7 @@ def montar(F, B, p, n):
 def gerar_xml(F, B):
     import urllib.parse
     from xml.sax.saxutils import escape
-    plano, _ = F.carregar(B); FPS = 30; fr = lambda t: int(round(t * FPS)); seqs = []
+    plano, _ = F.carregar(B); FPS = F.FPS; fr = lambda t: int(round(t * FPS)); seqs = []
     rate = f"<rate><timebase>{FPS}</timebase><ntsc>FALSE</ntsc></rate>"
     for p in plano["produtos"]:
         for f in takes(plano):

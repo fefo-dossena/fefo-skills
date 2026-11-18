@@ -3,6 +3,8 @@
 
   py prompt_qa.py checar PROMPT.txt|PASTA [...] [--imagem]
         # estrutura fixa, 140+ palavras, @image com função, START = END do anterior, NEVER da cena, verbos vagos
+        # + skills do Joey (18/11/2026): tempos dos shots, contagem, palavras/s, teto do modelo, lente em graus,
+        #   ouvinte com ação, left/right rotulado, FORMAT sem texto de tela, SOUND com "no music", START FRAME contínuo
   py prompt_qa.py folha PASTA_DOS_PROMPTS [--lote PEDIDOS.json]
         # monta folha_logica.md + folha_logica.json (clipe | START | planos | END | NEVER | quadro inicial)
   py prompt_qa.py ok FOLHA.json CLIPE [CLIPE ...]|--todos --nota "1-6 ok: ..."
@@ -45,6 +47,164 @@ LIMITE_CURTO = 300   # caracteres: até aqui o prompt é do modo curto (limite d
 RESTRICAO = re.compile(r"\bnever\b|\bmust not\b|\bdo(?:es)? not\b|\bdon'?t\b|\bdoesn'?t\b|\bcannot\b|\bcan'?t\b|"
                        r"\bno (?!one\b)\w+|\bwithout\b|\b(?:stays?|remains?|keeps?|kept|held|holds?)\b[^.]{0,40}?"
                        r"\b(?:still|identical|unchanged|the same|fixed|steady|sharp|legible)\b", re.I)
+
+# Checagens das skills do Joey (Fefo, 18/11/2026: "Aplica as 5"; regra em _FLUXO/feedback/2026-11-18_skills_joey/COMPARACAO.md).
+# Valem só no modo completo; o modo curto (<= 300 caracteres) segue só com a trava curta.
+FRASES_FIXAS = re.compile(r'already in motion at frame one;?\s*no static or posed hold\.?|'
+                          r'continues directly from @\s*image\s*_?\s*\d+\s*:[^.]*\.?', re.I)  # não contam no START = END
+NUM_PALAVRA = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10}
+TEMPO_FAIXA = re.compile(r'Shot\s*(\d+)\s*\(\s*(?:Duration:\s*)?([\d.]+)\s*s?\s*[-–]\s*([\d.]+)\s*(?:s|sec|seconds?)?\s*\)', re.I)
+TEMPO_DUR = re.compile(r'Shot\s*(\d+)\s*\(\s*(?:Duration:\s*)?([\d.]+)\s*(?:s|sec|seconds?)\s*\)', re.I)
+FALA = re.compile(r':\s*["“]([^"”]+)["”]')   # fala = aspas logo depois de dois-pontos (NOME (tom): "...")
+LADO = re.compile(r'\b(?:the|to|his|her|their|its|bottom|top|lower|upper|far)\s+(left|right)\b', re.I)  # direção, não "right now"
+LADO_OK_ANTES = re.compile(r'(screen|frame|camera)[\s-]*$|\bown\s*$', re.I)
+LADO_OK_DEPOIS = re.compile(r'^\s*(of\s+(the\s+)?(frame|screen)|-?\s*(frame|screen)\b|'
+                            r'(hand|hands|arm|arms|eye|eyes|ear|ears|foot|feet|leg|legs|shoulder|cheek|knee|wrist|thumb|'
+                            r'palm|elbow|hip|temple|eyebrow|brow|nostril)\b|[\w\'’]*\s*(eye|ear|hand)\'?s?\b)', re.I)
+MM = re.compile(r'\b\d+(?:\.\d+)?\s?mm\b', re.I)
+
+
+def _num(s):
+    s = s.lower()
+    return int(s) if s.isdigit() else NUM_PALAVRA.get(s)
+
+
+def _dur_format(fmt):
+    m = re.search(r'\b(\d+(?:\.\d+)?)\s*(?:s|sec|seconds?)\b', fmt or '', re.I)
+    return float(m.group(1)) if m else None
+
+
+def tempos_dos_shots(shots):
+    """[(n, ini, fim) ou (n, None, dur)] pelo rótulo de cada shot; None se algum shot não tem tempo."""
+    out = []
+    for s in shots:
+        cab = s.split('\n')[0]
+        m = TEMPO_FAIXA.search(cab)
+        if m:
+            out.append((int(m.group(1)), float(m.group(2)), float(m.group(3))))
+            continue
+        m = TEMPO_DUR.search(cab)
+        if m:
+            out.append((int(m.group(1)), None, float(m.group(2))))
+            continue
+        return None
+    return out
+
+
+def falas_do_shot(s, nomes):
+    """[(quem, texto)] das falas do shot; quem = último rótulo citado antes dos dois-pontos (ou '')."""
+    out = []
+    for m in FALA.finditer(s):
+        antes = s[max(0, m.start() - 80):m.start()]
+        quem = ''
+        melhor = -1
+        for n in nomes:
+            for x in re.finditer(rf'\b{re.escape(n)}\b', antes, re.I):
+                if x.start() > melhor:
+                    melhor, quem = x.start(), n
+        out.append((quem, m.group(1)))
+    return out
+
+
+def checar_joey(arq, t, b, nomes):
+    """Checagens 1-9 e 12 do COMPARACAO.md. Devolve (erros, avisos)."""
+    erros, avisos = [], []
+    fmt = b.get('FORMAT', '')
+    shots = b.get('Shots', [])
+    dur = _dur_format(fmt)
+    tempos = tempos_dos_shots(shots) if shots else None
+    # 1. soma dos tempos (erro)
+    if tempos and dur:
+        if all(i is not None for _, i, _ in tempos):
+            fura = []
+            if abs(tempos[0][1]) > 0.05:
+                fura.append(f'Shot {tempos[0][0]} começa em {tempos[0][1]:g} s, não em 0')
+            for (n0, _, f0), (n1, i1, _) in zip(tempos, tempos[1:]):
+                if abs(i1 - f0) > 0.05:
+                    fura.append(f'Shot {n0} termina em {f0:g} s e Shot {n1} começa em {i1:g} s')
+            if abs(tempos[-1][2] - dur) > 0.05:
+                fura.append(f'último shot termina em {tempos[-1][2]:g} s e o FORMAT diz {dur:g} s')
+            if fura:
+                erros.append('tempos dos shots: ' + '; '.join(fura))
+        elif all(i is None for _, i, _ in tempos):
+            soma = sum(d for _, _, d in tempos)
+            if abs(soma - dur) > 0.05:
+                erros.append(f'tempos dos shots somam {soma:g} s e o FORMAT diz {dur:g} s')
+    # 2. contagem declarada (erro)
+    m = re.search(r'exactly\s+(\w+)\s+shots?\b', fmt, re.I)
+    if m and _num(m.group(1)) is not None and _num(m.group(1)) != len(shots):
+        erros.append(f'FORMAT diz exactly {m.group(1)} shots e o prompt tem {len(shots)}')
+    falas = [(i, falas_do_shot(s, nomes)) for i, s in enumerate(shots)]
+    m = re.search(r'exactly\s+(\w+)\s+spoken\s+lines?\b', fmt, re.I)
+    total = sum(len(f) for _, f in falas)
+    if m and _num(m.group(1)) is not None and _num(m.group(1)) != total:
+        erros.append(f'FORMAT diz exactly {m.group(1)} spoken lines e os shots têm {total} falas entre aspas')
+    # 3. fala por segundo (aviso > 3, erro > 3,5)
+    if tempos:
+        for (i, fs), (n, ini, fim) in zip(falas, tempos):
+            seg = (fim - ini) if ini is not None else fim
+            pal = sum(len(re.findall(r"[A-Za-z0-9'’-]+", x)) for _, x in fs)
+            if not fs or seg <= 0:
+                continue
+            ps = pal / seg
+            if ps > 3.5:
+                erros.append(f'Shot {n}: {pal} palavras em {seg:g} s = {ps:.1f} palavras/s (máximo 3,5; fala nunca acelerada)')
+            elif ps > 3.0:
+                avisos.append(f'Shot {n}: {pal} palavras em {seg:g} s = {ps:.1f} palavras/s (acima de 3; confira o ritmo natural)')
+    # 4. teto do modelo (erro)
+    mod = fmt.lower()
+    teto = None
+    if 'kling' in mod:
+        teto = (15, 'Kling')
+    elif re.search(r'seedance\s*2\.5', mod):
+        teto = (30, 'Seedance 2.5')
+    elif re.search(r'seedance\s*2(?:\.0)?(?![.\d])', mod):
+        teto = (15, 'Seedance 2.0')
+        nrefs = len(set(re.findall(r'@\s*[Ii]mage\s*_?\s*(\d+)', b.get('REFERENCES', ''))))
+        if nrefs > 9:
+            erros.append(f'Seedance 2.0 aceita até 9 referências; o prompt tem {nrefs}')
+    elif re.search(r'\bomni\b(?!\s*-?\s*human)', mod) and 'trendscale' in os.path.abspath(arq).lower():
+        teto = (10, 'Omni da TS')
+    if teto and dur and dur > teto[0]:
+        erros.append(f'{dur:g} s passa do teto do {teto[1]} ({teto[0]} s por geração)')
+    # 5. lente em mm sem graus (aviso)
+    soltas = [x.group(0) for x in MM.finditer(t) if '°' not in t[max(0, x.start() - 14):x.start()]]
+    if soltas:
+        avisos.append('lente em mm sem graus: ' + ', '.join(sorted(set(soltas))) + ' (escreva "47° (50mm)")')
+    # 6. ouvinte sem ação (aviso)
+    for s, (_, fs) in zip(shots, falas):
+        if not fs or len(nomes) < 2:
+            continue
+        falam = {q for q, _ in fs if q}
+        for n in nomes:
+            if n in falam or not re.search(rf'\b{re.escape(n)}\b', s, re.I):
+                continue
+            if not re.search(rf'\b{re.escape(n)}\b[^.]{{0,20}}\bsays nothing\b', s, re.I):
+                avisos.append(f'{s.split(":")[0][:20]}: {n} está no shot e não fala; escreva "{n} says nothing in this shot: <ação concreta>."')
+    # 7. left/right sem rótulo (aviso)
+    soltos = []
+    for x in LADO.finditer(t):
+        if LADO_OK_ANTES.search(t[max(0, x.start(1) - 12):x.start(1)]) or LADO_OK_DEPOIS.match(t[x.end():x.end() + 30]):
+            continue
+        soltos.append(t[max(0, x.start() - 15):x.end()].replace('\n', ' ').strip())
+    if soltos:
+        avisos.append(f'{len(soltos)} left/right sem screen-/frame/camera-/own (ex.: "…{soltos[0]}"); '
+                      'escreva screen-left/right ou "her own right"')
+    # 8. FORMAT sem "no on-screen text" (aviso)
+    if 'FORMAT' in b and not re.search(r'no on-screen text', fmt, re.I):
+        avisos.append('FORMAT sem "No on-screen text of any kind: no captions, subtitles, titles, watermarks or logos; '
+                      'only real printed text on physical objects."')
+    # 9. SOUND sem "no music" (erro em clipe com som)
+    som = b.get('SOUND', '')
+    if som and not re.match(r'\s*(none|no sound|silent|silence only|sound off)\b', som, re.I) \
+            and not re.search(r'\bno music\b', som, re.I):
+        erros.append('SOUND sem "no music" (clipe com som): termine com "No music, no score, no soundtrack, no humming, '
+                     'no ambient pad, no swell, no drone, no off-frame voices."')
+    # 12. START FRAME sem "continues directly from" (aviso)
+    if re.search(r'START FRAME|last frame', b.get('REFERENCES', ''), re.I) and not re.search(r'continues directly from', t, re.I):
+        avisos.append('START FRAME sem a frase de continuidade: "Continues directly from @imageN: same people, wardrobe, '
+                      'place, light; motion resumes within the first quarter second; no re-establish."')
+    return erros, avisos
 
 
 def curto(t):
@@ -167,9 +327,13 @@ def checar_um(arq, anterior=None, imagem=False):
     v = sorted({x.lower() for x in VAGOS.findall(t)})
     if v:
         avisos.append('verbo vago: ' + ', '.join(v) + ' (use snaps, lunges, pivots, sets down, grips)')
+    if not imagem:
+        e2, w2 = checar_joey(arq, t, b, nomes)
+        erros += e2
+        avisos += w2
     if anterior is not None:
         fim_ant = anterior.get('STATE AT END', '')
-        if fim_ant and start and norm(fim_ant) != norm(start):
+        if fim_ant and start and norm(FRASES_FIXAS.sub(' ', fim_ant)) != norm(FRASES_FIXAS.sub(' ', start)):
             erros.append('STATE AT START não é o STATE AT END do clipe anterior, palavra por palavra')
     return erros, avisos, b
 

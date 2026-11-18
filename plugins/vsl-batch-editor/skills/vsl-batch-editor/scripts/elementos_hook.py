@@ -28,7 +28,8 @@ FONTE = ("/System/Library/Fonts/HelveticaNeue.ttc", 1)      # Helvetica Neue Bol
 NATIVA = ("/System/Library/Fonts/HelveticaNeue.ttc", 0)     # Helvetica Neue regular: a legenda do Snapchat é fina
 import os as _os
 EMOJI = "/System/Library/Fonts/Apple Color Emoji.ttc" if _os.path.exists("/System/Library/Fonts/Apple Color Emoji.ttc") else "C:/Windows/Fonts/seguiemj.ttf"   # PC Windows (16/11/2026)       # bitmap: só renderiza em 160 px; reduz depois
-W, H, FPS = 1080, 1920, 30
+W, H = 1080, 1920
+FPS = int(os.environ.get("FLUXO_FPS", "30"))   # fps do export (fluxo.py grava da ficha; EV 60 desde 18/11/2026)
 
 def _rgb(h): h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 def _px(y, ref=H): return round(y * ref) if y <= 1 else round(y)
@@ -54,8 +55,33 @@ def _pedacos(txt):
     return out
 
 _cache_emoji = {}
+APPLE = _os.path.normpath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "..", "..", "..", "_FLUXO", "emoji_apple"))
+APPLE_URL = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.1.2/img/apple/64/{}.png"
+
+def _apple(ch):
+    """PNG do emoji no visual da Apple (Fefo e Daniel, 18/11/2026: emoji SEMPRE com cara de Apple). Cache em
+    @CLIENTES/_FLUXO/emoji_apple/; baixa do pacote emoji-datasource-apple na 1ª vez. None se não achar."""
+    import urllib.request
+    cp = f"{ord(ch):x}"
+    for nome in (cp, cp + "-fe0f"):
+        arq = _os.path.join(APPLE, nome + ".png")
+        if _os.path.exists(arq): return Image.open(arq).convert("RGBA")
+    _os.makedirs(APPLE, exist_ok=True)
+    for nome in (cp + "-fe0f", cp):
+        try:
+            dados = urllib.request.urlopen(APPLE_URL.format(nome), timeout=15).read()
+            arq = _os.path.join(APPLE, nome + ".png"); open(arq, "wb").write(dados)
+            return Image.open(arq).convert("RGBA")
+        except Exception:
+            continue
+    print(f"   aviso emoji: {ch!r} (U+{cp.upper()}) sem PNG da Apple; saiu na fonte do sistema", flush=True)
+    return None
+
 def _emoji(ch, lado):
     if (ch, lado) not in _cache_emoji:
+        ap = _apple(ch)
+        if ap is not None:
+            _cache_emoji[(ch, lado)] = ap.resize((lado, lado), Image.LANCZOS); return _cache_emoji[(ch, lado)]
         im = Image.new("RGBA", (180, 180), (0, 0, 0, 0))
         ImageDraw.Draw(im).text((0, 0), ch, font=ImageFont.truetype(EMOJI, 160), embedded_color=True)
         im = im.crop((0, 0, 160, 160)).resize((lado, lado), Image.LANCZOS)
@@ -83,7 +109,7 @@ def tag_nativa(cfg, pasta):
     tam = cfg.get("tamanho", 40); f = _fonte(NATIVA, tam); hf = round(tam * 1.95)
     img = Image.new("RGBA", (W, hf), (0, 0, 0, round(255 * cfg.get("opacidade", 0.6))))
     _texto_emoji(img, cfg["texto"], W / 2, hf / 2, f, _rgb(cfg.get("cor_texto", "#FFFFFF")))
-    os.makedirs(pasta, exist_ok=True); p = os.path.abspath(f"{pasta}/tag_nativa.png"); img.save(p)
+    os.makedirs(pasta, exist_ok=True); p = os.path.abspath(f"{pasta}/tag_nativa.png"); img.save(p, compress_level=1)
     return p, _px(cfg.get("y", 0.42)) - hf // 2
 
 def janela_tag(cfg, HD):
@@ -159,7 +185,7 @@ def barra_tempo(cfg, evs, total, pasta):
         key = (ativo, round(esc, 3))
         if key not in feitos:
             p = os.path.abspath(f"{pasta}/barra_{'x' if ativo is None else ativo}_{round(esc * 1000)}.png")
-            (Image.new("RGBA", (cw, ch), (0, 0, 0, 0)) if ativo is None else _barra(cfg, ativo, esc, tam)).save(p)
+            (Image.new("RGBA", (cw, ch), (0, 0, 0, 0)) if ativo is None else _barra(cfg, ativo, esc, tam)).save(p, compress_level=1)
             feitos[key] = p
         return feitos[key]
     q0 = trocas[0][0]
@@ -185,7 +211,7 @@ def split_filtro(j, jr, i0, i0r, dur, a, k, geo_h, divisoria=0, cor="white"):
     Gera o rótulo [x{k}] já com a largura cheia (1080 x geo_h), como as outras cenas."""
     m = W // 2
     lado = lambda e, s, r: (f"[{e}:v]trim={s:.3f}:{s + dur:.3f},setpts=PTS-STARTPTS+{a}/TB,"
-                            f"scale={m}:{geo_h}:force_original_aspect_ratio=increase,crop={m}:{geo_h},fps=30,setsar=1[{r}{k}]")
+                            f"scale={m}:{geo_h}:force_original_aspect_ratio=increase,crop={m}:{geo_h},fps={FPS},setsar=1[{r}{k}]")
     f = f"{lado(j, i0, 'xl')};{lado(jr, i0r, 'xr')};[xl{k}][xr{k}]hstack=inputs=2"
     if divisoria: f += f",drawbox=x={m - divisoria // 2}:y=0:w={divisoria}:h=ih:color={cor}:t=fill"
     return f + f"[x{k}]"
@@ -213,7 +239,7 @@ def inset_pngs(cfg, rotulo, pasta, nome):
         d.rounded_rectangle((px, py, px + pw, py + ph), ph // 2, fill=(255, 255, 255, 255))
         d.text((px + pw / 2, py + ph / 2), rotulo, font=f, fill=(15, 15, 15, 255), anchor="mm")
     m, o = f"{pasta}/{nome}_mascara.png", f"{pasta}/{nome}_moldura.png"
-    mk.save(m); fm.save(o); return m, o, (x, y, L)
+    mk.save(m, compress_level=1); fm.save(o, compress_level=1); return m, o, (x, y, L)
 
 def inset_filtro(j, jm, i0, dur, a, k, L, cy=0.4, extra="", rc=None):
     """Clipe j recortado no quadrado L x L (faixa vertical cy) com a máscara jm de cantos arredondados; sai [x{k}] com alfa,
@@ -221,9 +247,9 @@ def inset_filtro(j, jm, i0, dur, a, k, L, cy=0.4, extra="", rc=None):
     ex = f"{extra}," if extra else ""
     rec = f"crop=trunc(iw*{rc[2]}/2)*2:trunc(ih*{rc[3]}/2)*2:iw*{rc[0]}:ih*{rc[1]}," if rc else ""   # recorte [x,y,w,h] antes do quadrado (4380 S04)
     return (f"[{j}:v]trim={i0:.3f}:{i0 + dur:.3f},setpts=PTS-STARTPTS,{rec}scale={L}:{L}:force_original_aspect_ratio=increase,"
-            f"crop={L}:{L}:(iw-{L})/2:(ih-{L})*{cy},{ex}fps=30,setsar=1,format=rgba[xi{k}];"
-            f"[{jm}:v]scale={L}:{L},format=gray,fps=30[mk{k}];[xi{k}][mk{k}]alphamerge,settb=1/90000,"
-            f"setpts=PTS+{round(a * 30) / 30 - 1 / 60:.6f}/TB[x{k}]")
+            f"crop={L}:{L}:(iw-{L})/2:(ih-{L})*{cy},{ex}fps={FPS},setsar=1,format=rgba[xi{k}];"
+            f"[{jm}:v]scale={L}:{L},format=gray,fps={FPS}[mk{k}];[xi{k}][mk{k}]alphamerge,settb=1/90000,"
+            f"setpts=PTS+{round(a * FPS) / FPS - 0.5 / FPS:.6f}/TB[x{k}]")
 
 
 # ---------------------------------------------------------------- card do hook (caixa branca por linha, emoji colorido)
@@ -238,4 +264,4 @@ def hook_card(linhas, cfg, out):
         x0 = int(cfg["x"]) if cfg.get("x") is not None else round(W / 2 - larg / 2 - pad_x)
         d.rounded_rectangle((x0, y, x0 + larg + 2 * pad_x, y + hl), int(cfg.get("raio", 14)), fill=(255, 255, 255, 255))
         _texto_emoji(img, ln, x0 + pad_x + larg / 2, y + hl / 2, f, (10, 10, 10)); y += hl - 2
-    img.save(out); return out
+    img.save(out, compress_level=1); return out

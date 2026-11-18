@@ -59,14 +59,33 @@ diabética, com medo de ficar cego e de injeção, com raiva e dor.
 - **Estudar:** SmoothSpine, Relivex, Koprez, Noroo, Hike Footwear e LifeX. Referência interna: os VSLs da Ria.
 - Conflito com regra antiga (ex. "AD do Daniel sempre com música"): a música fica, mas de tensão, não alegre.
 
+## Loom do Daniel (18/11/2026: vale para toda batch, nova ou revisão)
+Análise e quadros: `_FLUXO/feedback/2026-11-18_daniel_loom/`. Ele citou o Fefo pelo nome por causa de stills (4382).
+- **Zero still.** Nenhuma imagem parada nem packshot parado; nada de 2 ou mais planos seguidos de frasco só trocando o fundo.
+  Frasco entra em clipe real com ação (mão pegando, abrindo, cápsula na mão). O `checar` trata plano parado como falha.
+- **B-roll segue a frase.** Cada plano mostra o que a voz diz no momento (sintoma, ação, resultado). Ação concreta
+  (dirigir, jogar o óculos no lixo, ler) = vídeo REAL de banco, não IA nem stock com cara de stock.
+- **Nada de clipe repetido** no mesmo AD, e nada que contradiga o produto (Neurobella não tem cápsula escura) ou a lógica
+  da cena (objeto que some).
+- **Texto todo dentro do 4:5**, fora das bordas vermelhas da sala. Texto de hook e de cabeçalho no estilo do board
+  "good edited ads" do Daniel (nativo, caixa branca, letra preta, curto e médio): nem pequeno demais, nem gigante.
+  Emoji só o da Apple e nunca cortado.
+- **Uma ideia por legenda:** lista ("dry eyes, floaters, risks") quebra um item por legenda.
+- **Avatar falando mexe o corpo:** mãos e gestos naturais no prompt, postura de quem fala com a câmera. Só a boca = falso.
+- **Sem deadspace no hook** e espaço vazio de layout no mínimo.
+- **Vídeo real vem do banco** (aba "Real footage", 18/11/2026): busca `real=1` em toda cena antes de pensar em IA (`modulos/05a_banco.md`).
+- **Trava de 70% real em segundos** (skill do Matthew, 18/11/2026): `lint_plano.py` soma b-roll real x IA pelo campo `origem` de cada cena; IA só no mecanismo; nada passa de 3 s num plano. Palavras de busca: `modulos/broll_biblioteca.md`.
+- **Export em 30 fps** (Fefo, 18/11/2026: o 60 fps com interpolação deixava rastro de movimento; voltou a 30). Em aberto: música a "30% de volume".
+
 ## Regras só da EV
 - **ED descontinuado** nas duas marcas: card de ED não se pega; avisar o Fefo.
 - **AD do Daniel sempre com música.** Sem trilha no banco ou no card: `kie.py suno` / `suno-ref` no Kie da EV, com ok de crédito.
 - **VisioVance só em eye vitamin.** Outro nicho sai só Neurobella.
 - **Criador real é intocável:** bruto de criador contratado usa vídeo e voz originais; nada de voz de IA nem avatar parecido.
   Bruto difícil: avisar a Louise antes.
-- **Legenda:** y 0,63 em todo AD, nunca abaixo de 0,65; cena que cobre frasco, rótulo ou rosto sobe (~0,40 ou 0,20),
-  nunca desce. Estilo e margem: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda.
+- **Legenda (18/11/2026, aprovada pelo Daniel; SEMPRE na EV):** sem caixa, texto branco em Bold com contorno preto, na região de baixo (centro y 0,72, nunca abaixo
+  de 78%); caixa branca só na chamada do hook; emoji da Apple. Cena que cobre frasco, rótulo ou rosto sobe.
+  Estilo e margem: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda.
 - **Black Friday e promo:** só batch BF ou promo sai também em 1,91:1 (1200×628) e 1:1 (1200×1200); batch comum só vertical.
   Banners de BF Late e BFCM: `@EMPIRE VISION/CLAUDE.md`. Em aberto o pixel do vídeo: perguntar antes de exportar BF.
 - Loudness −20 LUFS (no `empire-vision.json`).

@@ -146,7 +146,7 @@ def ler_srt(p):
 def tmp_montar(B, nome="_tmp_montar"):
     """Intermediários da montagem fora do Drive (não sincroniza, não dá timeout entre sessões); apagados no fim do AD."""
     return os.path.join(tempfile.gettempdir(), "vsl_montar", re.sub(r"[^\w-]", "_", os.path.basename(B.rstrip("/"))), nome)
-def dur_corte(p): return sum(round(e * 30) - round(s * 30) for s, e in json.load(open(p))) / 30
+def dur_corte(p): return sum(round(e * FPS) - round(s * FPS) for s, e in json.load(open(p))) / FPS
 def duracao(p):
     o = subprocess.run([FF, "-i", p], capture_output=True, text=True).stderr
     m = re.search(r"Duration: (\d+):(\d+):([\d.]+)", o); return int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3])

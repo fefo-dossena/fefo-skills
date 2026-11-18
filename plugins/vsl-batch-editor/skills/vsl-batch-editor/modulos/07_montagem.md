@@ -1,5 +1,7 @@
 # Módulo: montagem (local, sem crédito)
 
+> **Antes de montar: `@CLIENTES/_FLUXO/MANUAL_DO_MONTADOR.md` (Fefo, 18/11/2026).** Só o núcleo, 30 fps, linha do tempo conferida antes do render, lascas no clipe de origem. Ele vence este módulo onde houver conflito.
+
 > **Antes do render e na edição (PDF do Lucas, 16/11/2026; `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seções 3 e 4):** conferir a timeline (prévia) e a folha dos clipes antes do render; nenhum quadro de fonte usado duas vezes (esticar = desacelerar até ~0,6x ou outro clipe); nenhum trecho em faixa ruim do veredito nem clipe com reroll pendente; ponto de entrada tirado do clipe real. A cena flui: clipe inteiro, corte só na troca de cena ou na reação, nunca picado por linha de roteiro. Ouvir cada emenda de fala. Pausa dramática de diálogo de drama fica (só ar morto > ~4 s sai); **VO narrada de anúncio segue o item 3 da Louise** (pausa > 0,45 s é falha). **Legenda continua a nossa** (pílula TikTok Sans Medium, `pilula.py`, dentro do 4:5 na EV e do 1:1 na TS).
 
 `python3 fluxo.py fazer "<batch>"` roda, só onde precisa e nesta ordem:
@@ -46,10 +48,10 @@
    Buraco < 0,5 s entre duas cenas é fechado (senão o avatar "pisca" 1–2 quadros); ≥ 0,5 s = avatar de propósito.
    `callout` de cena sai no meio da tela; em cena de frasco ele cobre o nome no rótulo → `callout_y` (topo do texto em px
    de 1920, ex. 330 = acima da tampa; BATCH#3222).
-   **Legenda:** a pílula do `pilula.py`; estilo, margem e altura moram em `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda.
-   Aqui só o uso: a pílula sai como PNGs; o plano muda só a altura (`legenda_y` por cena desvia de rótulo ou rosto, só para cima).
+   **Legenda:** sai do `pilula.py`; estilo, margem e altura moram em `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda.
+   Aqui só o uso: a legenda sai como PNGs; o plano muda só a altura (`legenda_y` por cena desvia de rótulo ou rosto, só para cima).
    Trecho de avatar sem cena (ex.: placa na mão) → `estilo.legenda.y_trechos` [{de, ate, y}] pelo texto da legenda. Com SRT de
-   1 linha, `quebra` ≥ maior linha (a pílula não pode re-quebrar "Nobel / Prize").
+   1 linha, `quebra` ≥ maior linha (a legenda não pode re-quebrar "Nobel / Prize").
    Banner/sticker com alfa (.mov 1080x1920, em loop) por cima do vídeo: `estilo.overlays` = [{"arquivo": "06_elementos/...mov",
    "trechos": [{"cena": "S14"}, {"de": "<texto da legenda>", "ate": "<texto>" ou "fim"}], "fade": 0.12}]. Banners da
    campanha em `@assets/` (Halloween 2026: zip em `@assets/halloween 2026/`; Black Friday 2026 ("Earliest", EXTRA 25% OFF,
@@ -77,6 +79,10 @@ Pedido do Fefo: "trabalha uma vez no hold e nos hooks e no fim junta tudo; não 
 - **Final:** só roda com todos os segmentos do AD aprovados (`fazer` ou `fluxo.py segmentos <batch> montar [--so AD1_neurobella]`). Ele junta os pedaços e aplica só o que atravessa a emenda: banner (`estilo.overlays`), loudnorm em 2 passadas, 720p e o lado do checklist. Um encode só. Com `PREVIA=1` o final sai em NVENC com o marcador.
 - `fluxo.py segmentos <batch>` mostra cada AD com os segmentos e o OK. Estado em `08_auto/segmentos.json` (fora do `plano.json`: gravar no plano faria o `fazer` achar a batch inteira desatualizada). `limpar` apaga do cache o que nenhum AD usa.
 - Fora do modo por segmentos: `one_take` e layout `cartao` (usam o `montar` antigo).
+- **Hold em take único (núcleo, 18/11/2026; origem BATCH#4614/4615):** VO master (hook por marca + hold única), take do hook e UM take do avatar da hold usado em trechos (mapa A1/A7), b-roll travado por cena com início por âncora (tempo, numeral ou palavra do Whisper), efeito local (`SPOT`, `FOCO`, `CROP8`), punch-in em cena > 3 s, camadas de texto em PNG por cena, legenda padrão, trilha e banner. Não precisa de script da batch: ponha o bloco `"take_unico"` no `plano.json` (campos no cabeçalho de `@CLIENTES/_FLUXO/scripts/take_unico.py`) e rode `fluxo.py segmentos <batch> montar [--so neurobella]`. Segmentos `hook1` e `hold_<marca>`, sala, OK por segmento e final como no resto desta seção.
+- **Overlay sempre do TEMP (18/11/2026):** antes de cada ffmpeg do núcleo (`montar`, segmentos, `take_unico`, final), todo `.mov`/`.png` de entrada (`-i` e `movie=`) fora do TEMP vira cópia em `%TEMP%/linha_do_tempo/_overlays/` (`LDT.locais`; cache por caminho+tamanho+data). Motivo: o banner ProRes 4444 lido do Drive com loop travou o ffmpeg 43 min. Script próprio de batch: chamar `linha_do_tempo.locais(cmd)` ou copiar o banner para o TEMP.
+- **fps do take único:** segue a ficha (`fps` e `fps_interp`; EV 30 e "dup" desde 18/11). O bloco `take_unico` só leva `fps_interp` para mudar numa batch.
+- **Chave do cache (Central, 18/11/2026):** entra tudo o que muda imagem ou som: início e fim de cada pedaço, textos e posição (estilo, hook_header, título, camadas), fps, legenda da ficha e formato. Mudou só o código e a saída muda: troque `formato=` ou o `MOTOR`.
 
 ## Script de batch só para o que é único dela (Central, 17/11/2026)
 Origem: desde 01/11 as batches copiaram scripts próprios em `08_auto/` (`gemini_tts.py` em 9 batches, `gerar_quadros.py` e `gerar_clipes.py` em 6, `gerar_vo.py`, `monta_lote.py`, `legenda_topo.py`). Conserto feito numa cópia não chegava às outras, e o `gemini_tts.py` lia a chave do Kie direto, sem as travas do `kie.py`.
@@ -88,6 +94,14 @@ Origem: desde 01/11 as batches copiaram scripts próprios em `08_auto/` (`gemini
 - **Script novo em `08_auto/` só para o que é único da batch:** o `montar_plano.py` (conteúdo do plano), um formato visto pela 1ª vez (split da 4293, texto por palavra-chave da 4205, packshot da 4382). Nada de whisper, loudnorm, silêncio, legenda, export nem chamada ao Kie dentro dele.
 - **Repetiu numa 2ª batch = vai para o núcleo, pela Central.** Não copie o script de uma batch para outra: anote no estado da batch, siga com o contorno e mande à Central uma linha com o caminho e o que falta (trava 3 de `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`). A Central muda o núcleo com backup `*.bak_<data>_<motivo>`.
 - Batch com sessão aberta segue com os scripts dela até fechar (ordem do Fefo, 17/11/2026).
+
+## 60 fps (Daniel, Loom de 18/11/2026; Fefo: "Sim, 60 fps")
+Pedido: "every video should be in 60 frames per second". Ele via os vídeos "laggy", como se fossem 20–30 fps.
+- **DESFEITO em 18/11/2026 (Fefo: "deixa o render em 30fps, em 60 ta deixando muito rastro de movimento"): a EV voltou a 30 fps, `fps_interp: "dup"`.** O texto abaixo fica como histórico. Antes: todo AD da EV saía em 60 fps (720p continua). Vem da ficha: `fps: 60`, `fps_interp: "mci"`. A TS segue em 30. Para manter uma batch em 30 até a entrega: `"fps": 30` no `plano.json` dela.
+- **Clipe de origem de 24/25/30 fps** (Kling, Seedance, Omni) é interpolado por movimento (minterpolate mci) **uma vez**, pelo `_FLUXO/scripts/fps_fonte.py`: pedaços de 2 s em paralelo (`FPS_PARALELO`, padrão 8), cache em `%TEMP%/fps_fonte/`. Prévia, segmentos e final usam o mesmo arquivo. Só repetir quadros (`fps=60`) deixa a cadência 2-3-2-3 travada; a mistura (`framerate`) deixa imagem dupla na mão. `FPS_INTERP=dup` desliga a interpolação numa rodada (teste rápido, não para entrega).
+- **Custo:** a 1ª montagem de uma batch interpola todos os clipes (~6x a duração somada dos clipes, com 8 em paralelo; na 4382 com a máquina dividida, ~32 min). Depois é cache: só o clipe novo ou refeito é interpolado de novo. Os segmentos e o final custam quase o mesmo que a 30.
+- **Batch em curso:** a prévia da hold e o export em 30 fps aparecem como "desatualizado" no `status`; o `fazer` refaz. A prévia nova refaz a transcrição da hold, e o b-roll preso à palavra pode andar 0,1–0,5 s: rodar o `checar --baratas` (na prova da 4382 a S11 deixou 0,2 s de avatar antes de uma emenda). Segmento aprovado em 30 com as mesmas entradas é refeito em 60 e mantém o OK. Se as entradas mudaram depois do OK, o `fazer` para e pede `reabrir`.
+- Conferir no export: `ffprobe` com `r_frame_rate` = `60/1`. As checagens (lascas, quadros, ritmo, freeze) leem o fps do vídeo.
 
 ## Resolução
 Regra do Fefo (02/11/2026): vídeo gerado e AD final sempre em **720p** (720x1280). `fluxo.py`, `cartao.py` e `umtake.py` compõem em
@@ -104,7 +118,7 @@ Mac no quadro do clipe). Corrija no `plano.json` (`dur_max`, avatar entre os 3D,
 de novo até sair 0. Aviso (`!`) não trava: é o que o script não conseguiu ler. Versão já exportada:
 `lint_plano.py <batch> --export <AD.mp4>` (lê o vídeo e casa cada trecho com o clipe de origem; ~1,5 min por AD).
 O pedido ao revisor roda `fluxo.py checar <batch>` (freeze, lascas, ritmo e lint, pela ficha) e recusa com falha.
-**Checklist da Louise (13/11/2026, sem dispensa):** o `checar` também roda os 6 itens em cada AD (`@CLIENTES/_FLUXO/scripts/checagens/checklist.py`) e grava `08_auto/checklist_V<k>.json`: 1 texto no 4:5 e legenda com centro até 0,65 (OCR a 2 fps + camadas do montar); 2 legenda na lista fechada (pílula; outra só com `estilo.legenda.pedido_brief`); 3 Whisper no AD inteiro contra o plano (palavra trocada, faltando, repetida, fim cortado, marca, pausa > 0,45 s); 4 trilha ≥ 15 dB abaixo da voz (falha < 12; o montar grava `08_auto/mix_AD<n>_<p>.json` pelos stems) e −20 LUFS; 5 plano parado, tremido ou borrado; 6 notas da revisão. Item vermelho: o revisor não recebe o pedido, a sala não aprova e o `frameio.py` não sobe. `--sem-checagens` e `dispensa_V<k>.txt` não valem para estes itens. Rodar só ele: `fluxo.py checar <batch> --so checklist` (~1 min por minuto de vídeo, pela fila).
+**Checklist da Louise (13/11/2026, sem dispensa):** o `checar` também roda os 6 itens em cada AD (`@CLIENTES/_FLUXO/scripts/checagens/checklist.py`) e grava `08_auto/checklist_V<k>.json`: 1 texto no 4:5 e legenda com centro até 0,75 (OCR a 2 fps + camadas do montar); 2 legenda na lista fechada (estilo da regra única; outro só com `estilo.legenda.pedido_brief`); 3 Whisper no AD inteiro contra o plano (palavra trocada, faltando, repetida, fim cortado, marca, pausa > 0,45 s); 4 trilha ≥ 15 dB abaixo da voz (falha < 12; o montar grava `08_auto/mix_AD<n>_<p>.json` pelos stems) e −20 LUFS; 5 plano parado, tremido ou borrado; 6 notas da revisão. Item vermelho: o revisor não recebe o pedido, a sala não aprova e o `frameio.py` não sobe. `--sem-checagens` e `dispensa_V<k>.txt` não valem para estes itens. Rodar só ele: `fluxo.py checar <batch> --so checklist` (~1 min por minuto de vídeo, pela fila).
 **Conferência = um comando (16/11/2026, `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, "Roteiro único"):** `fluxo.py checar <batch>` roda as baratas (lint, freeze, lascas, ritmo) e, se passam, o checklist L1–L6 com true peak, com uma transcrição só por vídeo. Não rodar à mão nenhum dos scripts abaixo como passo: a lista serve para **entender e corrigir** o que o `checar` ou o revisor acusou. "Imagem × fala" e "assistir o AD" são do revisor (passo 9) e da sala.
 - Prancha `ffmpeg -i AD.mp4 -vf "fps=1/6,scale=180:-1,tile=8x2" s.jpg` (prancha com fps+tile pode mostrar quadro preto
   falso — conferir com `-ss`); loudness `-af ebur128`.

@@ -52,12 +52,22 @@ def itens(B):
     # XML do Premiere saiu do fazer/status (Fefo, 10/11/2026: sem utilidade na EV e na TS). Só por `fluxo.py xml <batch>`.
     return out
 
+def _fps_errado(alvo):
+    """Prévia da hold ou export do AD em outro fps (EV 30 -> 60 em 18/11/2026): refazer. Só olha vídeo do motor plano."""
+    nome = os.path.basename(alvo)
+    if not nome.lower().endswith(".mp4") or not (nome.startswith("preview_hold_") or f"{os.sep}{EXPORT}" in os.path.normpath(alvo)):
+        return False
+    import fps_fonte
+    v = fps_fonte.fps_de(alvo)
+    return v > 1 and abs(v - FPS) > 0.5
+
 def estado(alvo, deps):
     if not os.path.exists(alvo): return "bloqueado" if any(not os.path.exists(d) for d in deps) else "falta"
     t = os.path.getmtime(alvo)
     for d in deps:
         if not os.path.exists(d): return "bloqueado"
         if os.path.getmtime(d) > t + 1: return "desatualizado"
+    if _fps_errado(alvo): return "desatualizado"
     return "ok"
 
 ORDEM = ["falas", "broll", "cortes", "previas", "legendas", "ads"]

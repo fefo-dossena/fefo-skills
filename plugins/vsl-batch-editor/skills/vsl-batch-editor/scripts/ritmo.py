@@ -13,12 +13,27 @@ import numpy as np
 FF = "ffmpeg"; FPS = 15; W, H = 90, 160   # o ~/bin/ffmpeg entra na fila
 VAL_PIXEL = 20                            # diferença de cinza que conta como pixel mudado
 
+def _deitado(mp4):
+    try:
+        o = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                            "-of", "csv=p=0", mp4], capture_output=True, text=True).stdout.strip().split(",")
+        return int(o[0]) > int(o[1]) * 1.3
+    except Exception:
+        return False
+
 def mudancas(mp4, sensivel):
-    """Tempos (s) em que boa parte da imagem mudou de um quadro para o outro, e a duração do vídeo."""
-    raw = subprocess.run([FF, "-nostdin", "-v", "error", "-i", mp4, "-vf", f"fps={FPS},scale={W}:{H},format=gray",
+    """Tempos (s) em que boa parte da imagem mudou de um quadro para o outro, e a duração do vídeo.
+    Tela deitada (1,91:1 de BF, 18/11/2026): mede em 3 faixas verticais e vale a que mais mudou. No split (quadrado
+    + painel fixo) o painel parado escondia os cortes do quadrado e o ritmo dava falso "parado" (BATCH#4615)."""
+    w, h = (192, 100) if _deitado(mp4) else (W, H)
+    raw = subprocess.run([FF, "-nostdin", "-v", "error", "-i", mp4, "-vf", f"fps={FPS},scale={w}:{h},format=gray",
                           "-f", "rawvideo", "-"], capture_output=True, check=True).stdout
-    fr = np.frombuffer(raw, np.uint8).reshape(-1, H, W).astype(np.int16)
-    frac = (np.abs(fr[1:] - fr[:-1]) > VAL_PIXEL).mean(axis=(1, 2))
+    fr = np.frombuffer(raw, np.uint8).reshape(-1, h, w).astype(np.int16)
+    dif = np.abs(fr[1:] - fr[:-1]) > VAL_PIXEL
+    if w > h:
+        frac = np.max(np.stack([dif[:, :, i * w // 3:(i + 1) * w // 3].mean(axis=(1, 2)) for i in range(3)]), axis=0)
+    else:
+        frac = dif.mean(axis=(1, 2))
     return [(i + 1) / FPS for i, f in enumerate(frac) if f >= sensivel], len(fr) / FPS
 
 def trechos_longos(tempos, dur, limite):

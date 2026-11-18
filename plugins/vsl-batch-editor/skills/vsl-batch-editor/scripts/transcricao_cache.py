@@ -7,6 +7,23 @@ Cópia idêntica em ~/.claude/skills/sala-de-revisao/revisor/transcricao_cache.p
 """
 import hashlib, json, os, tempfile
 
+# DLLs CUDA do Whisper na GPU (Central, 17/11/2026; M1WK4B2: "cublas64_12.dll not found"). O cuda_dlls.py fica na
+# mesma pasta (copia do revisor) ou em _FLUXO/scripts (copia do nucleo, um nivel acima de checagens/).
+try:
+    import sys as _sys
+    _aqui = os.path.dirname(os.path.abspath(__file__))
+    for _d in (_aqui, os.path.dirname(_aqui)):
+        if os.path.exists(os.path.join(_d, "cuda_dlls.py")) and _d not in _sys.path:
+            _sys.path.insert(0, _d)
+    import cuda_dlls
+except ImportError:
+    cuda_dlls = None
+
+
+def gpu():
+    """True se a GPU serve para o Whisper (liga as DLLs CUDA antes). Toda transcricao chama isto antes do WhisperModel."""
+    return bool(cuda_dlls and cuda_dlls.liga())
+
 PASTA = os.path.join(os.environ.get("TEMP") or os.environ.get("TMPDIR") or tempfile.gettempdir(), "fluxo_transcricao")
 
 

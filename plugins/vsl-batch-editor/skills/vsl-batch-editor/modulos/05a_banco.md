@@ -8,6 +8,21 @@ Vale também para b-roll novo numa revisão. Fala do avatar não vem do banco.
 pelo resumo do briefing. Todo candidato a REUSE passa por: rótulo e cápsula conferidos no quadro (o campo `brand` erra;
 cápsula certa = laranja de pó), `freezedetect=n=0.008:d=0.4` e olhar em quadro grande (manuscrito e rótulo inventado).
 
+## Vídeo real primeiro (Daniel, 18/11/2026: aba "Real footage")
+O banco tem vídeo REAL filmado por pessoas (criadores da EV, TikTok, YouTube), vertical e sem texto na tela.
+Junto com o padrão do Umut (70% b-roll real, IA só para o mecanismo) e o Loom do Daniel (ação concreta = vídeo real):
+1. **Toda cena que não é mecanismo médico busca primeiro `real=1`:** `GET /agent/search?q=<o que a frase mostra>&real=1&limit=20`.
+   Busque pelo que aparece no plano ("slit lamp", "eye drops", "driving at night") ou pelo que é falado. `source=` filtra a origem.
+2. Só vai para IA (NEW) a cena sem vídeo real que mostre a frase, ou a cena de mecanismo. Anote no plano o motivo.
+3. Baixe o arquivo inteiro: `GET /agent/clip/<id>` (header `X-Agent-Key`). Mesmo filtro do REUSE: mostra a frase, 9:16, sem texto,
+   sem rosto que contradiga o personagem, sem oferta/marca de outra empresa no quadro.
+4. No site, "Match a script" alinha clipes por linha de roteiro: bom para conferir a busca.
+5. **"+ Add footage"** (colar link de TikTok/YouTube/Instagram, entra em ~30 min) escreve no banco do cliente: só com OK do Fefo,
+   nome "Fefo" no campo. Prefira criadores que filmam coisa real na vertical; edição cheia de legenda não rende (o banco tira o que tem texto).
+Em 18/11/2026 a busca `real=1` já achava 25 clipes de "eye drops" e 37 de "driving at night".
+Palavras de busca prontas por parte do AD (hook, sintoma, clínica, ingredientes, CTA): `broll_biblioteca.md`. A trava de
+70% real em segundos roda no `lint_plano.py` (campo `origem` em cada cena: `real | ia | avatar | camada`).
+
 ## Como acessar
 1. **Chave** em `~/.vsl-batch-editor/banco_chave` (fora do Drive e do zip; nunca em `perfil.json`, nota ou módulo):
    `GET /agent/search?q=<palavras>&qa=pass&limit=20` com o header `X-Agent-Key`, nunca na URL. `GET /agent` mostra a ajuda.
