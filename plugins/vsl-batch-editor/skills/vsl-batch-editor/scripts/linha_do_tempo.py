@@ -119,7 +119,6 @@ def hash_de(chave, fontes=(), formato=None, fps=30):
         print("   aviso: a chave do segmento tem código do montador; mudança no script que não muda a saída refaz o segmento")
     fontes = [f for f in fontes if f and f not in codigo]
     blob = [MOTOR, formato, chave, sorted({os.path.normpath(f): _assina(f) for f in fontes}.items())]
-    if os.environ.get("FLUXO_CAMADAS", "").lower() == "remotion": blob.append({"camadas": "remotion"})   # 18/11/2026
     if int(fps) != 30: blob.append({"fps": int(fps)})   # 60 fps da EV (18/11/2026); 30 fica fora para não refazer o cache antigo
     blob = json.dumps(blob, sort_keys=True, default=str, ensure_ascii=False)
     return hashlib.sha1(blob.encode()).hexdigest()[:10]

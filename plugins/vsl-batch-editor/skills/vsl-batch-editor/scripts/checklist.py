@@ -1197,7 +1197,25 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
             except Exception as e:
                 words = []; res["aviso_whisper"] = f"Whisper falhou: {e}"
     nv = niveis(a16, words) if precisa_fala else None
-    if 3 in itens:
+    sem_voz = False      # AD sem voz de propósito (meme + texto + trilha; BATCH#4619, 18/11/2026): "sem_voz": true no batch.json/job.json ou no plano
+    for _arq in (os.path.join(B, P["config"]), os.path.join(B, P.get("auto", "08_auto"), "plano.json")):
+        try:
+            if json.load(open(_arq, encoding="utf-8")).get("sem_voz"): sem_voz = True
+        except (OSError, ValueError, AttributeError, KeyError, TypeError): pass
+    if sem_voz and 3 in itens:
+        poe(3, True, "AD sem voz (sem_voz): item 3 não se aplica; o Whisper só acharia fala inventada na trilha", [])
+    if sem_voz and 4 in itens:
+        c4 = cfg["musica"]; lu = lufs(video); tp = true_peak(video); occ4 = []
+        try:
+            alvo = json.load(open(os.path.join(B, P["config"]), encoding="utf-8")).get("audio", {}).get("loudness_lufs")
+            if alvo is not None: c4 = dict(c4, lufs=float(alvo))
+        except (OSError, ValueError, AttributeError): pass
+        if tp is not None and tp > c4.get("tp_max", -1.0) + 0.05:
+            occ4.append({"t": 0, "msg": f"true peak {tp:.1f} dBTP (máximo {c4.get('tp_max', -1.0):.0f})", "nivel": "erro", "regra": "true_peak"})
+        if lu is None or abs(lu - c4["lufs"]) > c4["lufs_tol"]:
+            occ4.append({"t": 0, "msg": f"loudness {lu} LUFS (alvo {c4['lufs']:.0f} ± {c4['lufs_tol']:.0f})", "nivel": "erro", "regra": "lufs"})
+        poe(4, not occ4, f"AD sem voz: só loudness e true peak ({lu if lu is None else round(lu, 1)} LUFS, {tp if tp is None else round(tp, 1)} dBTP)", occ4)
+    if 3 in itens and not sem_voz:
         rot, marca = roteiro_do_ad(B, P, video)
         mix3 = lado_montar(B, P, video, "mix", dg)
         stems = bool(mix3 and mix3.get("pausas") is not None)
@@ -1220,7 +1238,7 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
             er = [o for o in o3 if o["nivel"] == "erro"]; ok3 = not er
             r3 = r3.split("; ")[0] + "; " + (f"{len(er)} problema(s)" if er else "nada errado") + (f", {len(o3) - len(er)} aviso(s)" if len(o3) > len(er) else "")
         poe(3, ok3, r3, o3, {"pausas": sorted(pz, key=lambda x: -x[1])[:8], "fonte_pausas": "stems" if stems else "mix"})
-    if 4 in itens:
+    if 4 in itens and not sem_voz:
         mix = lado_montar(B, P, video, "mix", dg)
         c4 = cfg
         try:      # alvo de loudness do job/batch (EV batch.json e TS job.json: audio.loudness_lufs) vence o da ficha

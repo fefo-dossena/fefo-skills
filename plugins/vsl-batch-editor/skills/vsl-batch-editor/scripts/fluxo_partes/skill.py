@@ -57,7 +57,7 @@ def itens_da_skill():
         itens.append((f"{nucleo}/clientes/empire-vision.json", "scripts/clientes/empire-vision.json"))
         itens.append((f"{nucleo}/scripts/loudnorm.py", "scripts/loudnorm.py"))   # loudnorm em 2 passadas, módulo único EV/TS (17/11/2026)
         # 17/11/2026: o montar.py importa linha_do_tempo; o pastas.py roda lint_plano; html_png é ferramenta comum
-        itens += [(f"{nucleo}/scripts/{a}", f"scripts/{a}") for a in ("linha_do_tempo.py", "lint_plano.py", "html_png.py", "fps_fonte.py", "ambiente_voz.py")
+        itens += [(f"{nucleo}/scripts/{a}", f"scripts/{a}") for a in ("linha_do_tempo.py", "lint_plano.py", "html_png.py", "fps_fonte.py", "ambiente_voz.py", "hf_molde.py", "relogio.py")
                   if os.path.exists(f"{nucleo}/scripts/{a}")]
         # checagens/ inteira (17/11/2026: a lista fixa deixava de fora qc_export, conferir_quadros e lado_montagem, e o
         # checar do plugin quebrava); vai em scripts/, onde o checar procura. lascas/ritmo já vieram pela troca acima.

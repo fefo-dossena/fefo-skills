@@ -147,10 +147,27 @@ def pj_roda(cmd, timeout=None):
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", env=pj_env(), timeout=timeout)
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
-def pj_freeze(mp4):
-    r = subprocess.run([FF, "-nostdin", "-hide_banner", "-nostats", "-i", mp4, "-an", "-vf", "freezedetect=n=0.008:d=0.4", "-f", "null", "-"],
+def _deitado_pj(mp4):
+    try:
+        o = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                            "-of", "csv=p=0", mp4], capture_output=True, text=True).stdout.strip().split(",")
+        return int(o[0]) > int(o[1]) * 1.3
+    except Exception:
+        return False
+
+def _freeze_vf(vf, mp4):
+    r = subprocess.run([FF, "-nostdin", "-hide_banner", "-nostats", "-i", mp4, "-an", "-vf", vf, "-f", "null", "-"],
                        capture_output=True, text=True)
-    ini = re.findall(r"freeze_start: ([\d.]+)", r.stderr); dur = re.findall(r"freeze_duration: ([\d.]+)", r.stderr)
+    return r, re.findall(r"freeze_start: ([\d.]+)", r.stderr), re.findall(r"freeze_duration: ([\d.]+)", r.stderr)
+
+def pj_freeze(mp4):
+    # Tela deitada (1200x628 de BF, split com painel fixo): mede em 3 faixas verticais e vale a faixa com MENOS
+    # congelamento, porque o painel parado fazia o quadro inteiro parecer congelado (4611, 4614; 18/11/2026).
+    if _deitado_pj(mp4):
+        res = [_freeze_vf(f"crop=iw/3:ih:{i}*iw/3:0,freezedetect=n=0.008:d=0.4", mp4) for i in range(3)]
+        r, ini, dur = min(res, key=lambda x: sum(float(d) for d in x[2]) + 999 * max(0, len(x[1]) - len(x[2])))
+    else:
+        r, ini, dur = _freeze_vf("freezedetect=n=0.008:d=0.4", mp4)
     if r.returncode and not ini: return "erro", f"ffmpeg falhou (código {r.returncode})", []
     trechos = [f"{float(s):.2f}s por {float(d):.2f}s" for s, d in zip(ini, dur)]
     if len(ini) > len(dur): trechos.append(f"{float(ini[-1]):.2f}s até o fim")      # congelou até o fim: sem freeze_duration

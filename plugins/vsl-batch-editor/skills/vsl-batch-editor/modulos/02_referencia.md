@@ -1,4 +1,6 @@
 # Módulo: referência → estilo do ad
+> **Ref no briefing = refazer o vídeo** (Fefo, 19/11/2026): mesma música, mesmo movimento, personagem parecido, hook com movimento. Regra inteira: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Ref no briefing".
+
 O estilo de cada batch vem do(s) ad(s) em `01_refs/` **desta** batch (e do canvas/brief), nunca da batch anterior.
 Se `01_refs/` estiver vazio, pergunte ao Fefo qual ad seguir antes de seguir. Card sem ad de referência (Milanote sem
 ref, BATCH#3214 e #3215): proponha um estilo UGC (personagem, cenário, enquadramento de cada setup, legenda) e espere o

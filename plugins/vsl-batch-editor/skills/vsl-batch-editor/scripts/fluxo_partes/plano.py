@@ -5,8 +5,6 @@ def carregar(B):
     cfg = json.load(open(f"{B}/{CFG}")) if os.path.exists(f"{B}/{CFG}") else {}
     if plano.get("fps"):                 # fps da batch (vence a ficha; um processo = uma batch)
         global FPS; FPS = int(plano["fps"]); os.environ["FLUXO_FPS"] = str(FPS)
-    cam = plano.get("camadas") or FICHA.get("camadas")     # "remotion": camadas de texto pelo Remotion (18/11/2026)
-    if cam: os.environ["FLUXO_CAMADAS"] = str(cam)
     return plano, cfg
 
 def fonte(arq):

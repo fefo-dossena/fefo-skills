@@ -253,13 +253,7 @@ def gerar(eventos, header, HD, total, pasta, plano, alturas=(), tela=(W, H), fps
     """eventos = [(ini, fim, texto)] ou [(ini, fim, texto, y)] da legenda; header só em [0, HD). alturas = [(ini, fim, y)]:
     trechos em que a legenda muda de altura (cenas com "legenda_y", y_trechos). y: fração da altura ou px.
     Devolve a lista do concat demuxer (PNGs com a duração de cada trecho).
-    Com "camadas": "remotion" no plano/job/ficha (ou FLUXO_CAMADAS=remotion), quem desenha é o Remotion
-    (scripts/camadas_remotion.py): mesma conta de posição, mesma lista de saída. Padrão: PIL, até o Fefo aprovar."""
-    if str((plano or {}).get("camadas", "") or os.environ.get("FLUXO_CAMADAS", "")).lower() == "remotion":
-        if AQUI not in sys.path: sys.path.insert(0, AQUI)
-        sys.modules.setdefault("pilula", sys.modules[__name__])
-        import camadas_remotion
-        return camadas_remotion.gerar(eventos, header, HD, total, pasta, plano, alturas, tela, fps)
+    Remotion removido em 19/11/2026 (Fefo): o motor alvo é o HyperFrames."""
     e = (plano or {}).get("estilo", {}); cl, ch = e.get("legenda", {}), e.get("header_pilula", {})
     os.makedirs(pasta, exist_ok=True)
     fr = lambda t: int(round(t * fps))
