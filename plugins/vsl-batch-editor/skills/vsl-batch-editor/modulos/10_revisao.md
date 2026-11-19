@@ -33,7 +33,7 @@ Drama ad, refaça no Kling.
    freezedetect, lascas ou Whisper à mão): em 16/10 essas checagens acharam defeitos sem comentário em 4 das 7 revisões.
 3. **Achar o padrão, não só o ponto** (regra do Fefo): um comentário vale para todos os ADs que usam a mesma hold e para
    todo trecho com o mesmo defeito. O `checar` da versão nova cobre os 6 ADs; olhe só os trechos do mesmo tipo e confira:
-   - avatar com mão/relógio perto da câmera (IA deforma) → punch-in ~1,6× no rosto recompondo a pílula da legenda;
+   - avatar com mão/relógio perto da câmera (IA deforma) → cubra o trecho com outra cena ou gere o take de novo com as mãos baixas (punch-in extinto, Fefo 19/11/2026);
    - texto gerado pela IA dentro do b-roll (selos, rótulos) → errado = tirar (zoom leve no b-roll-fonte sem legenda),
      não trocar por outro texto;
    - hooks: AD1/AD2/AD3 diferentes entre si; b-roll e trecho do avatar não se repetem dentro do AD.

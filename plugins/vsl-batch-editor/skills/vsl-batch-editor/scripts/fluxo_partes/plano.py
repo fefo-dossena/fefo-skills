@@ -103,6 +103,12 @@ def punch(plano, i, fala=None):
     plano.estilo.avatar.punch_in = [1.0, 1.12] e crop_y (0 = topo, 0.5 = centro) para manter o rosto no quadro."""
     av = plano.get("estilo", {}).get("avatar", {}); zs = (fala or {}).get("punch_in") or av.get("punch_in") or [1.0]; z = zs[i % len(zs)]   # falas[i].punch_in vence o do estilo
     if z == 1: return ""
+    if os.environ.get("PUNCH_ANTIGO") != "1":      # punch-in extinto (Fefo, 19/11/2026): corte = cena nova, sem zoom na pessoa
+        if not getattr(punch, "_avisou", False):
+            punch._avisou = True
+            print("   AVISO: punch_in do plano ignorado. O punch-in foi extinto (Fefo, 19/11/2026): cubra o corte com outra "
+                  "cena. Regra: _FLUXO/LEIA-ME.md, seção \"Cenas, não punch-in\".", file=sys.stderr, flush=True)
+        return ""
     return f",crop=iw/{z}:ih/{z}:(iw-iw/{z})/2:(ih-ih/{z})*{av.get('crop_y', 0.3)},scale=720:1280"
 def vtrim(s, e):
     """Trecho de vídeo do clipe de 24 fps com a duração exata do atrim: pega 0,1 s a mais e corta já no FPS no nº de

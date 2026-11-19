@@ -56,6 +56,37 @@ def _hash_arq(arq):
     return h.hexdigest()[:20]
 
 
+HOOK_ATE = float(os.environ.get("TRAVA_HOOK_ATE", "6.0"))   # hook = até 6 s (manual 7b, regra 1); 0 desliga
+PARADO_MIN = 0.5                                              # trecho parado que recusa
+CACHE_PARADOS = os.path.join(os.path.dirname(CACHE_SALTOS), "parados_fonte")
+
+
+def parados_da_fonte(arq):
+    """(duração, [(ini, fim)]) dos trechos sem movimento (freezedetect, ruído 0,003, >= 0,5 s) do clipe de origem.
+    Cache por hash do conteúdo em _FLUXO/cache/parados_fonte."""
+    if not arq or not os.path.isfile(arq): return 0.0, []
+    try: h = _hash_arq(arq)
+    except OSError: return 0.0, []
+    cj = os.path.join(CACHE_PARADOS, h + ".json")
+    if os.path.exists(cj):
+        try:
+            c = json.load(open(cj, encoding="utf8")); return c["dur"], [tuple(x) for x in c["parados"]]
+        except (ValueError, KeyError): pass
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", arq], capture_output=True, text=True)
+    try: dur = float(r.stdout.strip())
+    except ValueError: dur = 0.0
+    r = subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-nostats", "-i", arq, "-an", "-vf", f"scale=180:-2,freezedetect=n=0.003:d={PARADO_MIN}",
+                        "-f", "null", "-"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    ini, par = None, []
+    for ln in r.stderr.splitlines():
+        if "freeze_start:" in ln: ini = float(ln.rsplit("freeze_start:", 1)[1].split()[0])
+        elif "freeze_end:" in ln and ini is not None: par.append((round(ini, 3), round(float(ln.rsplit("freeze_end:", 1)[1].split()[0]), 3))); ini = None
+    if ini is not None: par.append((round(ini, 3), round(dur, 3)))
+    os.makedirs(CACHE_PARADOS, exist_ok=True)
+    json.dump({"arquivo": os.path.basename(arq), "dur": dur, "parados": par}, open(cj, "w", encoding="utf8"))
+    return dur, par
+
+
 def saltos_da_fonte(arq):
     """Saltos internos (corte, pulo de cena) de um clipe de origem, em s. Mesmo detector do lascas.py (diferença entre
     quadros > 12 e > 3x a mediana de ±0,5 s), sem a faixa da legenda. Cache por hash do conteúdo em _FLUXO/cache/saltos_fonte."""
@@ -165,6 +196,27 @@ def conferir(planos, fps, dur_total=None, aceitas=(), saltos=True, papel=None, a
                 if s0 + 1.0 / fps < t < s1 - 1.0 / fps:
                     err("salto", p["ini"] + (t - s0), p, f"o trecho {s0:.2f}-{s1:.2f} s de {_nome(p)} passa pelo salto do clipe em {t:.2f} s",
                         "use o trecho antes ou depois do salto (inicio/dur_max) ou aceite com motivo")
+    # hook parado (Fefo, 19/11/2026: "Os hooks tem que ter movimento"): mede a FONTE de cada b-roll dos primeiros HOOK_ATE s
+    if HOOK_ATE > 0 and (not papel or str(papel).lower().startswith("hook")):
+        for p in vis:
+            if p.get("tipo") != "broll" or p["ini"] >= HOOK_ATE or not isinstance(p.get("fonte"), str): continue
+            if p.get("movimento"): continue          # o motor põe movimento (push-in, pan) no plano
+            ini, fim = float(p["ini"]), min(float(p["fim"]), HOOK_ATE)
+            if p.get("src_ini") is None:
+                if str(p["fonte"]).lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+                    err("hook parado", ini, p, f"imagem parada no hook ({_nome(p)})", "troque por vídeo com movimento, ou mova a imagem (push-in, pan)")
+                continue
+            s0 = float(p["src_ini"]); s1t = float(p.get("src_fim", s0 + p["fim"] - p["ini"]))
+            vel = (s1t - s0) / max(1e-6, float(p["fim"]) - float(p["ini"])); s1 = s0 + (fim - ini) * vel
+            dur, para = parados_da_fonte(p["fonte"])
+            if dur and s1 > dur + PARADO_MIN:
+                err("hook parado", ini + (dur - s0) / max(vel, 1e-6), p, f"o plano pede {s1 - dur:.2f} s além do fim de {_nome(p)} (o resto fica congelado)",
+                    "corte o plano no fim da fonte, desacelere o clipe ou use outro clipe")
+            for a, b in para:
+                ov = min(s1, b) - max(s0, a)
+                if ov >= PARADO_MIN:
+                    err("hook parado", ini + (max(s0, a) - s0) / max(vel, 1e-6), p, f"{ov:.2f} s sem movimento em {_nome(p)} (fonte {max(s0, a):.2f}-{min(s1, b):.2f} s)",
+                        "use outro trecho do clipe, ponha movimento (push-in) ou troque o clipe")
     if papel:
         for e in erros: e["_seg_rel"] = True
     fica, ok = [], []

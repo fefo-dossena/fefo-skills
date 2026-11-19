@@ -327,6 +327,7 @@ def _planos_trava(B, plano, p, n, plan, HD, T):
 def trava_ad(B, p, n, plan=None, HD=None, T=None):
     """Recusa o render do AD se a linha do tempo tiver lasca (sai com código 3). Escape: plano.aceitar_lasca."""
     import trava_timeline as TT
+    import trava_ref; trava_ref.trava(B, f"AD{n}_{p}")      # estrutura igual à do ref (Fefo, 19/11/2026)
     plano, _ = carregar(B); n = int(n)
     if plano.get("one_take") or estilo_do_plano(plano, carregar(B)[1])["layout"] == "cartao": return []
     if plan is None:

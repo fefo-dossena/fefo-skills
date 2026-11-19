@@ -625,6 +625,36 @@ def _trava_folha(cmd, args):
     return prompt_qa.exigir_ok(args[0])
 
 
+def _trava_ref(cmd, args, caminhos):
+    """Vídeo só com o job estruturado como a referência (Fefo, 19/11/2026; checagens/trava_ref.py;
+    _FLUXO/LEIA-ME.md, seção "Ref no briefing"). Vale para os comandos de vídeo, avulsos ou no lote."""
+    if TESTE:
+        return None
+    video = VIDEO + ('omnihuman',)
+    if cmd == 'lote':
+        try:
+            arq = next(x for x in args if not x.startswith('--') and x != _opcao(args, '--intervalo'))
+            tem = any(p.get('cmd') in video for p in json.load(open(arq, encoding='utf-8')))
+        except (StopIteration, OSError, ValueError, AttributeError):
+            tem = False
+        if not tem:
+            return None
+    elif cmd not in video:
+        return None
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    sys.path[:0] = [os.path.join(aqui, 'checagens'), aqui]
+    try:
+        import trava_ref
+    except ImportError:      # skill publicada sem o arquivo: avisa e segue
+        print('AVISO: sem trava_ref.py; a trava do ref não rodou.', file=sys.stderr, flush=True)
+        return None
+    for c in caminhos:
+        motivo = trava_ref.exigir(c)
+        if motivo:
+            return motivo
+    return None
+
+
 def _aviso_fora_do_lote(cmd):
     """Geração avulsa (fora do `lote`): se já houve outra nos últimos 2 min, avisa para usar o lote (Fefo, 09/11/2026)."""
     if TESTE or os.environ.get('KIE_LOTE') or cmd in ('lote', 'saldo', 'upload', 'espera', 'suno-persona'):
@@ -670,6 +700,9 @@ def main():
     if a[0] in (FICHA['kie'].get('proibidos') or {}) and not _excecao(a[0], [a[POS_SAIDA[a[0]]+1]] if len(a) > POS_SAIDA.get(a[0], 99)+1 else []):
         sys.exit(f'RECUSADO: {a[0]} não roda em {FICHA["nome"]}: {FICHA["kie"]["proibidos"][a[0]]}')
     _aviso_fora_do_lote(a[0])
+    motivo = _trava_ref(a[0], a[1:], caminhos)
+    if motivo:
+        sys.exit(f'RECUSADO: {motivo}')
     motivo = _trava_folha(a[0], a[1:])
     if motivo:
         sys.exit(f'RECUSADO: {motivo}')

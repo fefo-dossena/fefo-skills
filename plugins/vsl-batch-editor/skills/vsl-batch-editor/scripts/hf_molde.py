@@ -265,7 +265,7 @@ class Comp:
             if c.get("sai"): self.dissolve(wrap, t1 - c["sai"]["dissolve"], c["sai"]["dissolve"], entra=False)
         if c.get("papel") == "broll":
             self.trava.append({"ini": t0, "fim": t1, "fonte": arq, "tipo": "broll", "src_ini": de, "src_fim": de + (t1 - t0) * vel,
-                               "nome": os.path.basename(arq)})
+                               "nome": os.path.basename(arq), "movimento": bool(c.get("push"))})
 
     def c_planos(self, c):
         W, H = self.tela; f = round(c["t0"] * self.fps); faixa = c.get("faixa", 0.5); pena = c.get("pena", 26)
@@ -287,7 +287,8 @@ class Comp:
             else: mask = ""
             self.video(it["src"], t0, d, de, (x0, y0, sw, sh), vel, extra=mask, larg=sw)
             if wrap: self.fecha()
-            self.trava.append({"ini": t0, "fim": t0 + d, "fonte": arq, "tipo": "broll", "src_ini": de, "src_fim": de + d * vel, "nome": os.path.basename(arq)})
+            self.trava.append({"ini": t0, "fim": t0 + d, "fonte": arq, "tipo": "broll", "src_ini": de, "src_fim": de + d * vel, "nome": os.path.basename(arq),
+                               "movimento": bool(it.get("push"))})
             f += n
         self.fecha()
         if c.get("entra"): self.dissolve(g, t_ini, c["entra"]["dissolve"])
@@ -296,8 +297,14 @@ class Comp:
     def c_imagem(self, c, src_local=None):
         W, H = self.tela; x, y, w, h = c.get("caixa") or (0, 0, W, H); t0, t1 = self.q(c.get("t0", 0)), self.q(c.get("t1", self.dur))
         a = src_local or asset(self.job, c["src"], self.proj, self.fps); i = self.novo_id("i")
+        wrap = self.abre() if c.get("push") else None
+        if wrap: self.push(wrap, t0, t1 - t0, c["push"])
         self.el.append(f'<img id="{i}" class="clip" src="{a}" data-start="{t0:.4f}" data-duration="{t1 - t0:.4f}" data-layout-ignore '
                        f'style="position:absolute;left:{x}px;top:{y}px;width:{w}px;height:{h}px;z-index:{self.z}" />'); self.z += 1
+        if wrap: self.fecha()
+        if c.get("papel") == "broll":       # imagem como plano (não sobreposição): entra na trava; no hook, só com push
+            self.trava.append({"ini": t0, "fim": t1, "fonte": caminho(self.job, c["src"]), "tipo": "broll", "nome": os.path.basename(c["src"]),
+                               "movimento": bool(c.get("push"))})
 
     def c_texto(self, c):
         nome = f"t_{self.n + 1}_{hashlib.sha1(json.dumps(c, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:8]}.png"
@@ -384,6 +391,7 @@ def preparar(job, spec, p, fmt, saida_log=True):
 
 def conferir_trava(job, spec, p, fmt, C):
     import trava_timeline as TT
+    import trava_ref; trava_ref.trava(job, f"{p} {fmt}")      # estrutura igual à do ref (Fefo, 19/11/2026)
     ps = sorted((dict(x) for x in C.trava), key=lambda x: x["ini"])
     for a, b in zip(ps, ps[1:]):            # dissolve: os dois planos coexistem; para a trava o corte é o início do dissolve
         if b["ini"] < a["fim"]: a["src_fim"] = a["src_ini"] + (b["ini"] - a["ini"]) * ((a["src_fim"] - a["src_ini"]) / max(1e-6, a["fim"] - a["ini"])); a["fim"] = b["ini"]

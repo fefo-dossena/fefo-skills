@@ -101,7 +101,7 @@ grito ou explosão sem explicação é confusão e ela rola a tela. Na conferên
 - 1º corte até ~4,5 s.
 - Ponte para a hold clara.
 - Os 3 hooks com 1º quadro diferente entre si (regra do `10_revisao`).
-- Abre no ato, nunca no setup ("hey guys", pegar o frasco); se a fala tem virada ("…but"), punch-in no rosto ali.
+- Abre no ato, nunca no setup ("hey guys", pegar o frasco); se a fala tem virada ("…but"), corte para outra cena ali (punch-in extinto, Fefo 19/11/2026).
 - O texto do header fica na tela o hook inteiro (80–90% assiste sem som, segundo o curso Ad Creators Lab).
 
 ## Hook novo sobre um corpo que já funciona (curso Ad Creators Lab, 29/10/2026)

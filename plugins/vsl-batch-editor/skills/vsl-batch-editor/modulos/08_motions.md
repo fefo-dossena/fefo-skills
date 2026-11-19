@@ -1,6 +1,6 @@
 # Módulo: motions (pedido explícito; local)
 Dá para fazer em ffmpeg/libass sobre o AD já montado (ou dentro do `montar`):
-- Punch-in: `zoompan`/`scale` com expressão de tempo (100%→110% em 0,15 s) nos momentos de ênfase.
+- Punch-in: extinto (Fefo, 19/11/2026). Ênfase = corte para outra cena. Regra: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Cenas, não punch-in".
 - Legenda animada: ASS com `\t(\fscx120\fscy120)` (pop) e palavra-chave em outra cor (tempos do `palavras_*.json`).
 - Stickers/setas/CTA: PNG com transparência (`06_elementos/` ou gerado no Sunburst) com `overlay` e x/y por expressão
   (deslize, quique, pulsar), `enable='between(t,a,b)'`.

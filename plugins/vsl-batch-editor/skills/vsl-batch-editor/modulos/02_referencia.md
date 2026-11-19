@@ -1,13 +1,13 @@
 # Módulo: referência → estilo do ad
-> **Ref no briefing = refazer o vídeo** (Fefo, 19/11/2026): mesma música, mesmo movimento, personagem parecido, hook com movimento. Regra inteira: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Ref no briefing".
+> **Ref no briefing = refazer o vídeo, quadro a quadro** (Fefo, 19/11/2026). SEMPRE olhar o ref; decupagem quadro a quadro antes do plano; inspo e script do CS seguidos a 100%. Regra única: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Ref no briefing". Onde este módulo disser outra coisa, vale a seção.
 
 O estilo de cada batch vem do(s) ad(s) em `01_refs/` **desta** batch (e do canvas/brief), nunca da batch anterior.
 Se `01_refs/` estiver vazio, pergunte ao Fefo qual ad seguir antes de seguir. Card sem ad de referência (Milanote sem
 ref, BATCH#3214 e #3215): proponha um estilo UGC (personagem, cenário, enquadramento de cada setup, legenda) e espere o
 OK; nas duas, médico(a) falando para a câmera fixa na mesa do consultório + selfie andando nos hooks foi aprovado.
 
-## Passo 0a: o brief vem antes do ref (Louise, 13/11/2026; trava no lint)
-O ad de referência é guia e inspiração. Instrução escrita no brief ou no card manda sobre o ref. Antes de medir o ref:
+## Passo 0a: ler o brief e o script do CS (Louise, 13/11/2026; trava no lint; ajustado pelo Fefo em 19/11/2026)
+O script do CS manda no que se diz e se escreve. O ref manda em como se vê e se ouve. Os dois são seguidos a 100% (`LEIA-ME.md` do núcleo, seção "Ref no briefing", item 4). Antes de medir o ref:
 1. Leia o brief e o card inteiros (Notion, Milanote, doc). Copie cada instrução escrita, palavra por palavra, para o
    `08_auto/plano.json`: `"brief_regras": [{"frase": "<texto literal>", "fonte": "card|brief|milanote", "regra": "<o que muda no plano>"}]`.
    Sem instrução escrita: `"brief_regras": []` e `"brief_lido": "<onde leu>"`.
@@ -17,7 +17,7 @@ O ad de referência é guia e inspiração. Instrução escrita no brief ou no c
    Arquivo não existe (outra máquina): avise numa linha e siga.
 3. Meça o ref (passo 0 abaixo) e liste onde ele contradiz o brief ou as preferências: `"brief_conflitos": [{"brief": "...", "ref": "...", "decisao_fefo": ""}]`.
 4. Com conflito: **pergunte ao Fefo antes de planejar**, uma pergunta só com a lista, e grave as palavras dele em
-   `decisao_fefo`. Sem resposta, o brief vence.
+   `decisao_fefo`. Sem resposta, não planeje (Fefo, 19/11/2026; antes: "o brief vence").
 - Trava: o `lint_plano.py` (dentro do `fluxo.py checar`) dá erro em batch nova (criada desde 13/11/2026) sem
   `brief_regras` e em conflito sem `decisao_fefo`.
 
@@ -25,9 +25,9 @@ O ad de referência é guia e inspiração. Instrução escrita no brief ou no c
 O resumo do briefing não substitui o ad. Na 4206 o briefing dizia "5 planos de 2 s"; o ref tinha ~9 planos de 0,8–1,8 s,
 VO a ~3,7 pal/s, 2 flashes e legenda fixa no topo, e o plano teve de ser refeito. Antes do banco e do plano:
 1. Baixe o mp4 do ref (Milanote: elemento FILE, não LINK; Atria: `currentSrc` do player, `cdn.tryatria.com`; Brief Folder).
-2. Meça e anote no plano (`08_auto/ref_medidas.md`): duração, número e duração dos planos, palavras/s da VO, F0 médio da
-   voz, gênero e tom, trilha (sim/não, BPM aproximado), posição e forma do texto na tela, flashes e efeitos.
-3. Planeje e escolha voz, ritmo e cenas por essas medidas. Diga ao Fefo as medidas junto do plano.
+2. Faça a decupagem quadro a quadro em `08_auto/ref_medidas.md`, por subagente, como manda o `LEIA-ME.md` do núcleo
+   (seção "Ref no briefing", itens 1 e 2): uma linha por plano do ref e as medidas gerais.
+3. Planeje plano a plano pela decupagem: cada cena aponta a linha do ref que ela refaz. Diga ao Fefo as medidas junto do plano.
 
 ## Régua de qualidade: BATCH#3217
 Elogiada pelo Daniel (31/10/2026: "this one bro, really good"; ele não disse o motivo). Serve para comparar o nível antes de ir ao Fefo, em especial em build de médico em PIP, **nunca como fonte de estilo**: o estilo continua vindo de `01_refs/` e do card. O que olhar em `BATCH#3217/09_export/`:
@@ -41,7 +41,7 @@ Escolhida pelo Fefo para montagem, cor, lettering, enquadramento e direção de 
 e o card decidem; ela vale onde o ref não decide e no ad sem ref. Ficha completa no segundo cérebro:
 `3 Recursos/Design/Fichas/Reel Nova Zelândia (Marina Guaragna).md` (vídeo e quadros em `Meu Drive/@refs/Nova Zelandia - Marina Guaragna`).
 - **Um plano por ideia falada, ilustrado ao pé da letra** (acidente → ambulância), corte no fim da palavra-chave, média ~1,5 s.
-- **Avatar nas viradas** e em escada: aberto → médio → close → close extremo na frase mais forte (punch-in no ápice).
+- **Avatar nas viradas** e em escada: aberto → médio → close → close extremo na frase mais forte. Cada degrau é uma cena própria (gerada ou do banco), não zoom no mesmo clipe: punch-in extinto (Fefo, 19/11/2026).
 - **B-roll nativo de 9:16:** assunto vertical, linhas-guia, camadas frente/meio/fundo, escala humana; closes tão fechados
   que viram bloco de cor para quebrar o ritmo; quase todo plano com movimento. Terço de cima livre quando há texto.
 - **Cor em registros:** pessoa natural e levemente quente; plano de "sonho/resultado" saturado; passado/problema pode mudar de registro.
@@ -70,8 +70,9 @@ Quando o card pedir "estilo Pixar" / animação 3D, e o ref da batch não decidi
   formato?); duração-alvo (o ref tem 2:13); palavrão censurado na letra pode?; lip-sync cantado no Kling.
 
 ## Como analisar
-- Com ffmpeg: `ffmpeg -i ref.mp4 -vf "fps=1/2,scale=150:-1,tile=8x6" sheet.jpg` (prancha a cada 2 s) e, se precisar,
-  `-ss <t> -frames:v 1` para ver um momento. Transcreva o áudio do ref (`vsl.py transcrever`) para casar copy × cena.
+- A prancha a cada 2 s (`ffmpeg -i ref.mp4 -vf "fps=1/2,scale=150:-1,tile=8x6" sheet.jpg`) serve só de mapa. A decupagem
+  usa quadros grandes: todos os do hook (0 a 3 s), 1 a cada 0,5 s no resto e o de antes e o de depois de cada corte
+  (`-ss <t> -frames:v 1`). Transcreva o áudio do ref (`vsl.py transcrever`) para casar copy × cena.
 - Sem ffmpeg: copie para o scratchpad, sirva com `python3 -m http.server`, abra no navegador interno (127.0.0.1) e capture
   quadros tocando o vídeo em 4× com `requestVideoFrameCallback` (o http.server não aceita seek).
 
@@ -115,7 +116,7 @@ repete e o que dá sensação. Sem ref: procure ads e conteúdo orgânico do que
   colorido, "hard to read" na 2481 V2 — prefira esta). `legenda.caixa_alta: true` vale para qualquer estilo de SRT.
   Se o ref usar outro, descreva em `observacoes` e implemente no `fluxo.py` → `ESTILOS`. `posicao`: `divisao` (linha
   entre avatar e b-roll), `centro_baixo`, `centro`, `meio_alto`, `peito_alto` (~64%) ou `peito` (y≈1550, cabe no 4:5).
-- **Copie o desenho do texto do ref**, não só a cor: forma da caixa, nº de linhas, posição/altura e o header do hook. O time
+- **Copie o desenho do texto de tela do ref** (header do hook, título, card), não só a cor: forma da caixa, nº de linhas e posição/altura. A legenda da fala fica no estilo padrão (item acima). O time
   compara lado a lado ("text box looks horrible", "hook doesn't look the same text wise" na 2824).
 - Outros campos que o `montar` lê: `avatar.enquadramento = "nenhum"` (só VO, b-roll cobre 100%), `hook_header`
   {"1": [branco, destaque]} + `hook_header_y` + `hook_header_quebra` (caracteres por linha, padrão 24), `titulo_hook`

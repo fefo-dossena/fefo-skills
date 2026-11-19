@@ -25,10 +25,11 @@ py fluxo.py status "<pasta da batch>"                           # o que falta, p
 ## Motor: `08_auto/plano.json`
 - A batch inteira está no `plano.json` (falas, cenas, personagens, frascos). O `status` sabe o que falta ou está velho;
   o `fazer` roda só as etapas locais pendentes, pelo `montador`. Depois de qualquer mudança: `status` → `fazer`.
-- Passo 0: baixar e medir o ref (`modulos/02_referencia.md`) antes do banco e do plano.
+- Passo 0: baixar, **assistir** e decupar o ref quadro a quadro (`modulos/02_referencia.md`; regra única em
+  `@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Ref no briefing") antes do banco e do plano. Sem decupagem, não há plano.
 - **Banco antes de gerar:** toda batch nova passa pelo módulo `banco`; cada cena REUSE ou NEW em `08_auto/banco_reuso.tsv`;
   só o NEW entra no pedido de crédito.
-- Brief antes do ref: `brief_regras` e `brief_conflitos` no `plano.json` (o `lint_plano` trava sem eles). Notas que já
+- Script do CS e ref a 100% (Fefo, 19/11/2026): `brief_regras` e `brief_conflitos` no `plano.json` (o `lint_plano` trava sem eles). Notas que já
   voltaram do cliente: `_FLUXO_VSL/preferencias_daniel.md`, lido no plano de toda batch.
 
 ## Geração
@@ -83,9 +84,8 @@ Análise e quadros: `_FLUXO/feedback/2026-11-18_daniel_loom/`. Ele citou o Fefo 
 - **VisioVance só em eye vitamin.** Outro nicho sai só Neurobella.
 - **Criador real é intocável:** bruto de criador contratado usa vídeo e voz originais; nada de voz de IA nem avatar parecido.
   Bruto difícil: avisar a Louise antes.
-- **Legenda (18/11/2026, aprovada pelo Daniel; SEMPRE na EV):** sem caixa, texto branco em Bold com contorno preto, na região de baixo (centro y 0,72, nunca abaixo
-  de 78%); caixa branca só na chamada do hook; emoji da Apple. Cena que cobre frasco, rótulo ou rosto sobe.
-  Estilo e margem: `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda.
+- **Legenda (18/11/2026, aprovada pelo Daniel; SEMPRE na EV):** regra única em `@CLIENTES/_FLUXO/LEIA-ME.md`, seção Legenda
+  (estilo, zona segura de Meta e TikTok, posição pelo enquadramento). Os valores não se repetem aqui.
 - **Black Friday e promo:** só batch BF ou promo sai também em 1,91:1 (1200×628) e 1:1 (1200×1200); batch comum só vertical.
   Banners de BF Late e BFCM: `@EMPIRE VISION/CLAUDE.md`. Em aberto o pixel do vídeo: perguntar antes de exportar BF.
 - Loudness −20 LUFS (no `empire-vision.json`).

@@ -129,8 +129,9 @@ O pedido ao revisor roda `fluxo.py checar <batch>` (freeze, lascas, ritmo e lint
   ~4,5 s, 3 hooks com 1º quadro diferente).
 - **Ritmo** (SOP do Daniel, regra do Fefo, 30/10/2026): algo muda na tela a cada 1 a 3 s. Copie o AD para o scratchpad e rode
   `python3 scripts/ritmo.py <AD.mp4>` no AD1 de cada marca e nos hooks dos outros ADs. Cada trecho acima de 3 s é corrigido
-  com novo corte, punch-in ou zoom (`punch_in`, `efeitos_<n>.py`), ou justificado ao Fefo: ref mais lento manda. O script
-  conta corte e punch-in, não vê zoom lento e pode perder corte entre clipes parecidos (acertou 125 de 130 emendas em 3465,
+  com corte para outra cena (banco ou geração), ou justificado ao Fefo: ref mais lento manda. Punch-in extinto (Fefo,
+  19/11/2026; `@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Cenas, não punch-in"): o `punch_in` do plano é ignorado. O script
+  conta corte, não vê zoom lento e pode perder corte entre clipes parecidos (acertou 125 de 130 emendas em 3465,
   3467 e 3222): olhe o trecho antes de mexer.
 - **Legenda:** no máximo 7 palavras na tela (`srt()`, ajuste em `batch.json` → `legenda.max_palavras`); só expressão de `inteiras`
   passa disso. Na revisão, legenda regerada pode quebrar diferente nos blocos que passavam de 7 (~1% em 3222, 3467 e 3219):
