@@ -2,6 +2,9 @@
 # ---------------------------------------------------------------- plano e caminhos
 def carregar(B):
     plano = json.load(open(f"{B}/{AUTO}/plano.json"))
+    try:
+        import trava_ref; trava_ref.marca_zoom(B)      # REF_ZOOM: zoom só quando o ref faz (Fefo, 19/11/2026)
+    except Exception: pass
     cfg = json.load(open(f"{B}/{CFG}")) if os.path.exists(f"{B}/{CFG}") else {}
     if plano.get("fps"):                 # fps da batch (vence a ficha; um processo = uma batch)
         global FPS; FPS = int(plano["fps"]); os.environ["FLUXO_FPS"] = str(FPS)
@@ -103,11 +106,13 @@ def punch(plano, i, fala=None):
     plano.estilo.avatar.punch_in = [1.0, 1.12] e crop_y (0 = topo, 0.5 = centro) para manter o rosto no quadro."""
     av = plano.get("estilo", {}).get("avatar", {}); zs = (fala or {}).get("punch_in") or av.get("punch_in") or [1.0]; z = zs[i % len(zs)]   # falas[i].punch_in vence o do estilo
     if z == 1: return ""
-    if os.environ.get("PUNCH_ANTIGO") != "1":      # punch-in extinto (Fefo, 19/11/2026): corte = cena nova, sem zoom na pessoa
+    # zoom só quando o ref faz (Fefo, 19/11/2026): vale o punch_in escrito NA FALA, e só com plano de zoom no ref_estrutura.json
+    do_ref = bool((fala or {}).get("punch_in")) and os.environ.get("REF_ZOOM") == "1"
+    if os.environ.get("PUNCH_ANTIGO") != "1" and not do_ref:      # punch-in extinto (Fefo, 19/11/2026): corte = cena nova, sem zoom na pessoa
         if not getattr(punch, "_avisou", False):
             punch._avisou = True
-            print("   AVISO: punch_in do plano ignorado. O punch-in foi extinto (Fefo, 19/11/2026): cubra o corte com outra "
-                  "cena. Regra: _FLUXO/LEIA-ME.md, seção \"Cenas, não punch-in\".", file=sys.stderr, flush=True)
+            print("   AVISO: punch_in do plano ignorado. Zoom só quando o ref faz (Fefo, 19/11/2026): \"zoom\": true no plano do ref "
+                  "(ref_estrutura.json) e punch_in na fala. Fora disso, cubra o corte com outra cena. Regra: _FLUXO/LEIA-ME.md, seção \"Cenas, não punch-in\".", file=sys.stderr, flush=True)
         return ""
     return f",crop=iw/{z}:ih/{z}:(iw-iw/{z})/2:(ih-ih/{z})*{av.get('crop_y', 0.3)},scale=720:1280"
 def vtrim(s, e):

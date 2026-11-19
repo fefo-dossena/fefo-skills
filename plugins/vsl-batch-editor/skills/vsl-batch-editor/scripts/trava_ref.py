@@ -7,7 +7,10 @@ O job só gera vídeo (kie.py) e só monta (EV fluxo.py, TS montagem_base) com `
    "planos": [{"n": 1, "de": 0.0, "ate": 2.4, "enquadramento": "...", "camera": "...", "acao": "...",
                "personagem": "...", "texto": "...", "som": "..."}],            # decupagem: uma linha por plano do ref
    "nosso":  [{"cena": "H1-01", "ref": 1, "dur": 2.4, "movimento": "push-in lento"}],   # cada cena e o plano que refaz
-   "excecoes": [{"de": "ref 7" | "cena S12", "motivo": "...", "fefo": "<palavras do Fefo>"}]}
+   "audio": {"ref":   {"musica": "piano tenso, entra no 0 s", "bpm": 92, "voz": "mulher 50+, calma", "genero": "f", "pps": 3.1},
+             "nosso": {"musica": "mesma do ref | <a mais próxima, qual>", "bpm": 90, "voz": "...", "genero": "f", "pps": 3.0}},
+   "excecoes": [{"de": "ref 7" | "cena S12" | "audio", "motivo": "...", "fefo": "<palavras do Fefo>"}]}
+Plano do ref com zoom na pessoa (punch-in): "zoom": true no plano; a cena que o refaz leva "zoom": true também.
 Vários refs no mesmo job: {"refs": [ {ref, planos, nosso, excecoes}, ... ]}.
 Job sem ref: {"sem_ref": {"motivo": "...", "fefo": "<palavras do Fefo>"}}.
 Cena que repete o padrão do ref porque o script é mais longo: "repete": true (não entra na conta da ordem).
@@ -19,7 +22,10 @@ O que a trava recusa (código 3):
   4. plano do ref que nenhuma cena refaz; cena que não aponta plano do ref;
   5. ordem das cenas diferente da ordem do ref;
   6. tempo de cena fora do tempo do plano do ref (na proporção das durações; folga de 30% ou 0,4 s);
-  7. cena do hook (plano do ref que começa antes de 3 s) sem movimento.
+  7. cena do hook (plano do ref que começa antes de 3 s) sem movimento;
+  8. zoom onde o ref não faz, ou plano do ref com zoom refeito sem zoom (Fefo, 19/11/2026: "zoom só quando o ref faz");
+  9. sem "audio", ref com música e o nosso sem, BPM fora de 10%, voz de outro gênero ou ritmo de fala fora de 15%
+     (call da EV, 19/11/2026: o remake leva a mesma VO e a mesma música).
 Escape: só `excecoes`, um por item, com motivo e as palavras do Fefo.
 
 Vale para job criado desde 19/11/2026. Job mais antigo sem o arquivo: só aviso. Com o arquivo, confere sempre.
@@ -90,6 +96,70 @@ def _num(x):
         return None
 
 
+SEM = ('nenhuma', 'nenhum', 'sem', 'none', 'sem musica', 'sem música', 'sem voz', 'sem vo')
+
+
+def _audio(a, rot, erros, exc):
+    """Mesma música e mesma VO do ref (call da EV de 19/11/2026; Fefo: "pode por os 4")."""
+    if 'audio' in exc:
+        return
+    if not isinstance(a, dict) or not isinstance(a.get('ref'), dict) or not isinstance(a.get('nosso'), dict):
+        erros.append(f'{rot}sem "audio": descreva a música e a voz do ref e as nossas '
+                     '("audio": {"ref": {"musica", "bpm", "voz", "genero", "pps"}, "nosso": {...}}; sem música ou sem voz: "nenhuma")')
+        return
+    r, n = a['ref'], a['nosso']
+    for lado, d in (('ref', r), ('nosso', n)):
+        falta = [c for c in ('musica', 'voz') if not str(d.get(c, '')).strip()]
+        if falta:
+            erros.append(f'{rot}audio.{lado} sem {", ".join(falta)} (sem nada: "nenhuma")')
+    rm, nm = str(r.get('musica', '')).strip().lower(), str(n.get('musica', '')).strip().lower()
+    if rm and rm not in SEM and nm in SEM:
+        erros.append(f'{rot}o ref tem música ("{rm[:50]}") e o nosso não: mesma música do ref, ou a mais próxima')
+    rb, nb = _num(r.get('bpm')), _num(n.get('bpm'))
+    if rm and rm not in SEM:
+        if rb is None or nb is None:
+            erros.append(f'{rot}audio sem "bpm" no ref ou no nosso: meça o BPM da trilha do ref e da nossa')
+        elif abs(nb - rb) > 0.1 * rb:
+            erros.append(f'{rot}trilha a {nb:g} BPM; a do ref tem {rb:g} (folga de 10%)')
+    rv, nv = str(r.get('voz', '')).strip().lower(), str(n.get('voz', '')).strip().lower()
+    if rv and rv not in SEM:
+        if nv in SEM:
+            erros.append(f'{rot}o ref tem voz ("{rv[:50]}") e o nosso não')
+        rg, ng = str(r.get('genero', '')).strip().lower()[:1], str(n.get('genero', '')).strip().lower()[:1]
+        if not rg or not ng:
+            erros.append(f'{rot}audio sem "genero" da voz (f ou m) no ref ou no nosso')
+        elif rg != ng:
+            erros.append(f'{rot}voz de gênero diferente do ref (ref {rg}, nosso {ng})')
+        rp, np_ = _num(r.get('pps')), _num(n.get('pps'))
+        if rp is None or np_ is None:
+            erros.append(f'{rot}audio sem "pps" (palavras por segundo da fala) no ref ou no nosso')
+        elif abs(np_ - rp) > 0.15 * rp:
+            erros.append(f'{rot}fala a {np_:g} palavras/s; a do ref tem {rp:g} (folga de 15%)')
+
+
+_zoom = {}
+
+
+def marca_zoom(caminho):
+    """REF_ZOOM=1 no ambiente quando algum plano do ref tem "zoom": true. O código de montagem só aceita punch-in assim
+    (Fefo, 19/11/2026: "zoom só quando o ref faz")."""
+    k = os.path.abspath(caminho)
+    if k not in _zoom:
+        z = False
+        raiz, pastas = achar_job(caminho)
+        if raiz:
+            try:
+                d = json.load(open(os.path.join(raiz, pastas['auto'], ARQ), encoding='utf-8'))
+                blocos = d['refs'] if isinstance(d.get('refs'), list) and d['refs'] else [d]
+                z = any(p.get('zoom') for b in blocos if isinstance(b, dict)
+                        for p in (b.get('planos') or []) if isinstance(p, dict))
+            except (OSError, ValueError, AttributeError):
+                z = False
+        _zoom[k] = z
+    os.environ['REF_ZOOM'] = '1' if _zoom[k] else '0'
+    return _zoom[k]
+
+
 def _bloco(raiz, b, rot, erros, avisos):
     r = b.get('ref') or {}
     arq = os.path.join(raiz, str(r.get('arquivo') or ''))
@@ -120,7 +190,7 @@ def _bloco(raiz, b, rot, erros, avisos):
     if not planos:
         erros.append(f'{rot}sem "planos": a decupagem tem uma linha por plano do ref')
         return
-    ids, t = {}, 0.0
+    ids, t, zoom_ref, zoom_nosso = {}, 0.0, set(), set()
     for p in planos:
         n, a, f = p.get('n'), _num(p.get('de')), _num(p.get('ate'))
         if n is None or a is None or f is None or f <= a:
@@ -135,6 +205,8 @@ def _bloco(raiz, b, rot, erros, avisos):
         if falta:
             erros.append(f'{rot}plano {n} do ref sem {", ".join(falta)} (sem nada: escreva "nenhum")')
         ids[n] = (a, f)
+        if p.get('zoom'):
+            zoom_ref.add(n)
         t = f
     if D and abs(t - D) > 0.5:
         erros.append(f'{rot}a decupagem acaba em {t:.2f} s e o ref tem {D:.2f} s: falta plano')
@@ -153,6 +225,10 @@ def _bloco(raiz, b, rot, erros, avisos):
                 erros.append(f'{rot}cena {cid} não aponta plano do ref (ref = {n!r}): toda cena refaz um plano do ref')
             continue
         usados.add(n)
+        if c.get('zoom'):
+            zoom_nosso.add(n)
+            if n not in zoom_ref and not livre:
+                erros.append(f'{rot}cena {cid} tem zoom e o plano {n} do ref não: zoom só quando o ref faz; fora disso, outra cena')
         if d is None or d <= 0:
             erros.append(f'{rot}cena {cid} sem "dur" (segundos)')
             continue
@@ -168,6 +244,10 @@ def _bloco(raiz, b, rot, erros, avisos):
     for n in ids:
         if n not in usados and f'ref {n}' not in exc:
             erros.append(f'{rot}o plano {n} do ref ({ids[n][0]:.2f}–{ids[n][1]:.2f} s) não é refeito por nenhuma cena')
+    for n in sorted(zoom_ref - zoom_nosso, key=str):
+        if n in usados and f'ref {n}' not in exc:
+            erros.append(f'{rot}o plano {n} do ref tem zoom e a cena que o refaz não ("zoom": true na cena)')
+    _audio(b.get('audio'), rot, erros, exc)
     pos = {n: i for i, n in enumerate(ids)}
     for (n0, c0, _), (n1, c1, l1) in zip(ordem, ordem[1:]):
         if pos[n1] < pos[n0] and not l1:
@@ -215,6 +295,7 @@ def exigir(caminho):
     raiz, pastas = achar_job(caminho)
     if not raiz:
         return None
+    marca_zoom(caminho)
     if raiz in _cache:
         return _cache[raiz]
     tem = os.path.isfile(os.path.join(raiz, pastas['auto'], ARQ))
@@ -277,6 +358,8 @@ def modelo(raiz, pastas, ref):
                'planos': [{'n': 1, 'de': 0.0, 'ate': 0.0, 'enquadramento': '', 'camera': '', 'acao': '',
                            'personagem': '', 'texto': '', 'som': ''}],
                'nosso': [{'cena': '', 'ref': 1, 'dur': 0.0, 'movimento': ''}],
+               'audio': {'ref': {'musica': '', 'bpm': None, 'voz': '', 'genero': '', 'pps': None},
+                         'nosso': {'musica': '', 'bpm': None, 'voz': '', 'genero': '', 'pps': None}},
                'excecoes': []}, open(arq, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     print(f'gravado: {arq}')
 

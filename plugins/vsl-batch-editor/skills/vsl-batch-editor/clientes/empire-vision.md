@@ -60,6 +60,24 @@ diabética, com medo de ficar cego e de injeção, com raiva e dor.
 - **Estudar:** SmoothSpine, Relivex, Koprez, Noroo, Hike Footwear e LifeX. Referência interna: os VSLs da Ria.
 - Conflito com regra antiga (ex. "AD do Daniel sempre com música"): a música fica, mas de tensão, não alegre.
 
+## Call do time de edição (Umut e Daniel, 19/11/2026: vale para toda batch; Fefo: "pode por os 4")
+Ata: segundo cérebro, `3 Recursos/Call de edição da EV - menos slop.md`. Exemplo negativo: BATCH#4614 (hook chato, VO robótica,
+b-roll com cara de stock, sem música).
+- **Mesma VO e mesma música do ref.** A trava do ref confere (bloco `audio` do `ref_estrutura.json`): gênero, ritmo da fala e BPM.
+- **Filtro anti-stock.** B-roll com cara de banco de imagem, com filtro ou com cena encenada é slop, **mesmo vindo do banco**.
+  Sinais: pessoa posando ou sorrindo para a câmera, luz de estúdio, fundo branco ou limpo demais, cor lavada de catálogo,
+  marca d'água, gesto ensaiado. Na escolha (`modulos/05a_banco.md`): olhe o clipe em tamanho grande e recuse o que tiver um
+  desses sinais. Sem clipe real que passe: diga ao Fefo, com a cena e o que buscou. Não troque por stock.
+- **B-roll literal ao roteiro.** Falou de bilberry, mostra bilberry de verdade.
+- **VO sem cara de robô.** Toda batch com VO de TTS manda ao Fefo a amostra de 15 a 20 s (trava 1 de `REGRAS_DA_SESSAO.md`)
+  antes de gerar o resto. Voz plana, sem ênfase ou com respiração errada = refazer a voz antes de montar.
+- **Hook cheio.** Muita coisa acontece nos 3 primeiros segundos: cortes rápidos, e zoom só quando o ref faz.
+- **Primeiros 15 s com problema, dor e prova** (depoimento ou demonstração). Roteiro do CS sem prova nos 15 s: avise o Fefo
+  antes de planejar; não reescreva o roteiro.
+- **Algo novo a cada 2 a 3 s:** outra cena (`@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Cenas, não punch-in").
+- Em aberto, com o Fefo: de onde vem o b-roll real (banco com filtro, footage licenciada ou geração documental) e a legenda
+  igual à do ref.
+
 ## Loom do Daniel (18/11/2026: vale para toda batch, nova ou revisão)
 Análise e quadros: `_FLUXO/feedback/2026-11-18_daniel_loom/`. Ele citou o Fefo pelo nome por causa de stills (4382).
 - **Zero still.** Nenhuma imagem parada nem packshot parado; nada de 2 ou mais planos seguidos de frasco só trocando o fundo.

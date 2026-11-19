@@ -200,11 +200,10 @@ def conferir(planos, fps, dur_total=None, aceitas=(), saltos=True, papel=None, a
     if HOOK_ATE > 0 and (not papel or str(papel).lower().startswith("hook")):
         for p in vis:
             if p.get("tipo") != "broll" or p["ini"] >= HOOK_ATE or not isinstance(p.get("fonte"), str): continue
-            if p.get("movimento"): continue          # o motor põe movimento (push-in, pan) no plano
             ini, fim = float(p["ini"]), min(float(p["fim"]), HOOK_ATE)
             if p.get("src_ini") is None:
                 if str(p["fonte"]).lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
-                    err("hook parado", ini, p, f"imagem parada no hook ({_nome(p)})", "troque por vídeo com movimento, ou mova a imagem (push-in, pan)")
+                    err("hook parado", ini, p, f"imagem parada no hook ({_nome(p)})", "troque por vídeo com movimento (punch-in não vale: extinto em 19/11/2026)")
                 continue
             s0 = float(p["src_ini"]); s1t = float(p.get("src_fim", s0 + p["fim"] - p["ini"]))
             vel = (s1t - s0) / max(1e-6, float(p["fim"]) - float(p["ini"])); s1 = s0 + (fim - ini) * vel
@@ -216,7 +215,7 @@ def conferir(planos, fps, dur_total=None, aceitas=(), saltos=True, papel=None, a
                 ov = min(s1, b) - max(s0, a)
                 if ov >= PARADO_MIN:
                     err("hook parado", ini + (max(s0, a) - s0) / max(vel, 1e-6), p, f"{ov:.2f} s sem movimento em {_nome(p)} (fonte {max(s0, a):.2f}-{min(s1, b):.2f} s)",
-                        "use outro trecho do clipe, ponha movimento (push-in) ou troque o clipe")
+                        "use outro trecho do clipe ou outra cena (punch-in não vale: extinto em 19/11/2026)")
     if papel:
         for e in erros: e["_seg_rel"] = True
     fica, ok = [], []

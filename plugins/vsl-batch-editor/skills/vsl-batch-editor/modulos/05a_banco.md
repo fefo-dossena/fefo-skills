@@ -23,6 +23,12 @@ Em 18/11/2026 a busca `real=1` já achava 25 clipes de "eye drops" e 37 de "driv
 Palavras de busca prontas por parte do AD (hook, sintoma, clínica, ingredientes, CTA): `broll_biblioteca.md`. A trava de
 70% real em segundos roda no `lint_plano.py` (campo `origem` em cada cena: `real | ia | avatar | camada`).
 
+## Filtro anti-stock (call de 19/11/2026, Umut e Daniel)
+Clipe do banco com cara de banco de imagem é slop e não entra, mesmo com `real=1`. Antes de marcar REUSE, um subagente olha
+o clipe em tamanho grande. Recuse com um destes sinais: pessoa posando ou sorrindo para a câmera, luz de estúdio, fundo
+branco ou limpo demais, cor lavada de catálogo, marca d'água, gesto ensaiado, filtro pesado. Grave o motivo no
+`banco_reuso.tsv`. Cena sem clipe real que passe: avise o Fefo. Regra: ficha `clientes/empire-vision.md`, seção "Call do time de edição".
+
 ## Como acessar
 1. **Chave** em `~/.vsl-batch-editor/banco_chave` (fora do Drive e do zip; nunca em `perfil.json`, nota ou módulo):
    `GET /agent/search?q=<palavras>&qa=pass&limit=20` com o header `X-Agent-Key`, nunca na URL. `GET /agent` mostra a ajuda.
