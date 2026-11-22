@@ -2,9 +2,9 @@
 Roda no fim de toda batch e no fim de toda revisão, depois de conferir os ADs. Subir e gerar links publica para o time:
 faça quando o Fefo pedir a entrega ou disser que a batch está pronta.
 
-**Antes do "Ready for view", sempre mandar os vídeos ao Fefo para revisar** (regra do Fefo, 13/10/2026): publicar a versão
-nova na Review Room (`11_review_room.md`; SendUserFile só se ele pedir) e esperar o OK dele no chat. Aprovar na sala não
-libera a entrega. Na mesma pergunta, diga tudo o que o OK libera:
+**Antes do "Ready for view", sempre mandar os vídeos ao Fefo para revisar** (regra do Fefo, 13/10/2026): mandar a versão
+nova para a sala do painel local (`11_review_room.md`; SendUserFile só se ele pedir) e esperar o OK dele no chat. Aprovar na
+sala não libera a entrega. Na mesma pergunta, diga tudo o que o OK libera:
 "Posso subir no Frame.io, comentar o Ready for view no card do Notion e mudar o status para CS NEEDS TO REVIEW?"
 
 Ordem depois do OK: 1) Frame.io e links; 2) Google Drive; 3) mensagem "Ready for view"; 4) Notion (comentário +

@@ -45,11 +45,13 @@ Uma linha por candidato em `01_refs/avatar_quadro/refs.md`: arquivo, plataforma,
 perfil, para qual personagem e o que pesa a favor ou contra. O link fica para o caso de precisar de outro quadro do mesmo vídeo.
 
 ## 5. Escolha do Fefo pela sala
-Os candidatos entram na sala de revisão como etapa (skill `sala-de-revisao`), antes de qualquer crédito:
-`reviewroom.py etapa <review.json> refs --ordem 1 --titulo "Referências reais" --status aguardando --nota "Escolher 1 por personagem" 01_refs/avatar_quadro/q*.png`.
-Abra a sala na sessão e espere: ele escolhe com uma nota ("esse", "esse mas sem a janela") ou no chat. Só depois o
-`03_personagens.md` (Nano Banana Pro com o quadro em `--ref`). O quadro escolhido e o avatar gerado lado a lado vão na etapa
-`personagens`, para conferir que é **outra pessoa** (olhos, nariz e pele diferentes; cabelo e roupa não bastam).
+Os candidatos vão ao Fefo pelo painel local (`11_review_room.md`), antes de qualquer crédito. Os quadros em
+`01_refs/avatar_quadro/q*.png` já aparecem na etapa Referência do painel. Chame o Fefo com
+`relogio.py espera "<batch>" "escolhe 1 ref por personagem (etapa Referência)" --tipo elenco`
+e espere: ele escolhe com uma nota no quadro ("esse", "esse mas sem a janela") ou no chat. Só depois o
+`03_personagens.md` (Nano Banana Pro com o quadro em `--ref`). O avatar gerado fica em `03_avatar` e aparece na etapa
+Avatares e personagens; diga na sessão qual quadro de referência comparar, para conferir que é **outra pessoa** (olhos,
+nariz e pele diferentes; cabelo e roupa não bastam).
 
 ## Uso do quadro
 O quadro é referência de estrutura, não de pessoa: nunca a identidade, a voz ou o nome de quem está nele. Ele fica no

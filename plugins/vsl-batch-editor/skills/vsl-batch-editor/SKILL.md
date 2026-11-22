@@ -62,7 +62,7 @@ da Louise (L1–L6) e os 4 pontos de controle.
 | coleta | gerações antigas a baixar | não | Haiku/Sonnet · baixo | `modulos/06_coleta.md` |
 | montagem | cortes, legendas, ADs pendentes | não | Sonnet · baixo (`montador`) | `modulos/07_montagem.md` |
 | motions | pedido explícito (punch-in, CTA, legenda animada) | não | Sonnet · médio | `modulos/08_motions.md` |
-| review room | versão conferida para o Fefo; "apply notes" | não | Sonnet · baixo | `modulos/11_review_room.md` |
+| sala de revisão (painel local) | versão conferida para o Fefo; nota repassada pela CENTRAL | não | Sonnet · baixo | `modulos/11_review_room.md` |
 | entrega | fim da tarefa ou revisão | não | Haiku/Sonnet · baixo | `modulos/09_entrega.md` (EV) ou ficha |
 | revisao | notas do cliente; card "só QA" | depende | Opus para decidir, Sonnet para aplicar | `modulos/10_revisao.md`, `10b`, `10c` |
 Geração: `modulos/kie.md` (Kie, padrão) e `modulos/higgsfield.md` (só com pedido). Prompts: `modulos/prompts.md` e
