@@ -3,8 +3,8 @@
 > **QA depois do render (PDF do Lucas, 16/11/2026; `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seção 5):** do barato ao caro: técnico (preto, congelado, flash, duração, silêncio, loudness, voz acima da música, **true peak ≤ −1 dBTP**, medido no item 4 do checklist), cada emenda de fala, quadros (área segura pela nossa regra, gráfico em cima de rosto, texto abaixo do queixo em talking head, margem de ~100 px, end card ≥ 2,5 s e escrito certo), primeiros 3 s de 0,1 em 0,1 s e cada troca de cena. Cada achado como **BLOCK / FIX / NOTE**; nada conta como corrigido sem aparecer no render novo. Ajuste mexe só na camada que errou. Cada comentário do cliente conferido item por item. **Depois do QA, a sala de revisão continua sendo a última olhada do Fefo** antes do cliente.
 
 Quando o Fefo manda um link do Frame.io ou pede "faz os comentários".
-**Seedance só em Drama ad** (30/10/2026, `04_falas.md`): as correções com Seedance neste módulo são histórico; fora de
-Drama ad, refaça no Kling.
+**Modelo por tipo (Fefo, 25/11/2026, `04_falas.md`):** fala ou cena com pessoa refeita no Seedance 480p; b-roll e animação no
+Kling. As correções com Seedance deste módulo voltam a valer.
 
 1. **Ler**: `python3 frameio.py comentarios "<frameio.pasta do perfil>/BATCH_<n>"` (Fefo: `Hike Balance Brand/FEFO`; ou abrir o link no navegador). No PC: `py ~/.vsl-batch-editor/frameio_ev.py` (login do time; `09_entrega.md`).
    O número entre [] é o QUADRO na fps do vídeo (exports a 30 fps → segundos = n/30; conferido na BATCH#2820).

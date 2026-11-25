@@ -47,7 +47,10 @@ def duas_passadas(mp4, lufs=-14, tp=-1.5, tol=0.5, ff=None):
         print(f"   loudness ok na 1ª passada: {ent_i:.1f} LUFS, {ent_tp:.1f} dBTP")
         return ent_i, ent_tp
     af = (f"loudnorm=I={lufs}:TP={tp}:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}"
-          f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true,aresample=48000")
+          f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true,aresample=48000"
+          # limitador depois do ganho linear: o linear sozinho deixava o pico em -0,6 dBTP (M2WK2B3 H5 V3, 19/11/2026).
+          # Teto da amostra 0,5 dB abaixo do TP alvo: folga para o pico entre amostras e para o AAC.
+          f",alimiter=limit={10 ** ((tp - 0.5) / 20):.4f}:attack=1:release=50:level=disabled")
     pasta = tempfile.mkdtemp(prefix="ln2p_")
     wav, tmp = os.path.join(pasta, "a.wav"), os.path.join(pasta, os.path.basename(mp4))
     try:

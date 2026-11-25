@@ -146,6 +146,7 @@ def card(B, plano):
     Só troca o que não pode em nome de arquivo (/ : * ? " < > | \\) por "-"."""
     cfg = json.load(open(f"{B}/{CFG}")) if os.path.exists(f"{B}/{CFG}") else {}
     t = (cfg.get("card") or "").strip()
+    if t.lower().startswith("http"): t = ""          # batch.json com a URL do Notion em "card" (4614, 19/11/2026): usa o titulo
     if not t and (cfg.get("titulo") or "").strip() and not cfg["titulo"].startswith("Nome do Ad"):
         t = f"BATCH#{num(plano)} - {cfg['titulo'].strip()}"
     return re.sub(r'[\\/:*?"<>|]', "-", t)
@@ -158,6 +159,21 @@ def export(B, plano, p, n):
     if not c: return export_antigo(B, plano, p, n)
     m = plano.get("marca_nome", {}).get(p) or {"neurobella": "Neurobella", "visiovance": "VisioVance"}.get(p, p.capitalize())
     return f"{B}/{EXPORT}/{p}/{c} - {m} - AD{n}.mp4"
+def guarda_export_anterior(B, out):
+    """Antes de gravar um export por cima, a versão anterior vai para <export>/_old/V<k>/<subpasta>/ (BATCH#4680, 23/11/2026:
+    o final sobrescrevia sem guardar). k = 1ª versão onde esse arquivo ainda não está: numa revisão todos os ADs caem
+    juntos na mesma V<k>. Prévia (marcador .PREVIA.txt ao lado) não é versão: fica para ser sobrescrita."""
+    if not os.path.isfile(out) or os.path.exists(out + ".PREVIA.txt"): return None
+    raiz = os.path.normpath(f"{B}/{EXPORT}")
+    rel = os.path.relpath(os.path.normpath(out), raiz)
+    if rel.startswith(".."): rel = os.path.basename(out)
+    k = 1
+    while os.path.exists(os.path.join(raiz, "_old", f"V{k}", rel)): k += 1
+    dst = os.path.join(raiz, "_old", f"V{k}", rel)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.move(out, dst)
+    print(f"   versão anterior guardada em {EXPORT}/_old/V{k}/{rel.replace(os.sep, '/')}")
+    return dst
 def tira_export_antigo(B, plano, p, n):
     """Depois de renderizar com o nome do card, o arquivo do nome antigo é o mesmo AD desatualizado: sai, para não subir
     duplicado no Frame.io (a versão anterior de uma revisão já foi guardada em 09_export/_old/V<k>/)."""

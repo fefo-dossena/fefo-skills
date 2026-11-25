@@ -3,13 +3,15 @@
 referencia, tu nao pode seguir em diante"). Regra: _FLUXO/LEIA-ME.md, seção "Ref no briefing".
 
 O job só gera vídeo (kie.py) e só monta (EV fluxo.py, TS montagem_base) com `<auto>/ref_estrutura.json` certo:
-  {"ref": {"arquivo": "01_refs/REF.mp4", "dur": 34.9, "quadros": "08_auto/ref_quadros"},
+  {"ref": {"arquivo": "01_refs/REF.mp4", "dur": 34.9, "quadros": "08_auto/ref_quadros",
+           "truque": {"texto": "o que faz este ref funcionar", "quadros": ["hook_0012.jpg", "meio_s_0009.jpg"]}},
    "planos": [{"n": 1, "de": 0.0, "ate": 2.4, "enquadramento": "...", "camera": "...", "acao": "...",
                "personagem": "...", "texto": "...", "som": "..."}],            # decupagem: uma linha por plano do ref
    "nosso":  [{"cena": "H1-01", "ref": 1, "dur": 2.4, "movimento": "push-in lento"}],   # cada cena e o plano que refaz
    "audio": {"ref":   {"musica": "piano tenso, entra no 0 s", "bpm": 92, "voz": "mulher 50+, calma", "genero": "f", "pps": 3.1},
              "nosso": {"musica": "mesma do ref | <a mais próxima, qual>", "bpm": 90, "voz": "...", "genero": "f", "pps": 3.0}},
-   "excecoes": [{"de": "ref 7" | "cena S12" | "audio", "motivo": "...", "fefo": "<palavras do Fefo>"}]}
+   "excecoes": [{"de": "ref 7" | "cena S12" | "audio" | "audio.musica" | "audio.voz" | "audio.genero" | "audio.pps", "motivo": "...", "fefo": "<palavras do Fefo>"}]}
+   Ref sem música: "musica": "nenhuma ..." (ou "sem ...") ou "bpm": 0; aí a trilha do nosso não é conferida.
 Plano do ref com zoom na pessoa (punch-in): "zoom": true no plano; a cena que o refaz leva "zoom": true também.
 Vários refs no mesmo job: {"refs": [ {ref, planos, nosso, excecoes}, ... ]}.
 Job sem ref: {"sem_ref": {"motivo": "...", "fefo": "<palavras do Fefo>"}}.
@@ -24,6 +26,8 @@ O que a trava recusa (código 3):
   6. tempo de cena fora do tempo do plano do ref (na proporção das durações; folga de 30% ou 0,4 s);
   7. cena do hook (plano do ref que começa antes de 3 s) sem movimento;
   8. zoom onde o ref não faz, ou plano do ref com zoom refeito sem zoom (Fefo, 19/11/2026: "zoom só quando o ref faz");
+  10. sem ref.truque: o truque que o ref usa, escrito, com os quadros que provam (método Katana do Lucas, 19/11/2026);
+  11. sem <auto>/PLANO.md com as 4 partes: brief, regras do cliente, erros passados e ordem do trabalho (plano primeiro).
   9. sem "audio", ref com música e o nosso sem, BPM fora de 10%, voz de outro gênero ou ritmo de fala fora de 15%
      (call da EV, 19/11/2026: o remake leva a mesma VO e a mesma música).
 Escape: só `excecoes`, um por item, com motivo e as palavras do Fefo.
@@ -99,6 +103,13 @@ def _num(x):
 SEM = ('nenhuma', 'nenhum', 'sem', 'none', 'sem musica', 'sem música', 'sem voz', 'sem vo')
 
 
+def _sem(x, bpm=None):
+    """Texto que diz que não há música/voz ("nenhuma música audível...", "sem trilha", "none") ou BPM 0
+    (M1WK4B2 Naturva LFS, 19/11/2026: o ref do Vine não tem música)."""
+    x = str(x or '').strip().lower()
+    return (not x and bpm == 0) or x in SEM or x.startswith(('nenhum', 'sem ', 'none', 'no music', 'no voice')) or bpm == 0
+
+
 def _audio(a, rot, erros, exc):
     """Mesma música e mesma VO do ref (call da EV de 19/11/2026; Fefo: "pode por os 4")."""
     if 'audio' in exc:
@@ -113,25 +124,30 @@ def _audio(a, rot, erros, exc):
         if falta:
             erros.append(f'{rot}audio.{lado} sem {", ".join(falta)} (sem nada: "nenhuma")')
     rm, nm = str(r.get('musica', '')).strip().lower(), str(n.get('musica', '')).strip().lower()
-    if rm and rm not in SEM and nm in SEM:
-        erros.append(f'{rot}o ref tem música ("{rm[:50]}") e o nosso não: mesma música do ref, ou a mais próxima')
     rb, nb = _num(r.get('bpm')), _num(n.get('bpm'))
-    if rm and rm not in SEM:
+    ref_com_musica = bool(rm) and not _sem(rm, rb) and 'audio.musica' not in exc   # exceção por item (19/11/2026)
+    if ref_com_musica and _sem(nm, nb):
+        erros.append(f'{rot}o ref tem música ("{rm[:50]}") e o nosso não: mesma música do ref, ou a mais próxima')
+    if ref_com_musica:
         if rb is None or nb is None:
             erros.append(f'{rot}audio sem "bpm" no ref ou no nosso: meça o BPM da trilha do ref e da nossa')
         elif abs(nb - rb) > 0.1 * rb:
             erros.append(f'{rot}trilha a {nb:g} BPM; a do ref tem {rb:g} (folga de 10%)')
     rv, nv = str(r.get('voz', '')).strip().lower(), str(n.get('voz', '')).strip().lower()
-    if rv and rv not in SEM:
-        if nv in SEM:
+    if rv and not _sem(rv) and 'audio.voz' not in exc:
+        if _sem(nv):
             erros.append(f'{rot}o ref tem voz ("{rv[:50]}") e o nosso não')
         rg, ng = str(r.get('genero', '')).strip().lower()[:1], str(n.get('genero', '')).strip().lower()[:1]
-        if not rg or not ng:
+        if 'audio.genero' in exc:
+            pass
+        elif not rg or not ng:
             erros.append(f'{rot}audio sem "genero" da voz (f ou m) no ref ou no nosso')
         elif rg != ng:
             erros.append(f'{rot}voz de gênero diferente do ref (ref {rg}, nosso {ng})')
         rp, np_ = _num(r.get('pps')), _num(n.get('pps'))
-        if rp is None or np_ is None:
+        if 'audio.pps' in exc:
+            pass
+        elif rp is None or np_ is None:
             erros.append(f'{rot}audio sem "pps" (palavras por segundo da fala) no ref ou no nosso')
         elif abs(np_ - rp) > 0.15 * rp:
             erros.append(f'{rot}fala a {np_:g} palavras/s; a do ref tem {rp:g} (folga de 15%)')
@@ -179,6 +195,16 @@ def _bloco(raiz, b, rot, erros, avisos):
         erros.append(f'{rot}{nq} quadros do ref em {r.get("quadros")!r}; a decupagem pede pelo menos {preciso} '
                      f'(hook inteiro e 1 a cada 0,5 s): rode `fila --leve py trava_ref.py quadros <job>` e olhe os quadros')
 
+    tq = r.get('truque')
+    if not isinstance(tq, dict) or len(str(tq.get('texto', '')).strip()) < 30:
+        erros.append(f'{rot}sem ref.truque.texto: escreva o truque que o ref usa (o que faz ele funcionar), em pelo menos uma frase')
+    else:
+        qs = [x for x in (tq.get('quadros') or []) if isinstance(x, str)]
+        fora = [x for x in qs if not os.path.isfile(os.path.join(q, x))]
+        if len(qs) < 2:
+            erros.append(f'{rot}ref.truque.quadros pede pelo menos 2 quadros do ref que provam o truque (nomes em {r.get("quadros")!r})')
+        elif fora:
+            erros.append(f'{rot}quadro do truque fora do disco: {", ".join(fora[:3])}')
     exc = set()
     for e in b.get('excecoes') or []:
         if not isinstance(e, dict) or not str(e.get('motivo', '')).strip() or not str(e.get('fefo', '')).strip():
@@ -265,12 +291,56 @@ def _bloco(raiz, b, rot, erros, avisos):
                              f'(ref {ids[n][1] - ids[n][0]:.2f} s x {esc:.2f})')
 
 
+PARTES_PLANO = ('brief', 'regras do cliente', 'erros passados', 'ordem do trabalho')
+MODELO_PLANO = """# Plano do job (plano primeiro; processo do Lucas, 19/11/2026)
+Escreva antes de gerar. Cada etapa acrescenta a sua linha na última parte.
+
+## Brief
+(o brief e o card lidos inteiros: o que pedem, o script do CS, o ref)
+
+## Regras do cliente
+(as regras da ficha e das preferências que valem para este job)
+
+## Erros passados
+(as notas que já voltaram e as entradas do APRENDIZADOS.md que valem aqui)
+
+## Ordem do trabalho
+(os passos, na ordem, com quem faz cada um)
+
+## O que cada etapa acrescentou
+- geração:
+- edição:
+- efeitos:
+- design:
+"""
+
+
+def _plano_escrito(raiz, pastas, erros):
+    """Plano primeiro (processo do Lucas): <auto>/PLANO.md com as 4 partes preenchidas."""
+    arq = os.path.join(raiz, pastas['auto'], 'PLANO.md')
+    if not os.path.isfile(arq):
+        erros.append(f'sem {pastas["auto"]}/PLANO.md: escreva o plano antes de gerar (brief, regras do cliente, erros passados, '
+                     'ordem do trabalho); `trava_ref.py modelo <job>` grava o modelo')
+        return
+    try:
+        t = open(arq, encoding='utf-8').read()
+    except OSError as e:
+        erros.append(f'PLANO.md ilegível: {e}'); return
+    baixo = t.lower()
+    falta = [p for p in PARTES_PLANO if '## ' + p not in baixo]
+    if falta:
+        erros.append(f'PLANO.md sem a parte: {", ".join(falta)}')
+    elif len(t) - len(MODELO_PLANO) < 200:
+        erros.append('PLANO.md ainda é o modelo vazio: preencha as 4 partes')
+
+
 def conferir(raiz, pastas):
     """(erros, avisos) do ref_estrutura.json do job."""
     erros, avisos = [], []
     arq = os.path.join(raiz, pastas['auto'], ARQ)
     if not os.path.isfile(arq):
         return [f'sem {pastas["auto"]}/{ARQ}: {COMO}'], avisos
+    _plano_escrito(raiz, pastas, erros)
     try:
         d = json.load(open(arq, encoding='utf-8'))
     except (OSError, ValueError) as e:
@@ -349,12 +419,15 @@ def quadros(raiz, pastas, ref):
 
 
 def modelo(raiz, pastas, ref):
+    pl = os.path.join(raiz, pastas['auto'], 'PLANO.md')
+    if not os.path.exists(pl):
+        open(pl, 'w', encoding='utf-8').write(MODELO_PLANO); print(f'gravado: {pl}')
     arq = os.path.join(raiz, pastas['auto'], ARQ)
     if os.path.exists(arq):
         sys.exit(f'já existe: {arq}')
     d = _dur(ref)
     json.dump({'ref': {'arquivo': os.path.relpath(ref, raiz).replace('\\', '/'), 'dur': round(d, 2) if d else None,
-                       'quadros': f'{pastas["auto"]}/ref_quadros'},
+                       'quadros': f'{pastas["auto"]}/ref_quadros', 'truque': {'texto': '', 'quadros': []}},
                'planos': [{'n': 1, 'de': 0.0, 'ate': 0.0, 'enquadramento': '', 'camera': '', 'acao': '',
                            'personagem': '', 'texto': '', 'som': ''}],
                'nosso': [{'cena': '', 'ref': 1, 'dur': 0.0, 'movimento': ''}],

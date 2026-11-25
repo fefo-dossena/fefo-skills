@@ -55,14 +55,15 @@ da Louise (L1–L6) e os 4 pontos de controle.
 | roteiro | texto ou PDF novo; sem plano | não | Opus · alto | `modulos/01_roteiro.md` |
 | referencia | início de toda tarefa; ref novo (define o estilo) | não | Opus · alto | `modulos/02_referencia.md` |
 | banco (EV) | tarefa nova da EV, antes de gerar | não | Sonnet · médio | `modulos/05a_banco.md` |
+| blender (piloto) | depois do plano, antes de avatar, voz ou take; pose difícil, câmera, posição de personagem e cenário | não | Sonnet · médio | `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`, "Storyboard e rascunho no Blender": `.blend` + imagem de cada câmera em `<job>/00c_blender/`, etapa 3 do painel, espera o "Aprovar etapa" |
 | busca_avatar | avatar fotográfico novo sem quadro real | não | Sonnet · médio | `modulos/03a_busca_avatar.md` |
 | personagens | personagem sem imagem aprovada | sim | Opus · alto | `modulos/03_personagens.md` |
-| falas | falas faltando | sim | Sonnet · médio | `modulos/04_falas.md`, `modulos/04b_seedance.md` |
-| broll | b-roll faltando | sim | Sonnet · médio | `modulos/05_broll.md` |
+| falas | falas faltando (avatar e pessoas no Seedance 480p desde 25/11/2026) | sim | Sonnet · médio | `modulos/04_falas.md`, `modulos/04b_seedance.md` |
+| broll | b-roll faltando (Kling) | sim | Sonnet · médio | `modulos/05_broll.md` |
 | coleta | gerações antigas a baixar | não | Haiku/Sonnet · baixo | `modulos/06_coleta.md` |
 | montagem | cortes, legendas, ADs pendentes | não | Sonnet · baixo (`montador`) | `modulos/07_montagem.md` |
 | motions | pedido explícito (punch-in, CTA, legenda animada) | não | Sonnet · médio | `modulos/08_motions.md` |
-| sala de revisão (painel local) | versão conferida para o Fefo; nota repassada pela CENTRAL | não | Sonnet · baixo | `modulos/11_review_room.md` |
+| review room | versão conferida para o Fefo; "apply notes" | não | Sonnet · baixo | `modulos/11_review_room.md` |
 | entrega | fim da tarefa ou revisão | não | Haiku/Sonnet · baixo | `modulos/09_entrega.md` (EV) ou ficha |
 | revisao | notas do cliente; card "só QA" | depende | Opus para decidir, Sonnet para aplicar | `modulos/10_revisao.md`, `10b`, `10c` |
 Geração: `modulos/kie.md` (Kie, padrão) e `modulos/higgsfield.md` (só com pedido). Prompts: `modulos/prompts.md` e

@@ -29,7 +29,7 @@ conta). Se o conector não estiver na sessão ou pedir login, pare e avise o Fef
 
 ## Modelos de vídeo que usamos (MCP, conferido em 16/10/2026)
 Qual usar em cada caso: falas em `04_falas.md`, b-roll em `05_broll.md`. MiniMax saiu do fluxo (16/10/2026).
-**Seedance só em Drama ad** (ordem do cliente, 30/10/2026); fora dele, só Kling.
+**Modelo por tipo (Fefo, 25/11/2026):** Seedance 480p para avatares, pessoas e cenas-chave; Kling para b-roll e animação. (Higgsfield só com pedido do Fefo.)
 | Modelo | id | Duração | Opções | Mídias |
 |---|---|---|---|---|
 | Kling 3.0 | `kling3_0` | 3–15 s | `mode` std / pro (1080x1912) / 4k · `sound` on/off | `start_image`, `end_image` (sem áudio de referência) |

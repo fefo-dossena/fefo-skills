@@ -1,4 +1,4 @@
-# Módulo: falas do avatar (gasta crédito: Kling; Seedance só em Drama ad; custo em `modulos/kie.md`)
+# Módulo: falas do avatar (gasta crédito: Seedance 480p para avatar e pessoas, Kling para o resto; custo em `modulos/kie.md`)
 
 > **Qualidade do batch (PDF do Lucas, 16/11/2026; regra completa em `@CLIENTES/_FLUXO/QUALIDADE_DO_BATCH.md`, seções 1.2 a 1.5):** todo prompt de vídeo segue a estrutura fixa, nesta ordem: TITLE · FORMAT · CHARACTERS · REFERENCES · PLACE AND LIGHT · POSITION (locked) · STATE AT START · Shot 1… · SOUND · STYLE · STATE AT END · NEVER, com 140 a 180 palavras no mínimo. O START de um clipe é o END do anterior, palavra por palavra; o NEVER cita personagem ou objeto desta cena; lado travado por objeto do cenário; uma intenção e uma câmera por shot; verbo concreto; quem entra tem causa; objeto com origem e destino. Clipe falado no máximo do modelo permitido (shots rotulados com tempo); ação que o modelo pula vai em clipe próprio de 3 a 6 s; fala nunca acelerada. **Trava:** antes de gerar, `py "G:/Meu Drive/@CLIENTES/_FLUXO/scripts/checagens/prompt_qa.py" folha <pasta dos prompts> [--lote PEDIDOS.json]`, ler a folha de lógica (6 perguntas) e `prompt_qa.py ok <folha_logica.json> <clipes> --nota "..."`; o `kie.py` recusa clipe de vídeo sem ok ou com prompt mudado depois do ok. Canário (1 clipe por personagem e por cenário) antes do lote.
 
@@ -6,21 +6,21 @@
 
 **Seed Audio não existe no Kie.** A rota de guia Seed Audio descrita abaixo acabou: não gere guia novo. Marca ou termo técnico errado: refaça a fala no Kling 4.0 com o vídeo da F01 aprovado (`--video`) ou a voz em `--voz`, grafia fonética dentro da fala, e confira no Whisper e de ouvido. Rota ainda não testada no Kie. Não resolveu: avise o Fefo. VO sobre b-roll sem avatar depende de voz nova: pergunte ao Fefo antes de gerar.
 Áudio NATIVO do modelo — sem lipsync colado depois. Use o áudio do próprio clipe.
-**Drama ad no Seedance, batch antiga feita no Seedance ou rota Seed Audio:** `modulos/04b_seedance.md` (não abrir fora desses casos).
+**Fala do avatar no Seedance (padrão desde 25/11/2026), batch antiga ou rota Seed Audio:** `modulos/04b_seedance.md` (voz igual, duração, marca, estalo do fim).
 
-## Qual modelo: Kling e Omni; Seedance só em Drama ad
-**Ordem do cliente (30/10/2026):** não usar mais Seedance, que é caro demais e desnecessário em ad curto e em ad que não
-é drama. Falas, b-roll e revisão vão no Kling e, desde 02/11/2026, também no Gemini Omni (seção própria abaixo; validado
-pelo Fefo com o Umut). Seedance só em **Drama ad**: o que o card ou o briefing chama assim; na dúvida, Kling e pergunte
-ao Fefo.
+## Qual modelo: Seedance 480p para avatar e pessoas; Kling para b-roll (Fefo, 25/11/2026)
+**Regra nova (Fefo, 25/11/2026; substitui o "Seedance só em Drama ad" de 30/10):** avatares, pessoas e cenas-chave no
+**Seedance em 480p** (`kie.py seedance`, sem `--res`; o script recusa outra resolução). B-roll, animações e complementos
+no **Kling**. O Gemini Omni segue liberado (seção própria abaixo). A tabela abaixo fica para casos fora dessa regra
+(Kling para fala quando o Seedance falhar ou barrar); modelo falhou: pare e avise, sem trocar sozinho.
 | Caso | Modelo |
 |---|---|
 | Padrão: clipes de fala de 3–15 s, poucas falas, orçamento curto | **Kling 3.0** (`kling3_0`), `mode: std`, 9:16, `sound: on`, `start_image` = avatar aprovado (1,75/s) |
 | A voz precisa ser **igual em todas as falas** (narrador, muitas falas); refazer uma fala com a mesma voz | **Kling 4.0** (`kling4_0`), 720p, reference-to-video com a 1ª fala aprovada como vídeo de referência (1,5/s). Passou na 3217; na 3219, image-to-video sem referência, a voz variou e 5 de 11 falas trocaram palavras |
 | One take > 15 s; marca/número que o Kling erra; revisão de batch antiga feita no Seedance | Kling: quebre o take em clipes, use a grafia fonética, refaça a fala no Kling 4.0 e confira a voz. Não resolveu: pergunte ao Fefo antes de gastar Seedance |
-| **Drama ad** | **Seedance 2.5** (`seedance_2_5`), `mode: omni_reference`, **720p**, `generate_audio: true`, `start_image` = avatar aprovado + `audio_references` (7/s) |
+| **Avatar, pessoas, cenas-chave (padrão desde 25/11/2026)** | **Seedance 2.5** (`kie.py seedance`), **480p**, com som, avatar aprovado em `--imagem` + `--audio` da F01 aprovada (~28 cr/s no Kie) |
 
-- **480p** só para teste de voz/ritmo antes do lote, nunca em take com frasco/rótulo legível. Vídeo final sempre 720p.
+- **Seedance sempre em 480p** (Fefo, 25/11/2026). Frasco com rótulo legível em close não vai no Seedance: vai no Kling 720p. Kling segue em 720p.
 
 ## Prompt (Kling e Seedance): estrutura de 14 blocos de `prompts.md`
 Personagem, cenário e enquadramento vêm do ad em `01_refs/` (`plano.json` → `estilo`) e da imagem aprovada. Modelo:
@@ -76,7 +76,7 @@ Vale para Kling e Seedance. A inconsistência entre falas vem de mexer no prompt
   da frase e corte na edição. Pode trocar o segundo a mais de duração, que deixa a fala lenta. Medir antes de virar regra.
 
 ## Gemini Omni: liberado junto do Kling (Fefo com o Umut, 02/11/2026)
-Omni e Kling podem andar na mesma batch; Seedance segue só em Drama ad. Ainda sem teste nosso e sem custo medido: mida
+Omni, Kling e Seedance 480p podem andar na mesma batch. Ainda sem teste nosso e sem custo medido: mida
 na 1ª fala e peça ok de crédito, como em todo lote. `kie.py omni`, 720p, durações 4, 6, 8 ou 10 s: fala entre duas durações usa a maior, com palavras de sobra
 cortadas na edição. Omni Flash já barrou palavrão na Trendscale; no Omni cheio, não testado. Todo avatar do Omni sai com
 os mesmos dentes: repare ao comparar dois avatares no mesmo ad. O vídeo não mostra marca difícil nem termo técnico:

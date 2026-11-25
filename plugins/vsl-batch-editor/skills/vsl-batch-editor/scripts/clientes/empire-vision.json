@@ -31,6 +31,7 @@
   "freeze",
   "lascas",
   "ritmo",
+  "energia",
   "lint"
  ],
  "kie": {
@@ -41,7 +42,7 @@
   "proibidos": {},
   "upscale_res_max": "1080p"
  },
- "obs": "Seedance só em Drama ad (ordem do cliente, 30/10/2026): o script não sabe o formato, a regra fica com a sessão.",
+ "obs": "Vídeo por tipo (Fefo, 25/11/2026; substitui o 'Seedance só em Drama ad' de 30/10): avatares, pessoas e cenas-chave no Seedance em 480p (kie.py recusa outra resolução); b-roll, animações e complementos no Kling.",
  "checklist": {
   "ativo": true,
   "desde": "2026-11-13",

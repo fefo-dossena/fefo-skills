@@ -22,11 +22,23 @@ def pj_pastas_de(B, nomes): return [f"{B}/{n}" for n in ([nomes] if isinstance(n
 def pj_exports(B):
     """(exports, antigos): MP4 de <export>/ (qualquer subpasta, menos _old*) e os arquivos de _old*/."""
     base = f"{B}/{EXPORT}"; atuais, antigos = [], []
+    del PJ_EXPORTS_FORA[:]
     for arq in pj_arquivos(base):
         rel = os.path.relpath(arq, base).split(os.sep)
         if any(x.startswith("_old") for x in rel[:-1]): antigos.append(arq)
+        elif any(x.lower().startswith("_sala") for x in rel[:-1]):        # cópia da sala/painel: não é export (Naturva, 22/11/2026)
+            if arq.lower().endswith(".mp4"): PJ_EXPORTS_FORA.append(arq)
         elif arq.lower().endswith(".mp4"): atuais.append(arq)
+    # versão no nome (TS: "... - V3.mp4" ao lado do "... - V2.mp4"): só a maior, como o exports_atuais do checklist.py
+    def vnome(p):
+        m = re.search(r"[_ ]V(\d+)(?:[ ._-]|$)", os.path.splitext(os.path.basename(p))[0] + " "); return int(m[1]) if m else None
+    vn = [vnome(p) for p in atuais if vnome(p) is not None]
+    if vn:
+        PJ_EXPORTS_FORA.extend(p for p in atuais if vnome(p) not in (None, max(vn)))
+        atuais = [p for p in atuais if vnome(p) in (None, max(vn))]
     return atuais, antigos
+
+PJ_EXPORTS_FORA = []      # MP4 de <export>/ que o pj_exports deixou de fora na última chamada (cópia da sala, versão anterior)
 
 def pj_insumos(B):
     """Arquivos dos quais o export depende: brutos, áudio, elementos e auto."""
@@ -114,7 +126,7 @@ def cmd_fazer_pastas(a):
 
 
 # ---------------------------------------------------------------- checar
-PJ_TODAS = ["freeze", "lascas", "ritmo", "quadros", "qc", "lint", "checklist"]   # checklist: Frente 4 (13/11/2026)
+PJ_TODAS = ["freeze", "lascas", "ritmo", "energia", "quadros", "qc", "lint", "checklist"]   # checklist: Frente 4 (13/11/2026)
 
 def pj_uso(msg):
     """Erro de uso ou de execução do checar: mensagem no stderr e código 2 (0 = passou, 1 = checagem falhou)."""
@@ -185,6 +197,66 @@ def pj_posicoes(B, mp4):
             if os.path.exists(arq): return arq
     return None
 
+def _whips_hf(B, mp4):
+    """Janelas (ini, fim) dos whips declarados no <auto>/montagem_hf.json para o vídeo (4614 V2, 19/11/2026): o whip muda
+    a imagem a cada quadro de propósito, e o lascas.py lia cada quadro do borrão como um plano de 1 quadro."""
+    arq = f"{B}/{AUTO}/montagem_hf.json"
+    if not os.path.exists(arq): return []
+    try: d = json.load(open(arq, encoding="utf-8"))
+    except ValueError: return []
+    nome = os.path.basename(mp4).lower(); J = []
+    for fmt in (d.get("formatos") or {}).values():
+        cam = fmt.get("camadas")
+        if isinstance(cam, dict):
+            cam = next((v for k, v in cam.items() if k.lower() in nome or str((d.get("marcas", {}).get(k) or {}).get("nome", "")).lower() in nome), [])
+        for c in cam or []:
+            t0, t1 = c.get("t0", 0), c.get("t1", d.get("dur", 0))
+            if "whip" in (c.get("entra") or {}): J.append((t0 - 0.05, t0 + c["entra"]["whip"] + 0.05))
+            if "whip" in (c.get("sai") or {}): J.append((t1 - c["sai"]["whip"] - 0.05, t1 + 0.05))
+        break                                   # só o 1º formato (9x16); recortes derivados herdam os tempos
+    return J
+
+def _lascas_aceitas(B):
+    """[(segundo, tolerância)] dos `aceitar_lasca` com motivo, na mesma régua do trava_timeline._seg ("mm:ss" = 1 s;
+    "mm:ss.d" = 0,15 s). Entradas presas a um segmento ("<segmento>@mm:ss") não valem no export inteiro."""
+    out = []
+    for arq in (f"{B}/{AUTO}/montagem_hf.json", f"{B}/{CFG}", f"{B}/{AUTO}/plano.json"):
+        try: lst = json.load(open(arq, encoding="utf-8")).get("aceitar_lasca") or []
+        except (OSError, ValueError, AttributeError): continue
+        for a in lst:
+            t = str((a or {}).get("t", "")) if isinstance(a, dict) else ""
+            if not t or "@" in t or not str(a.get("motivo", "")).strip(): continue
+            try:
+                mm, _, ss = t.rpartition(":"); out.append((float(mm or 0) * 60 + float(ss), 0.15 if "." in ss else 1.0))
+            except ValueError: pass
+    return out
+
+def _ass_hf(B, mp4):
+    """Job do HyperFrames não tem .ass: escreve um no TEMP com as legendas do <auto>/montagem_hf.json (estilo legenda e
+    check; mesma duração do vídeo), só com os tempos e o texto que o qc_export lê. None se o spec não é deste vídeo."""
+    arq = f"{B}/{AUTO}/montagem_hf.json"
+    if not os.path.exists(arq): return None
+    try:
+        d = json.load(open(arq, encoding="utf-8"))
+        dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp4],
+                                   capture_output=True, text=True).stdout.strip())
+    except (OSError, ValueError): return None
+    if abs(float(d.get("dur", 0)) - dur) > 0.2: return None
+    nome = os.path.basename(mp4).lower(); cam = []
+    for fmt in (d.get("formatos") or {}).values():
+        cam = fmt.get("camadas")
+        if isinstance(cam, dict):
+            cam = next((v for k, v in cam.items() if k.lower() in nome or str((d.get("marcas", {}).get(k) or {}).get("nome", "")).lower() in nome), [])
+        break                                   # só o 1º formato; recortes derivados herdam os tempos
+    def hms(t):
+        c = round(t * 100); return f"{c // 360000}:{c % 360000 // 6000:02d}:{c % 6000 / 100:05.2f}"
+    ls = [f"Dialogue: 0,{hms(c.get('t0', 0))},{hms(c.get('t1', dur))},Default,,0,0,0,,{' '.join(c.get('linhas') or [c.get('texto', '')])}"
+          for c in cam or [] if c.get("tipo") == "texto" and c.get("estilo", "legenda") in ("legenda", "check")]
+    if not ls: return None
+    dst = os.path.join(tempfile.gettempdir(), "qc_hf_" + re.sub(r"[^A-Za-z0-9]+", "_", os.path.splitext(os.path.basename(mp4))[0]) + ".ass")
+    open(dst, "w", encoding="utf-8").write("[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n" + "\n".join(ls) + "\n")
+    return dst
+
 def pj_lascas(B, mp4, loc):
     s = pj_script_checagem("lascas")
     if not s: return "erro", "lascas.py não encontrado"
@@ -192,6 +264,23 @@ def pj_lascas(B, mp4, loc):
     rc, saida = pj_roda(cmd); m = re.search(r"(\d+) plano\(s\) com até (\d+) quadros", saida)
     if not m: return "erro", "saída inesperada do lascas.py: " + (saida.strip().splitlines() or ["(vazia)"])[-1][:120]
     n = int(m[1]); linhas = [l.strip() for l in saida.splitlines() if "quadros" in l and "plano(s)" not in l]
+    W = _whips_hf(B, mp4)
+    if W:                                       # plano curto inteiro dentro de um whip declarado não é lasca
+        def _no_whip(l):
+            x = re.match(r"([\d.]+)-\s*([\d.]+)s", l)
+            return bool(x) and any(a <= float(x[1]) and float(x[2]) <= b for a, b in W)
+        fora = [l for l in linhas if not _no_whip(l)]; n = n - (len(linhas) - len(fora)); linhas = fora
+    # lasca já aceita com motivo na trava da timeline (`aceitar_lasca` do montagem_hf.json, job.json/batch.json ou plano.json):
+    # o export repete a mesma lasca e o checar seguia vermelho depois do aceite (M1WK4B2 Naturva LFS, 22/11/2026)
+    ac = _lascas_aceitas(B); na = 0
+    if ac and linhas:
+        def _aceita(l):
+            x = re.match(r"([\d.]+)-\s*([\d.]+)s", l)
+            return bool(x) and any(v - 0.15 <= float(x[1]) < v + tol or float(x[1]) - 0.15 <= v <= float(x[2]) + 0.15 for v, tol in ac)
+        fora = [l for l in linhas if not _aceita(l)]; na = len(linhas) - len(fora); n = n - na; linhas = fora
+    if na:
+        return n == 0, (f"{n} plano(s) de até {m[2]} quadros" + (": " + "; ".join(re.sub(r"\s+", " ", l.split("(antes")[0]).strip() for l in linhas[:4]) if linhas else "")
+                        + f" ({na} aceito(s) com motivo no aceitar_lasca)")
     return n == 0, (f"{n} plano(s) de até {m[2]} quadros" + (": " + "; ".join(re.sub(r"\s+", " ", l.split("(antes")[0]).strip() for l in linhas[:4]) if linhas else "")
                     + (" (com posições do b-roll)" if pos and n == 0 else ""))
 
@@ -202,6 +291,36 @@ def pj_ritmo(B, mp4, loc):
     linhas = [l.strip() for l in saida.strip().splitlines()]
     if rc not in (0, 1): return "erro", "ritmo.py falhou: " + (linhas[-1][:120] if linhas else "sem saída")
     return rc == 0, (linhas[0].split(": ", 1)[-1] if linhas else "sem saída") + ("" if rc == 0 else " — " + "; ".join(linhas[1:4]))
+
+def pj_energia(B, mp4, loc):
+    """Energia contra o ref (método Katana do Lucas, 19/11/2026): cortes, flashes e movimento por segundo; abaixo de
+    60% do ref, falha. O ref vem do <auto>/ref_estrutura.json. Job sem ref ou sem o arquivo: pulada."""
+    s = pj_script_checagem("energia")
+    if not s: return "erro", "energia.py não encontrado"
+    arq = f"{B}/{AUTO}/ref_estrutura.json"
+    if not os.path.exists(arq): return None, "sem ref_estrutura.json (job sem ref ou de antes da trava do ref)"
+    try:
+        d = json.load(open(arq, encoding="utf-8"))
+        if d.get("sem_ref"): return None, "job sem ref"
+        b = d["refs"][0] if isinstance(d.get("refs"), list) and d["refs"] else d
+        if any(isinstance(e, dict) and str(e.get("de", "")).strip().lower() == "energia" and str(e.get("fefo", "")).strip()
+               for e in b.get("excecoes") or []): return None, "energia dispensada pelo Fefo (exceção no ref_estrutura.json)"
+        ref = os.path.join(B, str((b.get("ref") or {}).get("arquivo") or ""))
+    except Exception as e: return "erro", f"ref_estrutura.json ilegível: {e}"
+    if not os.path.isfile(ref): return "erro", "o ref do ref_estrutura.json não está no disco"
+    # O ref no Drive falhava dentro do checar e rodava com cópia no TEMP (M1WK4B2 Naturva LFS, 19/11/2026): lê do TEMP.
+    try:
+        import hashlib, shutil, tempfile
+        st = os.stat(ref); chave = hashlib.md5(f"{ref}|{st.st_size}|{int(st.st_mtime)}".encode()).hexdigest()[:12]
+        pasta = os.path.join(tempfile.gettempdir(), "fluxo_refs"); os.makedirs(pasta, exist_ok=True)
+        local = os.path.join(pasta, f"{chave}{os.path.splitext(ref)[1]}")
+        if not os.path.isfile(local) or os.path.getsize(local) != st.st_size: shutil.copyfile(ref, local)
+        ref = local
+    except OSError:
+        pass
+    rc, saida = pj_roda([sys.executable, s, ref, loc]); linhas = [l.strip() for l in saida.strip().splitlines() if l.strip()]
+    if rc not in (0, 1): return "erro", "energia.py falhou: " + (linhas[-1][:120] if linhas else "sem saída")
+    return rc == 0, (linhas[-1][:260] if linhas else "sem saída")
 
 def pj_quadros(B, mp4, loc):
     s = pj_script_checagem("conferir_quadros")
@@ -234,16 +353,24 @@ def pj_acha_ass(B, mp4):
 def pj_qc(B, mp4, loc):
     s = pj_script_checagem("qc_export")
     if not s: return "erro", "qc_export.py não encontrado"
-    ass = pj_acha_ass(B, mp4)
+    ass = pj_acha_ass(B, mp4); do_hf = False
+    if not ass: ass = _ass_hf(B, mp4); do_hf = bool(ass)   # HyperFrames: legendas do montagem_hf.json (22/11/2026)
     if not ass: return None, f"sem .ass do export em {AUTO}/ nem ao lado do vídeo (qc_export precisa da legenda)"
     saida = os.path.join(tempfile.gettempdir(), "qc_" + re.sub(r"[^A-Za-z0-9]+", "_", os.path.splitext(os.path.basename(mp4))[0]))
-    fila = os.path.expanduser("~/bin/fila"); cmd = ([fila] if os.path.exists(fila) else []) + [sys.executable, s, loc, ass, "--saida", saida]
+    fila = os.path.expanduser("~/bin/fila.cmd" if os.name == "nt" else "~/bin/fila")   # Windows: o `fila` é bash (WinError 193; 22/11/2026)
+    cmd = ([fila] if os.path.exists(fila) else []) + [sys.executable, s, loc, ass, "--saida", saida]
     voz = os.path.join(os.path.dirname(ass), "dialogo16k.wav")
     if os.path.exists(voz): cmd += ["--voz", voz]
     rc, texto = pj_roda(cmd); linhas = [l.strip() for l in texto.strip().splitlines() if l.strip()]
     if rc not in (0, 1): return "erro", "qc_export.py falhou: " + (linhas[-1][:120] if linhas else "sem saída")
     cab = [re.sub(r"\s+", " ", l.split(":")[0] + ":" + l.split(":", 1)[1].split(" (")[0])[:80] for l in texto.splitlines()
            if l and not l[0].isspace() and ":" in l and not l.startswith("Folha")]        # uma linha por seção do qc.txt
+    if rc == 1 and do_hf:
+        # Job do HyperFrames: LEGENDA × VOZ é aviso, não falha (Fefo, 23/11/2026: "Vira aviso"; Naturva V3: 436 de 639 com
+        # a legenda saindo ~0,2 s antes do fim da fala pela transcrição). Formato, buraco de áudio e voz sem legenda seguem falha.
+        lv = re.search(r"LEGENDA × VOZ: (\d+) de (\d+) fora", texto); sl = re.search(r"VOZ SEM LEGENDA: (\d+) trechos", texto)
+        if lv and sl and int(sl[1]) == 0 and "FORMATO:" not in texto and "ÁUDIO COM BURACO" not in texto:
+            return True, f"qc ok; aviso: LEGENDA × VOZ {lv[1]} de {lv[2]} fora (job HyperFrames: aviso, não falha; ver {saida}/qc.txt)"
     return rc == 0, (f"qc ok (detalhes em {saida}/qc.txt)" if rc == 0 else "; ".join(cab) + f" (ver {saida}/qc.txt)")
 
 def pj_local(mp4, pasta):
@@ -253,7 +380,7 @@ def pj_local(mp4, pasta):
     if not os.path.exists(dst) or os.path.getsize(dst) != os.path.getsize(mp4): shutil.copyfile(mp4, dst)
     return dst
 
-PJ_FN = {"lascas": pj_lascas, "ritmo": pj_ritmo, "quadros": pj_quadros, "qc": pj_qc}
+PJ_FN = {"lascas": pj_lascas, "ritmo": pj_ritmo, "energia": pj_energia, "quadros": pj_quadros, "qc": pj_qc}
 
 def pj_checklist_ativo():
     return bool(FICHA.get("checklist", {}).get("ativo")) or os.environ.get("FLUXO_CHECKLIST_FORCAR") == "1"
@@ -338,7 +465,12 @@ def cmd_checar(a):
             p = v if os.path.exists(v) else f"{B}/{v}"
             if not os.path.exists(p): pj_uso(f"Vídeo não existe: {v}")
             videos.append(os.path.abspath(p))
-    else: videos, _ = pj_exports(B)
+    else:
+        videos, _ = pj_exports(B)
+        if PJ_EXPORTS_FORA:
+            print(f"(fora da conta: {len(PJ_EXPORTS_FORA)} MP4 de versão anterior ou da sala em {EXPORT}/: "
+                  + ", ".join(os.path.relpath(p, f"{B}/{EXPORT}") for p in PJ_EXPORTS_FORA[:4]) + (" ..." if len(PJ_EXPORTS_FORA) > 4 else "")
+                  + ". Para checar um deles, passe o arquivo na linha de comando)")
     if not videos and not so_lint: pj_uso(f"Sem vídeos: {EXPORT}/ não tem MP4 (fora do _old). Passe os vídeos na linha de comando.")
     print(f"== checar {os.path.basename(B)}  ({_nome_cliente(CLIENTE)}: {', '.join(ficha)})")
     resultado = []; falhas = 0; puladas = 0; erros = 0; tmp = tempfile.mkdtemp(prefix="checar_"); lint = None

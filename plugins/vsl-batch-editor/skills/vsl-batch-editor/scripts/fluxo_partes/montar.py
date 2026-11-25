@@ -319,7 +319,8 @@ def _planos_trava(B, plano, p, n, plan, HD, T):
         c = cen.get(cid, {}); b2 = b + 0.1 if k + 1 < len(plan) else b
         if c.get("formato") == "inset" and (k + 1 == len(plan) or plan[k + 1][1] - b > 0.02): b2 = b
         fim = int(b2 * FPS + 1e-6) + 1 if k + 1 < len(plan) else q(b2)
-        pinta(a, fim, fl, "broll", cena_inicio(c, p), {"_id": cid, "nome": cid, **({"dur_min": c["dur_min"]} if c.get("dur_min") is not None else {})})
+        pinta(a, fim, fl, "broll", cena_inicio(c, p), {"_id": cid, "nome": cid, **({"dur_min": c["dur_min"]} if c.get("dur_min") is not None else {}),
+                                                         **({"zoom": True} if (c.get("push_in") or c.get("zoom")) else {})})   # trava do hook parado: zoom do ref
     import trava_timeline as TT
     return TT.de_quadros(lab, FPS)
 
@@ -350,6 +351,8 @@ def montar(B, p, n, janela=None):
     # por segmentos: pasta própria por pedaço (hook e hold rodam ao mesmo tempo; Fefo, 17/11/2026)
     tmp = tmp_montar(B, f"_tmp_{janela['parte']}_AD{n}_{p}") if janela else tmp_montar(B); os.makedirs(tmp, exist_ok=True)
     segs = g30(json.load(open(corte(B, fala_stem(f, pm))))); hook = f"{tmp}/hook{n}.mp4"
+    import qa_clipes                                                        # QA dos clipes antes de montar (Fefo, 23/11/2026)
+    qa_clipes.exige(B, [fala_mp4(B, f, pm)] + _clipes_do_ad(B, plano, p, n), f"AD{n}_{p}")
     prepara_fontes([fala_mp4(B, f, pm)] + _clipes_do_ad(B, plano, p, n))     # 60 fps: clipes de 24 interpolados uma vez (cache)
     fc = ";".join(f"[0:v]{vtrim(s, e)[0]},scale=720:1280{punch(plano, i)},fps={FPS}{vtrim(s, e)[1]},setsar=1[v{i}];[0:a]atrim={s}:{e},asetpts=PTS-STARTPTS{afade(e - s)}{ganho(f, pm)},aresample=44100,aformat=channel_layouts=stereo[a{i}]" for i, (s, e) in enumerate(segs))
     fc += ";" + "".join(f"[v{i}][a{i}]" for i in range(len(segs))) + f"concat=n={len(segs)}:v=1:a=1[v][a]"
@@ -523,6 +526,7 @@ def montar(B, p, n, janela=None):
     g.append(SAIDA_720)
     sc = f"{tmp}/fc_AD{n}_{p}.txt"; open(sc, "w").write(";".join(g))
     out = export(B, plano, p, n); os.makedirs(os.path.dirname(out), exist_ok=True)
+    guarda_export_anterior(B, out)      # export anterior -> 09_export/_old/V<k>/ antes de gravar (4680, 23/11/2026)
     vz = os.environ.get("DUMP_VOZ")     # pasta: grava a trilha de VOZ isolada (antes da música/loudnorm) para medir pausas
     extra = ["-map", "[voz]", "-c:a", "pcm_s16le", f"{vz}/voz_AD{n}_{p}.wav"] if vz else []
     # stems para o checklist da Louise (item 4, Frente 4): voz e trilha antes do loudnorm, só no tmp
@@ -735,6 +739,7 @@ def montar_por_segmentos(B, p, n, forcar=()):
     lufs = cfg.get("audio", {}).get("loudness_lufs", -20)
     tmp = tmp_montar(B, "_tmp_final"); os.makedirs(tmp, exist_ok=True)
     trava_ad(B, p, n, plan, HD, fim_v)       # trava da linha do tempo do AD inteiro antes do final (18/11/2026)
+    guarda_export_anterior(B, out)      # export anterior -> 09_export/_old/V<k>/ antes de gravar (4680, 23/11/2026)
     LDT.final([hook, hold], out, lufs, -1.5, 720, 1280, banner, _codec_final(["-c:v", "libx264", "-preset", "medium", "-crf", "20"]), tmp)
     _marca_previa(out)
     try:      # lado do checklist: stems e camadas dos segmentos juntados

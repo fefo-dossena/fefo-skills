@@ -5,9 +5,11 @@ Meta: no máximo 2 h de TRABALHO por sessão em tarefa de vídeo. O relógio PAR
 ("sim, o relogio para enquanto me espera"). Toda espera vira uma chamada numa lista que o MacBook dele vigia, porque a
 notificação das sessões do PC não chega lá.
 
-  py relogio.py passo  <pasta do job> "<nome do passo>" [--min N]   # começa um passo (fecha o anterior); N = orçamento em minutos
-  py relogio.py espera <pasta do job> "<o que preciso do Fefo>" [--tipo plano|elenco|previa|entrega|credito|duvida|travou]
+  py relogio.py passo  <pasta do job> "<nome do passo>" [--min N] [--etapa 1-11] # começa um passo (fecha o anterior); N = orçamento em minutos;
+                                                                    # etapa do painel: 1 referência 2 plano 3 blender 4 avatares 5 storyboard 6 vozes 7 takes 8 montagem 9 QA 10 sala 11 entrega
+  py relogio.py espera <pasta do job> "<o que preciso do Fefo>" [--tipo plano|elenco|previa|studio|entrega|credito|duvida|travou]
                                                                     # para o relógio e abre a chamada; imprime a linha do push
+                                                                    # studio = montagem HyperFrames pronta e com QA de timeline: o Fefo vê no studio do painel (23/11/2026)
   py relogio.py voltou <pasta do job>                               # o Fefo respondeu: fecha a chamada e o relógio volta a andar
   py relogio.py fim    <pasta do job>                               # sessão fechou (entrega feita ou etapa fechada)
   py relogio.py status [<pasta do job>] [--orcamento 120]           # trabalho, espera e cada passo contra o orçamento
@@ -28,7 +30,10 @@ import argparse, datetime, json, os, sys, time
 AQUI = os.path.dirname(os.path.abspath(__file__))
 CHAMADAS = os.environ.get("CHAMADAS_DIR") or os.path.normpath(os.path.join(AQUI, "..", "chamadas"))
 ORCAMENTO = 120
-TIPOS = ("plano", "elenco", "previa", "entrega", "credito", "duvida", "travou")
+BURACO_MAX = 3 * 3600   # intervalo sem evento, com o relógio andando, acima do qual a sessão é dada como morta
+TIPOS = ("plano", "elenco", "previa", "studio", "entrega", "credito", "duvida", "travou")
+# Etapas do painel local (_FLUXO/painel): `passo ... --etapa N` diz ao painel em que etapa a sessão está (Fefo, 22/11/2026).
+ETAPAS = ("", "Referência", "Briefing e plano", "Rascunho no Blender", "Avatares e personagens", "Storyboard", "Vozes", "Takes e b-roll", "Montagem", "QA", "Sala de revisão", "Entrega")
 
 
 def agora(): return datetime.datetime.now().replace(microsecond=0)
@@ -70,6 +75,8 @@ def conta(evs, ate=None):
         nonlocal trab, esp
         if ult is None: return
         d = max(0.0, (t - ult).total_seconds())
+        # Buraco grande andando = a sessão morreu sem `espera`/`fim` (M1WK4B2, 19->22/11: 72 h falsas). Não conta.
+        if estado == "andando" and d > BURACO_MAX: return
         if estado == "andando":
             trab += d
             if passos: passos[-1][1] += d
@@ -77,6 +84,8 @@ def conta(evs, ate=None):
     for e in evs:
         t = datetime.datetime.fromisoformat(e["t"]); anda(t); ult = t
         if e["ev"] == "passo":
+            if estado == "fechado":   # sessão nova depois de um `fim` (versão nova): orçamento novo
+                trab = esp = 0.0; passos = []
             atual = e.get("passo"); passos.append([atual, 0.0, e.get("min")]); estado = "andando"
         elif e["ev"] == "espera": estado = "esperando"
         elif e["ev"] == "voltou": estado = "andando" if atual else "parado"
@@ -127,8 +136,8 @@ def grava_abertas(ab):
 
 
 def cmd_passo(a):
-    grava(a.job, "passo", passo=a.texto, **({"min": a.min} if a.min else {}))
-    print(f"relogio: {nome_job(a.job)} · passo \"{a.texto}\"" + (f" · orçamento {a.min} min" if a.min else ""))
+    grava(a.job, "passo", passo=a.texto, **({"min": a.min} if a.min else {}), **({"etapa": a.etapa} if a.etapa else {}))
+    print(f"relogio: {nome_job(a.job)} · passo \"{a.texto}\"" + (f" · etapa {a.etapa} {ETAPAS[a.etapa]}" if a.etapa else "") + (f" · orçamento {a.min} min" if a.min else ""))
     return cmd_status(a, curto=True)
 
 
@@ -201,7 +210,7 @@ def main():
         try: s.reconfigure(encoding="utf-8")
         except Exception: pass
     ap = argparse.ArgumentParser(description="Relógio do job e chamada do Fefo."); sp = ap.add_subparsers(dest="cmd", required=True)
-    p = sp.add_parser("passo"); p.add_argument("job"); p.add_argument("texto"); p.add_argument("--min", type=int); p.set_defaults(fn=cmd_passo)
+    p = sp.add_parser("passo"); p.add_argument("job"); p.add_argument("texto"); p.add_argument("--min", type=int); p.add_argument("--etapa", type=int, choices=range(1, len(ETAPAS))); p.set_defaults(fn=cmd_passo)
     p = sp.add_parser("espera"); p.add_argument("job"); p.add_argument("texto"); p.add_argument("--tipo", choices=TIPOS, default="duvida"); p.set_defaults(fn=cmd_espera)
     p = sp.add_parser("voltou"); p.add_argument("job"); p.set_defaults(fn=cmd_voltou)
     p = sp.add_parser("fim"); p.add_argument("job"); p.set_defaults(fn=cmd_fim)

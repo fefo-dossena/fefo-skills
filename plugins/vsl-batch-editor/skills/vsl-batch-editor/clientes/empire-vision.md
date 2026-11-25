@@ -34,8 +34,9 @@ py fluxo.py status "<pasta da batch>"                           # o que falta, p
 
 ## Geração
 - Kie da EV (`kie.py`; `kie.py saldo` antes). Higgsfield só com pedido do Fefo (`modulos/higgsfield.md`).
-- **Vídeo só com Kling (e Gemini Omni). Seedance só em Drama ad** (ordem do cliente, 30/10/2026). Kling falhou: pare e
-  avise; Seedance não é reserva automática. Na dúvida se é Drama ad: Kling e pergunte.
+- **Vídeo por tipo (Fefo, 25/11/2026; substitui o "Seedance só em Drama ad" de 30/10):** avatares, pessoas e
+  cenas-chave no **Seedance em 480p** (o `kie.py` recusa outra resolução); b-roll, animações e complementos no
+  **Kling**. Gemini Omni segue liberado. Modelo falhou: pare e avise, sem trocar sozinho.
 - Geração em `kie.py lote`, com `08_auto/pedidos_<etapa>.json`. Reserva de crédito em `scripts/monitor/reservas.json`;
   teto e gasto no `08_auto/ESTADO.md`.
 - Clipe do Kling/Seedance entra depois do trecho parado do início (`inicio` ≥ 0,5 s, `scripts/inicio_movimento.py`);
@@ -75,8 +76,8 @@ b-roll com cara de stock, sem música).
 - **Primeiros 15 s com problema, dor e prova** (depoimento ou demonstração). Roteiro do CS sem prova nos 15 s: avise o Fefo
   antes de planejar; não reescreva o roteiro.
 - **Algo novo a cada 2 a 3 s:** outra cena (`@CLIENTES/_FLUXO/LEIA-ME.md`, seção "Cenas, não punch-in").
-- Em aberto, com o Fefo: de onde vem o b-roll real (banco com filtro, footage licenciada ou geração documental) e a legenda
-  igual à do ref.
+- Legenda: não copia a do ref; segue a regra da casa (Fefo, 19/11/2026: "as legendas tem que adaptar pras nossas leis").
+- Em aberto, com o Fefo: de onde vem o b-roll real (banco com filtro, footage licenciada ou geração documental).
 
 ## Loom do Daniel (18/11/2026: vale para toda batch, nova ou revisão)
 Análise e quadros: `_FLUXO/feedback/2026-11-18_daniel_loom/`. Ele citou o Fefo pelo nome por causa de stills (4382).
@@ -107,6 +108,16 @@ Análise e quadros: `_FLUXO/feedback/2026-11-18_daniel_loom/`. Ele citou o Fefo 
 - **Black Friday e promo:** só batch BF ou promo sai também em 1,91:1 (1200×628) e 1:1 (1200×1200); batch comum só vertical.
   Banners de BF Late e BFCM: `@EMPIRE VISION/CLAUDE.md`. Em aberto o pixel do vídeo: perguntar antes de exportar BF.
 - Loudness −20 LUFS (no `empire-vision.json`).
+- **Pods e QC (aviso da EV, 23/11/2026; o Fefo aplicou em 24/11):** todo vídeo passa pelo QC da **Jalila** (lead editor)
+  antes do estrategista. Ela revê quadro a quadro no Frame.io e dá nota de 1 a 5. Editor com 5 a 10 rodadas sem melhorar
+  sai da empresa. O Fefo (Felipe) passou do pod do Daniel para o do **Abhishek** (#team-abhishek). Em 24/11 os cards dele
+  ainda estavam em "Not started Shahzad", com Assigned to = fefo: pegar pela atribuição, não pela coluna. Com a troca de
+  pod, a regra "AD do Daniel sempre com música" vale só para card do Daniel.
+- **Content Bank (SOP da EV):** além de procurar antes de gerar (`modulos/05a_banco.md`), guardar no banco os clipes
+  reutilizáveis ao fim da batch.
+- **Propostas do SOP ainda não aprovadas (24/11/2026; seguir o processo atual até a EV aprovar):** um link do Frame.io
+  por marca (Neurobella e Visiovance) com pastas 9:16 e 4:5; 9:16 primeiro e 4:5 só depois do 9:16 aprovado; nome
+  `Marca_TaskID_Variante_Formato_vNN` só quando o card não der nome; "Logging In/Out" em #daily-check-in.
 
 ## Nomes
 - Falas: `03_avatar/hold/F01.mp4` (com marca: `F06_neurobella.mp4`); hooks `03_avatar/hooks/H1.mp4`.
@@ -114,11 +125,12 @@ Análise e quadros: `_FLUXO/feedback/2026-11-18_daniel_loom/`. Ele citou o Fefo 
 - IDs de geração em `08_auto/falas_ids.tsv` e `08_auto/broll_ids.tsv`. Corte à mão em `08_auto/cortes/<clipe>.manual.json` vence o automático.
 - **AD final = título exato do card + marca + AD:** `BATCH#3215 - Thinning Shield - Macular Degeneration - L2 - Problem Aware - Daniel - Neurobella - AD1.mp4`.
   Título do `batch.json` → `card`. Só `/ : * ? " < > | \` viram "-". Nome antigo: `fluxo.py renomear "<batch>"`.
-- Exports: `09_export/<p>/`; anteriores em `09_export/_old/V<k>/<p>/`. Sem XML do Premiere.
+- Exports: `09_export/<p>/`; anteriores em `09_export/_old/V<k>/<p>/`. Sem XML do Premiere. O nome do AD não muda entre
+  versões: no Frame.io a V2+ entra na pilha de versões do mesmo vídeo (`frameio.py nova`, desde 24/11/2026).
 
 ## Entrega
 - Sala de revisão (`modulos/11_review_room.md`), OK escrito no chat, então na hora: Frame.io (conta de time, `frameio_ev.py`),
-  "Ready for view" em texto normal, comentário no card do Notion, status **CS NEEDS TO REVIEW**, "Done - CS needs to Review"
+  "Ready for view" em texto normal, comentário no card do Notion, status **QC NEEDS TO REVIEW**, "Done - CS needs to Review"
   no `clock.dia_json`. O OK cita esses passos. Clock Out só quando o Fefo pedir. Detalhe: `modulos/09_entrega.md`.
 - Por último: registro no segundo cérebro (Aprendizados das batches, diário, nota).
 - Aprendizado novo: `py scripts/anotar.py "<título>" "- item"` (diário em `CALIBRACAO/`; consulta só com `grep -rn -i`).

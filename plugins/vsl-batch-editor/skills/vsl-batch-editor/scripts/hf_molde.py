@@ -9,6 +9,7 @@ embutidos aqui: alfa em WebM, sobreposição de 2 ms entre clipes encostados, bl
 
   py -X utf8 hf_molde.py trava    <job> [--marca p]                          # só a linha do tempo (sem render)
   py -X utf8 hf_molde.py preparar <job> [--marca p] [--formato f]            # projeto em %TEMP%/hf/<job>/<p>_<f>
+                                                                             # + cópia do studio em <auto>/hf/<p>_<f> (HF_SEM_DRIVE=1 pula)
   py -X utf8 hf_molde.py quadros  <job> --em 1,5,12 [--marca p] [--formato f] # PNGs para conferir antes do render
   PREVIA=1 fila py -X utf8 hf_molde.py render <job> [--marca p] [--formato f]  # prévia (NVENC) -> export + .PREVIA.txt
   fila --frente py -X utf8 hf_molde.py render <job> --final [...]             # final (libx264 crf 18), só depois do ok
@@ -32,6 +33,7 @@ Camadas (a ordem da lista = ordem de pintura; a de baixo primeiro):
    "velocidade": 1, "congela": true (segura o último quadro até t1), "loop": true (repete o clipe até t1),
    "chaves": [{"t": 7.3, "caixa": [...]}] (troca seca de posição e tamanho), "entra"/"sai": {"dissolve": 0.3},
    "push": 0.02 (zoom por segundo), "papel": "broll" (entra na trava) | "camada" (padrão)}
+   "tremor": 6 (câmera na mão em código, px; escala fixa 1,05x). NÃO USAR em AD de cliente: o hook precisa de movimento real do clipe (Fefo, 19/11/2026: "Não, só movimento real"); não conta como movimento na trava. "entra"/"sai" também aceitam {"whip": 0.2, "dir": "esq"|"dir"} (whip pan: desliza 16% da tela, ampliado 1,4x, com borrão só horizontal (SVG); 4614, 19/11/2026).
      Alfa (ProRes 4444, PNG em vídeo) vira WebM VP9 com alfa, no tamanho de uso e a 30 fps (cache no TEMP).
   {"tipo": "planos", "t0", "faixa": 0.675, "pena": 26, "entra": {"dissolve": 0.3},
    "itens": [{"src", "de", "q" (quadros), "reenquadra": [s, bx, by] ou [s, bx, by, 1], "velocidade", "push"}]}
@@ -93,8 +95,10 @@ def card_de(job, spec):
     for nome in ("batch.json", "job.json"):
         a = os.path.join(job, nome)
         if os.path.exists(a):
-            j = json.load(open(a, encoding="utf-8")); c = j.get("card") or j.get("titulo") or j.get("nome")
-            if c: return c
+            j = json.load(open(a, encoding="utf-8"))
+            # Na EV, "card" é a URL do Notion: nunca usar URL como nome de arquivo (19/11/2026).
+            for c in (j.get("card"), j.get("titulo"), j.get("nome")):
+                if c and not str(c).lower().startswith("http"): return c
     return os.path.basename(job.rstrip("/\\"))
 
 
@@ -225,6 +229,45 @@ class Comp:
         a, b = (0, 1) if entra else (1, 0)
         self.js.append(f'tl.fromTo("#{i}", {{opacity:{a}}}, {{opacity:{b}, duration:{d}, ease:"none"}}, {t:.4f});')
 
+    def whip(self, i, t, d, entra=True, dir="esq"):
+        """Whip pan (4614 V2, 19/11/2026): deslocamento rápido na horizontal com borrão SÓ em x (filtro SVG
+        feGaussianBlur "N 0", pedido da Central: o blur do CSS borra os dois eixos). dir = para onde a imagem corre:
+        "esq" = o plano que sai corre para a esquerda e o que entra chega da direita (câmera girando para a direita)."""
+        W = self.tela[0]; s = -1 if dir == "esq" else 1; dx = round(0.16 * W)   # ampliado 1,4x: a borda nunca aparece (dx < 20% W)
+        f = self.novo_id("wf"); B = round(0.09 * W)                            # 9% da largura (65 px em 720)
+        self.el.append(f'<svg width="0" height="0" style="position:absolute"><filter id="{f}" x="-20%" y="0" width="140%" height="100%">'
+                       f'<feGaussianBlur id="{f}b" stdDeviation="0 0" /></filter></svg>')
+        a, b = (f"{B} 0", "0 0") if entra else ("0 0", f"{B} 0")
+        ease = "power2.out" if entra else "power2.in"
+        self.js.append(f'tl.set("#{i}", {{filter:"url(#{f})"}}, {t:.4f});')
+        self.js.append(f'tl.fromTo("#{f}b", {{attr:{{stdDeviation:"{a}"}}}}, {{attr:{{stdDeviation:"{b}"}}, duration:{d:.4f}, ease:"{ease}"}}, {t:.4f});')
+        if entra:
+            self.js.append(f'tl.fromTo("#{i}", {{x:{-s * dx}, scaleX:1.4, scaleY:1.4}}, {{x:0, scaleX:1, scaleY:1, duration:{d:.4f}, ease:"{ease}"}}, {t:.4f});')
+            self.js.append(f'tl.set("#{i}", {{filter:"none"}}, {t + d:.4f});')
+        else:
+            self.js.append(f'tl.fromTo("#{i}", {{x:0, scaleX:1, scaleY:1}}, {{x:{s * dx}, scaleX:1.4, scaleY:1.4, duration:{d:.4f}, ease:"{ease}"}}, {t:.4f});')
+
+    def transicao(self, i, t0, t1, c):
+        """entra/sai: {"dissolve": d} ou {"whip": d, "dir": "esq"|"dir"}."""
+        e, s = c.get("entra") or {}, c.get("sai") or {}
+        if "dissolve" in e: self.dissolve(i, t0, e["dissolve"])
+        else: self.js.append(f'tl.set("#{i}", {{opacity:1}}, {t0:.4f});')
+        if "whip" in e: self.whip(i, t0, e["whip"], True, e.get("dir", "esq"))
+        if "dissolve" in s: self.dissolve(i, t1 - s["dissolve"], s["dissolve"], entra=False)
+        if "whip" in s: self.whip(i, t1 - s["whip"], s["whip"], False, s.get("dir", "esq"))
+
+    def tremor(self, i, t0, t1, amp):
+        """Câmera na mão em código (4614 V2, 19/11/2026): deriva suave de x/y (amp px na tela) a cada ~0,17 s, com a
+        imagem ampliada 1,05x para a borda não aparecer. Não é zoom: a escala fica fixa. Serve a plano fixo e ao hook."""
+        import random
+        r = random.Random(f"{i}{t0:.3f}"); passo = 1 / 6; t = t0
+        self.js.append(f'tl.set("#{i}", {{scale:1.05}}, {t0:.4f});')
+        while t < t1 - 1e-3:
+            d = min(passo, t1 - t)
+            self.js.append(f'tl.to("#{i}", {{x:{r.uniform(-amp, amp):.1f}, y:{r.uniform(-amp, amp):.1f}, rotation:{r.uniform(-0.35, 0.35):.2f}, '
+                           f'duration:{d:.4f}, ease:"sine.inOut"}}, {t:.4f});')
+            t += d
+
     def push(self, i, t0, d, k):
         self.js.append(f'tl.fromTo("#{i}", {{scale:1}}, {{scale:{1 + k * d:.4f}, duration:{d:.4f}, ease:"none"}}, {t0:.4f});')
 
@@ -236,9 +279,10 @@ class Comp:
         caixas = [c.get("caixa")] + [k.get("caixa") for k in c.get("chaves", [])]
         larg = max((cx[2] for cx in caixas if cx), default=None)
         wrap = None
-        if c.get("entra") or c.get("sai") or c.get("push"):
-            wrap = self.abre("opacity:0;" if c.get("entra") else "")
+        if c.get("entra") or c.get("sai") or c.get("push") or c.get("tremor"):
+            wrap = self.abre("opacity:0;" if "dissolve" in (c.get("entra") or {}) else "")
             if c.get("push"): inner = self.abre(); self.push(inner, t0, t1 - t0, c["push"])
+            if c.get("tremor"): trem = self.abre("transform:scale(1.05);"); self.tremor(trem, t0, t1, c["tremor"])   # escala já no 1º quadro (senão o corte ganha 1 quadro a 1,0x)
         for a, b, cx in zip(cortes, cortes[1:], caixas):
             pos_med = de + (a - t0) * vel
             if c.get("loop") and dmed:
@@ -258,18 +302,17 @@ class Comp:
                 else:
                     self.video(c["src"], a, b - a, pos_med, cx, vel, larg=larg)
         if wrap:
+            if c.get("tremor"): self.fecha()
             if c.get("push"): self.fecha()
             self.fecha()
-            if c.get("entra"): self.dissolve(wrap, t0, c["entra"]["dissolve"])
-            else: self.js.append(f'tl.set("#{wrap}", {{opacity:1}}, {t0:.4f});')
-            if c.get("sai"): self.dissolve(wrap, t1 - c["sai"]["dissolve"], c["sai"]["dissolve"], entra=False)
+            self.transicao(wrap, t0, t1, c)
         if c.get("papel") == "broll":
             self.trava.append({"ini": t0, "fim": t1, "fonte": arq, "tipo": "broll", "src_ini": de, "src_fim": de + (t1 - t0) * vel,
-                               "nome": os.path.basename(arq), "movimento": bool(c.get("push"))})
+                               "nome": os.path.basename(arq), "movimento": bool(c.get("push"))})   # tremor não conta (Fefo, 19/11/2026: "só movimento real")
 
     def c_planos(self, c):
         W, H = self.tela; f = round(c["t0"] * self.fps); faixa = c.get("faixa", 0.5); pena = c.get("pena", 26)
-        g = self.abre("opacity:0;" if c.get("entra") else ""); t_ini = f / self.fps
+        g = self.abre("opacity:0;" if "dissolve" in (c.get("entra") or {}) else ""); t_ini = f / self.fps
         for it in c["itens"]:
             n = int(it["q"]); t0 = f / self.fps; d = n / self.fps; de = it.get("de", 0.0); vel = it.get("velocidade", 1.0)
             arq = caminho(self.job, it["src"])
@@ -291,8 +334,7 @@ class Comp:
                                "movimento": bool(it.get("push"))})
             f += n
         self.fecha()
-        if c.get("entra"): self.dissolve(g, t_ini, c["entra"]["dissolve"])
-        else: self.js.append(f'tl.set("#{g}", {{opacity:1}}, {t_ini:.4f});')
+        self.transicao(g, t_ini, f / self.fps, c)
 
     def c_imagem(self, c, src_local=None):
         W, H = self.tela; x, y, w, h = c.get("caixa") or (0, 0, W, H); t0, t1 = self.q(c.get("t0", 0)), self.q(c.get("t1", self.dur))
@@ -364,12 +406,115 @@ def trilha(job, a, dur, proj):
     return f"assets/trilha_{k}.wav"
 
 
+# ---------------------------------------------------------------- cópia do studio no Drive (Fefo, 23/11/2026: "Projeto do studio no Drive")
+# O render e o cache seguem no TEMP. Depois de montar, o projeto vai para <auto>/hf/<p>_<fmt>/ (só a mídia que o
+# index.html usa, sem render nem log), para o painel do PC e do Mac abrirem o studio. .montado.json guarda o sha1 do
+# index.html que o hf_molde escreveu: sha1 diferente = o Fefo editou no studio (a hora do arquivo não serve: o Drive mexe).
+MARCA_STUDIO = ".montado.json"
+FORA_DO_DRIVE = {"saida.mp4", "render.log", "snapshot.log", "quadros", ".thumbnails", ".hyperframes", "assets", MARCA_STUDIO}   # .hyperframes = histórico do studio de cada lado
+
+
+def pasta_studio(job, p, fmt): return os.path.join(auto_de(job), "hf", f"{p}_{fmt}")
+
+
+def sha1_arq(arq):
+    with open(arq, "rb") as f: return hashlib.sha1(f.read()).hexdigest()
+
+
+def studio_editado(d):
+    idx, m = os.path.join(d, "index.html"), os.path.join(d, MARCA_STUDIO)
+    if not (os.path.exists(idx) and os.path.exists(m)): return False
+    try: return json.load(open(m, encoding="utf-8"))["index_sha1"] != sha1_arq(idx)
+    except (OSError, ValueError, KeyError): return False
+
+
+# Proxy (Fefo, 24/11/2026: "o visualizador do hyperframes tá mostrando muito delay na reprodução"): na cópia do Drive o vídeo
+# é uma versão leve com o MESMO nome (até 960 px de altura, ~1,5 Mbps, quadro-chave a cada 12 quadros). O render usa o projeto
+# do TEMP, com os originais. Edição feita no studio do Drive: só o index.html volta para o TEMP, nunca a pasta assets.
+VIDEO_PROXY = (".mp4", ".mov", ".m4v", ".webm")
+
+
+def faz_proxy(src, dst):
+    tmp = dst + ".proxy.tmp.mp4"
+    import glob as _g                                               # fora da `fila` o ffmpeg do winget pode não estar no PATH
+    ff = shutil.which("ffmpeg", path=ENV.get("PATH")) or next(iter(_g.glob(os.path.join(os.environ.get("LOCALAPPDATA", ""),
+         "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg*", "**", "bin", "ffmpeg.exe"), recursive=True)), "ffmpeg")
+    run([ff, "-v", "error", "-y", "-i", src, "-map", "0:v:0", "-map", "0:a?", "-vf", "scale=-2:'min(960,ih)'",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", 27, "-maxrate", "2M", "-bufsize", "4M", "-g", 12, "-keyint_min", 12,
+         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", tmp])
+    os.replace(tmp, dst)
+
+
+def proxies_do_drive(d, origem_de, marca_velha=None):
+    """Deixa em d/assets um proxy de cada vídeo usado. origem_de(n) = caminho do original. Devolve {nome: [tam, mtime]}."""
+    feitos = dict((marca_velha or {}).get("proxies") or {})
+    html = open(os.path.join(d, "index.html"), encoding="utf-8").read()
+    fila = []
+    for n in set(re.findall(r"assets/([^\"'\s)>]+)", html)):
+        if not n.lower().endswith(VIDEO_PROXY): continue
+        s = origem_de(n)
+        if not s or not os.path.exists(s): continue
+        sig = [os.path.getsize(s), int(os.path.getmtime(s))]
+        if feitos.get(n) == sig and os.path.exists(os.path.join(d, "assets", n)): continue
+        fila.append((n, s, sig))
+    def um(item):
+        n, s, sig = item
+        if os.path.normcase(os.path.abspath(s)) == os.path.normcase(os.path.abspath(os.path.join(d, "assets", n))):
+            tmp_src = os.path.join(TMP, "_proxy_src_" + n); os.makedirs(TMP, exist_ok=True); shutil.copyfile(s, tmp_src)
+            try: faz_proxy(tmp_src, os.path.join(d, "assets", n))
+            finally: os.remove(tmp_src)
+        else:
+            faz_proxy(s, os.path.join(d, "assets", n))
+        feitos[n] = sig
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(4) as ex: list(ex.map(um, fila))
+    if fila: print(f"   studio (Drive): {len(fila)} proxy(s) de vídeo")
+    return feitos
+
+
+def espelha_no_drive(job, proj, p, fmt):
+    if os.environ.get("HF_SEM_DRIVE") == "1": return None
+    d = pasta_studio(job, p, fmt); os.makedirs(os.path.join(d, "assets"), exist_ok=True)
+    try: velha = json.load(open(os.path.join(d, MARCA_STUDIO), encoding="utf-8"))
+    except (OSError, ValueError): velha = {}
+    for x in os.listdir(proj):
+        if x in FORA_DO_DRIVE or x.endswith(".tmp"): continue
+        s, t = os.path.join(proj, x), os.path.join(d, x)
+        if os.path.isdir(s): shutil.copytree(s, t, dirs_exist_ok=True)
+        else: shutil.copyfile(s, t)
+    html = open(os.path.join(proj, "index.html"), encoding="utf-8").read()
+    usados = set(re.findall(r"assets/([^\"'\s)>]+)", html))
+    for n in usados:
+        if n.lower().endswith(VIDEO_PROXY): continue                # vídeo vai como proxy (abaixo)
+        s, t = os.path.join(proj, "assets", n), os.path.join(d, "assets", n)
+        if os.path.exists(s) and (not os.path.exists(t) or os.path.getsize(t) != os.path.getsize(s)): shutil.copyfile(s, t)
+    for n in os.listdir(os.path.join(d, "assets")):                 # mídia de versão anterior sai da cópia
+        if n not in usados: os.remove(os.path.join(d, "assets", n))
+    px = proxies_do_drive(d, lambda n: os.path.join(proj, "assets", n), velha)
+    json.dump({"index_sha1": sha1_arq(os.path.join(d, "index.html")), "quando": time.strftime("%Y-%m-%d %H:%M"), "tmp": proj,
+               "proxies": px}, open(os.path.join(d, MARCA_STUDIO), "w", encoding="utf-8"))
+    return d
+
+
 # ---------------------------------------------------------------- montar o projeto
 def preparar(job, spec, p, fmt, saida_log=True):
     marcas = list(spec.get("marcas", {})) or ["ad"]; F = por_marca(spec["formatos"][fmt], p, marcas)
     if "de" in F: raise SystemExit(f"hf_molde: o formato {fmt} é derivado de {F['de']} (recorte); não tem projeto próprio")
     fps = spec.get("fps", 30); dur = spec["dur"]; tela = F["tela"]
     proj = os.path.join(TMP, re.sub(r"[^\w.-]", "_", os.path.basename(job.rstrip("/\\"))), f"{p}_{fmt}")
+    idx, lj = os.path.join(proj, "index.html"), os.path.join(proj, "linha.json")
+    ds = pasta_studio(job, p, fmt)
+    editado = ds if studio_editado(ds) else (proj if os.path.exists(idx) and not os.path.exists(os.path.join(ds, MARCA_STUDIO))
+              and os.path.getmtime(idx) > (os.path.getmtime(lj) if os.path.exists(lj) else 0) + 2 else None)
+    if editado and os.environ.get("HF_DESCARTA_STUDIO") != "1":
+        # Painel, 23/11/2026: o Fefo pode editar a montagem no studio do HyperFrames; refazer o projeto apagaria a edição.
+        raise SystemExit(f"hf_molde: o index.html de {editado} foi editado no studio depois da última montagem.\n"
+                         f"  Leve a mudança para o montagem_hf.json (veja: hyperframes history show --dir \"{editado}\"),\n"
+                         f"  depois rode de novo com HF_DESCARTA_STUDIO=1. Sem isso a edição do Fefo se perde.")
+    import qa_clipes                                                  # QA dos clipes antes de montar (Fefo, 23/11/2026)
+    vids = [c["src"] for c in F["camadas"] if c.get("tipo") == "video" and c.get("src")] + \
+           [it["src"] for c in F["camadas"] if c.get("tipo") == "planos" for it in c.get("itens", []) if it.get("src")]
+    qa_clipes.exige(job, [caminho(job, s) for s in vids], f"{p} {fmt}")
     if os.path.isdir(proj):
         for x in os.listdir(proj):
             if x.endswith(".html") or x.endswith(".png") and x.startswith("snap"): os.remove(os.path.join(proj, x))
@@ -384,6 +529,8 @@ def preparar(job, spec, p, fmt, saida_log=True):
     if C.bg:   # fundo desfocado: blur pela media-treatment (o HyperFrames não aceita blur por CSS)
         hf("media-treatment", "--project", proj, "--selector", "video.bg", "--grading", json.dumps({"effects": {"blur": 0.85}}), "--apply", "--json")
     json.dump({"textos": C.textos, "planos": C.trava}, open(os.path.join(proj, "linha.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    d = espelha_no_drive(job, proj, p, fmt)
+    if d and saida_log: print("   studio (Drive):", d)
     if saida_log:
         for t in C.textos: print(f"   texto {t['estilo']:7s} {t['t0']:5.2f}-{t['t1']:5.2f} s  y {t['y'][0] * 100:.1f}-{t['y'][1] * 100:.1f}%  {t['texto'][:60]}")
     return proj, C
@@ -394,7 +541,10 @@ def conferir_trava(job, spec, p, fmt, C):
     import trava_ref; trava_ref.trava(job, f"{p} {fmt}")      # estrutura igual à do ref (Fefo, 19/11/2026)
     ps = sorted((dict(x) for x in C.trava), key=lambda x: x["ini"])
     for a, b in zip(ps, ps[1:]):            # dissolve: os dois planos coexistem; para a trava o corte é o início do dissolve
-        if b["ini"] < a["fim"]: a["src_fim"] = a["src_ini"] + (b["ini"] - a["ini"]) * ((a["src_fim"] - a["src_ini"]) / max(1e-6, a["fim"] - a["ini"])); a["fim"] = b["ini"]
+        if b["ini"] < a["fim"]:
+            if "src_ini" in a:              # imagem (papel broll) não tem src_ini/src_fim: só corta o fim (KeyError, Naturva 20/11)
+                a["src_fim"] = a["src_ini"] + (b["ini"] - a["ini"]) * ((a["src_fim"] - a["src_ini"]) / max(1e-6, a["fim"] - a["ini"]))
+            a["fim"] = b["ini"]
     C.trava = ps
     TT.trava(C.trava,spec.get("fps", 30), f"{p} {fmt}", dur_total=spec["dur"], aceitas=spec.get("aceitar_lasca", ()), ad=p)
     print(f"   trava ok: {len(C.trava)} planos, {max(0, len(C.trava) - 1)} cortes")
@@ -420,19 +570,64 @@ def destino(job, spec, p, sufixo=""):
     return caminho(job, modelo.format(p=p, card=card_de(job, spec), nome=nome, sufixo=sufixo))
 
 
+def md5(arq, bloco=1 << 22):
+    h = hashlib.md5()
+    with open(arq, "rb") as f:
+        for b in iter(lambda: f.read(bloco), b""): h.update(b)
+    return h.hexdigest()
+
+
+class trava_export:
+    """Um render da batch por vez no guardar_velho + cópia (NB e VV juntos na fila --frente, 4615 20/11)."""
+    def __init__(self, dst, espera=1800):
+        raiz = os.path.dirname(os.path.dirname(dst)); os.makedirs(raiz, exist_ok=True)
+        self.arq = os.path.join(raiz, ".hf_entrega.lock"); self.espera = espera
+    def __enter__(self):
+        t0 = time.time()
+        while True:
+            try:
+                fd = os.open(self.arq, os.O_CREAT | os.O_EXCL | os.O_WRONLY); os.write(fd, f"{os.getpid()} {time.strftime('%H:%M:%S')}".encode()); os.close(fd); return self
+            except FileExistsError:
+                try:
+                    if time.time() - os.path.getmtime(self.arq) > 900: os.remove(self.arq); continue   # trava velha (processo morto)
+                except OSError: pass
+                if time.time() - t0 > self.espera: raise SystemExit(f"hf_molde: export travado por outro render ({self.arq})")
+                time.sleep(2)
+    def __exit__(self, *a):
+        try: os.remove(self.arq)
+        except OSError: pass
+
+
 def guardar_velho(arq):
-    """Versão anterior vai para <export>/_old/V<k>/<marca>/ (só se havia arquivo)."""
+    """Versão anterior vai para <export>/_old/V<k>/<marca>/ (só se havia arquivo; não duplica a última guardada)."""
     pasta = os.path.dirname(arq)
     if not os.path.exists(arq): return
     raiz = os.path.dirname(pasta); k = 1
     while os.path.exists(os.path.join(raiz, "_old", f"V{k}", os.path.basename(pasta), os.path.basename(arq))): k += 1
+    if k > 1:
+        ult = os.path.join(raiz, "_old", f"V{k - 1}", os.path.basename(pasta), os.path.basename(arq))
+        if os.path.getsize(ult) == os.path.getsize(arq) and md5(ult) == md5(arq):   # já guardada: não cria V nova (4615: V8/V13 repetidas)
+            os.remove(arq)
+            if os.path.exists(arq + ".PREVIA.txt"): os.remove(arq + ".PREVIA.txt")
+            return
     d = os.path.join(raiz, "_old", f"V{k}", os.path.basename(pasta)); os.makedirs(d, exist_ok=True)
     shutil.move(arq, os.path.join(d, os.path.basename(arq)))
     if os.path.exists(arq + ".PREVIA.txt"): shutil.move(arq + ".PREVIA.txt", os.path.join(d, os.path.basename(arq) + ".PREVIA.txt"))
 
 
 def entregar_arquivo(src, dst, previa, nota):
-    os.makedirs(os.path.dirname(dst), exist_ok=True); guardar_velho(dst); shutil.copyfile(src, dst)
+    os.makedirs(os.path.dirname(dst), exist_ok=True); alvo = md5(src); tam = os.path.getsize(src)
+    with trava_export(dst):
+        if os.path.exists(dst) and os.path.getsize(dst) == tam and md5(dst) == alvo: print("   export já é este render (md5 igual)")
+        else:
+            guardar_velho(dst)
+            for tent in range(1, 6):        # Drive (G:) às vezes mantém o arquivo velho depois do move + copy (4615, 3x)
+                if os.path.exists(dst): os.remove(dst)
+                shutil.copyfile(src, dst); time.sleep(1)
+                if os.path.getsize(dst) == tam and md5(dst) == alvo: break
+                print(f"   cópia não bateu o md5 (tentativa {tent}), copiando de novo"); time.sleep(3 * tent)
+            else: raise SystemExit(f"hf_molde: o export não bate com o render ({dst}). Render certo em {src}")
+        print(f"   md5 conferido: {alvo[:12]} ({tam / 2 ** 20:.1f} MB)")
     if previa: open(dst + ".PREVIA.txt", "w", encoding="utf-8").write(f"PREVIA HyperFrames ({nota}), não entregar.\n")
     elif os.path.exists(dst + ".PREVIA.txt"): os.remove(dst + ".PREVIA.txt")
     print("   saiu:", dst)
@@ -450,6 +645,9 @@ def render(job, spec, p, fmt, final):
             ["-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", out])
         entregar_arquivo(out, destino(job, spec, p, F.get("sufixo", f" - {w}x{h}")), previa, f"recorte do {F['de']}")
         return
+    os.makedirs(TMP, exist_ok=True); livre = shutil.disk_usage(TMP).free / 2 ** 30
+    precisa = float(os.environ.get("HF_DISCO_GB", "9"))
+    if livre < precisa: raise SystemExit(f"hf_molde: só {livre:.1f} GB livres em {TMP}; o render pede ~{precisa:.0f} GB. Libere espaço antes.")
     proj, C = preparar(job, spec, p, fmt)
     conferir_trava(job, spec, p, fmt, C)
     out = os.path.join(proj, "saida.mp4"); log = os.path.join(proj, "render.log")

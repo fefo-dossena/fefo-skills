@@ -92,7 +92,7 @@ def respostas(a):
     if not os.path.exists(arq): print(f"não existe {arq}", file=sys.stderr); return 2
     out, falta = [], []
     for ln in open(arq, encoding="utf-8"):
-        m = re.match(r"\s*[-*]\s*\[( |x|X)\]\s*(\S+)\s+([\d:.]+)\s*·\s*\"(.*?)\"", ln)
+        m = re.match(r"\s*[-*]\s*\[( |x|X)\]\s*(\S+)\s+([\d:.]+)\s*(?:\([^)]*\)\s*)?·\s*\"(.*?)\"", ln)   # 23/11: aceita "(00:41)" ou "(Daniel)" depois do tempo
         if not m: continue
         mud = re.search(r"mudei:\s*(.+?)\s*(?:·|$)", ln)
         mud = mud[1].strip() if mud and mud[1].strip() not in ("?", "") else None

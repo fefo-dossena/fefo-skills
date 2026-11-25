@@ -11,7 +11,7 @@ Subcomandos:
   transcrever <audio_ou_video> <palavras.json> [--lang en]  tempo de cada palavra (faster-whisper; roda no Mac/Claude Code)
   srt      <palavras.json> <saida.srt> [--max 22]           legenda de 1 linha com até N caracteres
 """
-import sys, json, subprocess, argparse, urllib.parse
+import os, sys, json, subprocess, argparse, urllib.parse
 import numpy as np
 from xml.sax.saxutils import escape
 
@@ -161,7 +161,17 @@ def cmd_prancha(a):
 
 def cmd_transcrever(a):
     from faster_whisper import WhisperModel
-    m = WhisperModel(a.modelo, device="cpu", compute_type="int8")
+    # GPU no PC Windows (RTX 3060 Ti; CLAUDE.md, regra da GPU): DLLs CUDA pelo helper do núcleo; sem GPU (Mac) fica na CPU.
+    gpu = False
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "_FLUXO", "scripts", "checagens"))
+        import transcricao_cache as _tc
+        gpu = _tc.gpu()
+    except Exception:
+        pass
+    m = (WhisperModel(a.modelo, device="cuda", compute_type="float16") if gpu
+         else WhisperModel(a.modelo, device="cpu", compute_type="int8"))
+    print("whisper:", "cuda float16" if gpu else "cpu int8")
     segs, _ = m.transcribe(a.midia, language=a.lang, word_timestamps=True, vad_filter=True)
     w = [{"w": x.word.strip(), "s": round(x.start, 3), "e": round(x.end, 3)} for sg in segs for x in (sg.words or [])]
     json.dump(w, open(a.out, "w"), ensure_ascii=False); print(len(w), "palavras ->", a.out)

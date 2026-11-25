@@ -158,7 +158,9 @@ def conferir(planos, fps, dur_total=None, aceitas=(), saltos=True, papel=None, a
         if a > pos: err("buraco", pos / fps, p, f"buraco de {a - pos} quadro(s) antes de {_nome(p)}", "estique a cena anterior ou comece esta antes")
         elif a < pos: err("sobreposição", a / fps, p, f"{_nome(p)} começa {pos - a} quadro(s) antes do fim do plano anterior", "comece no fim da anterior")
         pos = max(pos, b)
-    if dur_total is not None and vis and q(dur_total) - pos > 0:
+    # 1 quadro no fim é arredondamento do áudio (encurta_pausas; M2WK2B3 V3, 19/11/2026): o montar estica o último quadro
+    # (tpad clone). Só 2+ quadros sem plano são buraco.
+    if dur_total is not None and vis and q(dur_total) - pos > 1:
         err("buraco", pos / fps, vis[-1], f"{q(dur_total) - pos} quadro(s) sem plano no fim", "estique o último plano até o fim")
     # curto / A-B-A / corte duplo
     for i, p in enumerate(vis):
@@ -200,6 +202,10 @@ def conferir(planos, fps, dur_total=None, aceitas=(), saltos=True, papel=None, a
     if HOOK_ATE > 0 and (not papel or str(papel).lower().startswith("hook")):
         for p in vis:
             if p.get("tipo") != "broll" or p["ini"] >= HOOK_ATE or not isinstance(p.get("fonte"), str): continue
+            # zoom só quando o ref faz (Fefo, 19/11/2026: "zoom só quando o ref faz"): plano com zoom declarado passa se
+            # a trava do ref marcou REF_ZOOM=1 (trava_ref.marca_zoom); sem isso, punch-in não conta como movimento
+            if (p.get("zoom") or p.get("movimento")) and os.environ.get("REF_ZOOM") == "1": continue
+            if p.get("kenburns"): continue           # imagem com Ken Burns (TS): o motor sempre move a imagem
             ini, fim = float(p["ini"]), min(float(p["fim"]), HOOK_ATE)
             if p.get("src_ini") is None:
                 if str(p["fonte"]).lower().endswith((".png", ".jpg", ".jpeg", ".webp")):

@@ -14,7 +14,9 @@ revisão. Dispensa do Fefo não vale para estes itens (decisão dele, 13/11/2026
                   Mede pelos stems do montar (<auto>/mix_AD<n>_<p>.json); sem eles, estima pelo mix (pausas x fala).
   5 imagem        por plano: imagem parada (still), tremida ou borrada.
   6 notas         revisão: toda nota da versão anterior marcada [x] com prova (quadro da versão nova) em
-                  <roteiro>/revisao_V<k>.md (10_revisao.md, passo 1b). V1 não tem nota: passa.
+                  <roteiro>/revisao_V<k>.md (10_revisao.md, passo 1b). V1 não tem nota: passa. V2+ que ainda é a primeira entrega ao
+                  cliente (versões anteriores internas): "primeira_entrega": {"versao": "V3", "fefo": "<frase do Fefo, data>"}
+                  no job.json/batch.json; sem a frase não vale (22/11/2026).
 
 Uso (no Windows: py -X utf8; processo pesado pela fila):
   checklist.py <batch> [videos...] [--versao K] [--so 1,3] [--saida PASTA] [--debug]
@@ -286,7 +288,7 @@ def confirma_trocadas(wav, occ, idioma="en", janela=5.0, pad=0.5, por_palavra=0.
     (cuda_dlls.whisper), sem hotwords. Se a janela ouve as palavras do roteiro (mesma régua de grafia do item 3: 0,75),
     vira aviso. Se não ouve, segue erro "(confirmada no large-v3)". Devolve quantas viraram aviso."""
     global _GRANDE
-    sus = [o for o in occ if o.get("regra") == "trocada" and o.get("nivel") == "erro" and o.get("esperado")]
+    sus = [o for o in occ if o.get("regra") in ("trocada", "faltando") and o.get("nivel") == "erro" and o.get("esperado")]   # faltando: 4614 V2, 19/11/2026
     if not sus: return 0
     import numpy as np
     with wave.open(wav, "rb") as f:
@@ -309,7 +311,7 @@ def confirma_trocadas(wav, occ, idioma="en", janela=5.0, pad=0.5, por_palavra=0.
         k = len(e); melhor = 0.0
         for L in {max(1, k - 1), k, k + 1}:
             for i in range(0, max(1, len(ouv) - L + 1)):
-                melhor = max(melhor, difflib.SequenceMatcher(None, je, "".join(ouv[i:i + L])).ratio())
+                melhor = max(melhor, _sim(je, "".join(ouv[i:i + L])))
         if melhor >= 0.75:
             o["nivel"] = "aviso"; n += 1
             o["msg"] += f" só no medium do arquivo inteiro; o {modelo} na janela ouviu o roteiro ({melhor:.2f}; provável alucinação do Whisper)"
@@ -417,6 +419,23 @@ ABREV = {"mg": "milligrams", "mcg": "micrograms", "ml": "milliliters", "kg": "ki
          "approx": "approximately", "ok": "okay", "tv": "television"}
 
 
+
+def _fon_es(s):
+    """Grafia -> som no espanhol latino (seseo): ce/ci e z = s, "ce" final ~ "s", v = b, ll = y.
+    BATCH#4615 VV, 19/11/2026: a Jessica diz "Visio Vance" e o large-v3 em es escreve "vicio vans"."""
+    s = re.sub(r"ce$", "s", s)
+    s = re.sub(r"c(?=[ei])", "s", s).replace("z", "s").replace("v", "b").replace("ll", "y")
+    return s
+
+
+def _sim(a, b):
+    """Régua de grafia do item 3: no espanhol compara também pelo som (seseo)."""
+    r = difflib.SequenceMatcher(None, a, b).ratio()
+    if IDIOMA_NUM == "es":
+        r = max(r, difflib.SequenceMatcher(None, _fon_es(a), _fon_es(b)).ratio())
+    return r
+
+
 ROTEIRO_HOOK = [0, None]   # nº de palavras e fim (s, pelos cortes do plano) do hook do último roteiro lido
 
 
@@ -483,11 +502,11 @@ def junta_marca(ouvidas, marca):
         for k in (3, 2):
             if i + k <= len(ouvidas):
                 junto = "".join(w[0] for w in ouvidas[i:i + k])
-                if difflib.SequenceMatcher(None, junto, alvo).ratio() >= 0.8:
+                if _sim(junto, alvo) >= 0.8:
                     out.append((alvo, ouvidas[i][1], ouvidas[i + k - 1][2], min(w[3] for w in ouvidas[i:i + k]))); i += k; feito = True; break
         if not feito:
             w = ouvidas[i]
-            out.append((alvo, w[1], w[2], w[3]) if difflib.SequenceMatcher(None, w[0], alvo).ratio() >= 0.8 else w); i += 1
+            out.append((alvo, w[1], w[2], w[3]) if _sim(w[0], alvo) >= 0.8 else w); i += 1
     return out
 
 
@@ -506,7 +525,7 @@ def junta_numeros(words):
     return out
 
 
-def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False):
+def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False, apoio=None):
     """words = [(texto, ini, fim, prob)] do Whisper. Devolve (ok, resumo, ocorrências)."""
     c = cfg["vo"]; occ = []
     ouv = []
@@ -531,11 +550,14 @@ def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False):
     # repetição colada (a mesma palavra duas vezes seguidas, que o roteiro não tem)
     esp = palavras(roteiro) if roteiro else []
     pares_rot = set(zip(esp, esp[1:]))
+    if not esp and apoio:                 # sem roteiro alinhável: a palavra dobrada que está no brief não é erro (22/11/2026)
+        ap = palavras(apoio); pares_rot = {(x, y) for x, y in zip(ap, ap[1:]) if x == y}
     for (w1, a1, b1, p1), (w2, a2, b2, p2) in zip(ouv, ouv[1:]):
         if w1 == w2 and w1 not in FRACAS and (w1, w2) not in pares_rot and min(p1, p2) >= c["prob_min"]:
             occ.append({"t": round(a1, 2), "msg": f"palavra repetida: \"{w1} {w2}\"", "nivel": "erro", "regra": "repetida",
                         "palavras": [[round(a1, 3), round(b1, 3)], [round(a2, 3), round(b2, 3)]]})
-    resumo_rot = "sem roteiro no plano: conferi só pausa, repetição e fim"
+    resumo_rot = "sem roteiro no plano: conferi só pausa, repetição e fim" + (
+        f" (palavra dobrada do brief aceita: {', '.join(sorted(x for x, _ in pares_rot))[:80]})" if not esp and pares_rot else "")
     if esp:
         ouvidas = [w[0] for w in ouv]
         sm = difflib.SequenceMatcher(None, esp, ouvidas, autojunk=False)
@@ -544,7 +566,7 @@ def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False):
             e, o = esp[i1:i2], ouv[j1:j2]
             t = o[0][1] if o else (ouv[j1 - 1][2] if j1 > 0 else 0.0)
             je, jo = "".join(e), "".join(w[0] for w in o)
-            if e and o and difflib.SequenceMatcher(None, je, jo).ratio() >= 0.75:
+            if e and o and _sim(je, jo) >= 0.75:
                 continue                                    # grafia do Whisper ("cocoa"/"coco", "type two"/"type to")
             pmin = min((w[3] for w in o), default=1.0)
             if op == "replace":
@@ -557,7 +579,7 @@ def item_vo(words, roteiro, marca, cfg, dur, pausas=None, exata=False):
                 fim = i2 == len(esp)
                 nivel = "erro" if (fim and fortes) or len(fortes) >= 2 or (marca and re.sub(r"[^a-z]", "", marca.lower()) in e) else "aviso"
                 occ.append({"t": round(t, 2), "msg": ("fim cortado: falta " if fim else "falta no áudio: ") + f"\"{' '.join(e)}\"",
-                            "nivel": nivel, "regra": "faltando"})
+                            "nivel": nivel, "regra": "faltando", "esperado": list(e), "t_fim": round(t, 2)})
             elif op == "insert":
                 fortes = [w for w in o if w[0] not in FRACAS and w[3] >= c["prob_min"]]
                 longo = len(o) >= 6                      # frase inteira a mais: o plano é que não tem a fala (3858: F09/F11)
@@ -678,7 +700,34 @@ def vocab_cena(B, P):
             if isinstance(c.get(k), str): v.update(palavras(c[k]))
     for m in (pl.get("marca_nome") or {}).values(): v.update(palavras(m))
     v.update(palavras(" ".join((pl.get("frascos") or {}).keys())))
+    # texto impresso no produto (4615 VV, 19/11/2026: "15-IN-1 ADVANCED" do frasco no colo): "rotulos" no plano
+    # (lista ou {marca: texto}) e "rotulo" na cena
+    rot = pl.get("rotulos") or []
+    for t in (rot.values() if isinstance(rot, dict) else rot):
+        t = " ".join(t) if isinstance(t, list) else t
+        v.update(palavras(t))
+        v.add("§" + re.sub(r"[^a-z]", "", str(t).lower()))    # rótulo inteiro, só letras: casamento parcial do OCR torto
+    for c in pl.get("cenas", []) or []:
+        if isinstance(c.get("rotulo"), str): v.update(palavras(c["rotulo"]))
     return {w for w in v if len(w) >= 4}
+
+
+def _no_rotulo(txt, vocab, minimo=0.75):
+    """Linha do OCR torta que é pedaço do rótulo declarado (4615 NB V13, 19/11/2026: "1$41iA'bVANCED" = "15-IN-1 ADVANCED"):
+    só letras, 6+, e alguma janela do rótulo do mesmo tamanho com semelhança >= minimo."""
+    x = re.sub(r"[^a-z]", "", str(txt).lower())
+    if len(x) < 6: return False
+    for r in (w[1:] for w in vocab if w.startswith("§")):
+        for L in (len(x) - 1, len(x), len(x) + 1):
+            for i in range(0, max(1, len(r) - L + 1)):
+                if difflib.SequenceMatcher(None, x, r[i:i + L]).ratio() >= minimo: return True
+    return False
+
+
+
+def _no_vocab(w, vocab):
+    """Palavra do OCR no vocabulário da cena, tolerando 1 letra mal lida ("FOPMULA" = formula; 4614, 19/11/2026)."""
+    return w in vocab or any(abs(len(x) - len(w)) <= 1 and difflib.SequenceMatcher(None, w, x).ratio() >= 0.85 for x in vocab)
 
 
 TELAS = ("gravada", "replica")
@@ -758,6 +807,15 @@ def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, voc
                                                                 and estilo_crop(img(q), l["b"])[0] == "pilula"))]
         if img is not None and leg and not (camadas or {}).get("camadas"):
             leg = [l for l in leg if _classe(img, q, l) is not None]
+        # rótulo da cena com a palavra falada (4614/4615 S01, 19/11/2026: "EYE FORMULA" do frasco no colo enquanto a VO diz
+        # "this eye formula"): as palavras longas (4+ letras) todas no vocabulário da cena e sem desenho de legenda
+        # (pílula, contorno, sombra) = rótulo do objeto, não legenda. Fefo, 19/11/2026: "Conserta o checklist".
+        if img is not None and leg and vocab:
+            def _rotulo(l, q=q):
+                longas = [w for w in _palavras_ocr(l["t"]) if len(w) >= 4]
+                return ((bool(longas) and all(_no_vocab(w, vocab) for w in longas) or _no_rotulo(l["t"], vocab))
+                        and estilo_crop(img(q), l["b"])[0] not in ("pilula", "contorno", "sombra"))
+            leg = [l for l in leg if not _rotulo(l)]
         for l in leg: legendas.append((t, l, q))
         pil_h = 57 / 1080 * tam[0] / tam[1]                # altura da pílula do PSD (57 px em 1080 de largura)
         for l in linhas:
@@ -781,7 +839,7 @@ def item_texto(qs, vis, words, cfg, camadas=None, tam=(720, 1280), img=None, voc
             fora = y < Z["y0"] - tol or y + h > Z["y1"] + tol or x < Z["x0"] - tol or x + w > Z["x1"] + tol
             if fora:
                 tipo = "legenda" if l in leg else "texto"
-                if tipo == "texto" and vocab and all(w in vocab for w in _palavras_ocr(l["t"])): continue   # rótulo/objeto da cena
+                if tipo == "texto" and vocab and (lambda ls: bool(ls) and all(_no_vocab(w, vocab) for w in ls))([w for w in _palavras_ocr(l["t"]) if len(w) >= 4]): continue   # rótulo/objeto da cena (palavras de 4+ letras; o vocab só guarda essas)
                 occ.append({"t": round(t, 2), "chave": f"fora:{tipo}:{round(y, 1)}", "tipo": tipo, "b": l["b"], "q": q,
                             "msg": f"{tipo} fora da {Z['nome']} (x {x:.3f}–{x + w:.3f}, y {y:.3f}–{y + h:.3f}; área x {Z['x0']:.3f}–{Z['x1']:.3f}, "
                                    f"y {Z['y0']:.3f}–{Z['y1']:.3f}): \"{l['t'][:40]}\""})
@@ -888,7 +946,9 @@ def estilo_crop(img, b):
         return float(L[rr].mean()) if rr.any() else None
     LA, LB = anel(0.12, 0.20), anel(0.32, 0.38)
     m["borda"] = round(LA, 1) if LA is not None else None; m["fundo"] = round(LB, 1) if LB is not None else None
-    if LA is not None and LB is not None and LB >= 45 and LA <= 0.6 * LB: return "sombra", m
+    # 22/11/2026 (4618 V3, branca com contorno sobre fundo claro: borda 67-84, assimetria <= 0,14, lida como 3D): a borda
+    # pesada só conta quando é quase preta (3855 V1: 22-64) ou vem com sombra de um lado (3855: 0,13-0,27 na maioria).
+    if LA is not None and LB is not None and LB >= 45 and LA <= 0.6 * LB and (LA <= 60 or assim >= 0.15): return "sombra", m
     # degradê no preenchimento: o branco do glifo varia muito de cima para baixo
     gl = L[a:bb, int(tx0 - x0):int(tx1 - x0)][tx]
     m["preench_std"] = round(float(gl.std()) if gl.size else 0, 1)
@@ -1139,6 +1199,9 @@ def item_notas(B, P, versao, video):
     cands = [os.path.join(B, d, f"revisao_V{k}.md") for d in (P["roteiro"], "00_briefing", "00_roteiro")]
     arq = next((x for x in cands if os.path.exists(x)), None)
     if not arq:
+        kp, frase = primeira_entrega(B, P)      # V2+ interna: o cliente ainda não viu nenhuma versão (Naturva LFS, 22/11/2026)
+        if kp and k <= kp:
+            return True, f"V{k}: primeira entrega ao cliente ({P['config']}: primeira_entrega V{kp}, Fefo: \"{frase[:90]}\"); sem notas de revisão do cliente", []
         return False, f"sem lista de notas ({P['roteiro']}/revisao_V{k}.md, 10_revisao.md passo 1b)", \
             [{"t": 0, "msg": f"falta {P['roteiro']}/revisao_V{k}.md (gere com frameio.py comentarios ... --revisao)", "nivel": "erro", "regra": "sem_lista"}]
     occ = []; tot = 0
@@ -1168,6 +1231,68 @@ def lado_montar(B, P, video, prefixo, dg):
         if d.get("digital") == dg: return d
         if dg in d.get("por_digital", {}): return d["por_digital"][dg]
     return None
+
+
+def camadas_hf(B, P, video):
+    """Job do HyperFrames (hf_molde.py): o montar não grava camadas_*.json, mas o <auto>/montagem_hf.json diz cada texto
+    desenhado. Devolve {"camadas": [...]} no formato do lado_montar (legenda e texto, com y0/y1 medidos no mesmo
+    desenho do pilula.py), ou None. Sem isso o item 1 adivinhava a legenda pelo OCR e lia o texto de dentro da imagem
+    (gráfico, selo do b-roll) como legenda fora da zona (M1WK4B2 Naturva LFS V3, 22/11/2026; Fefo: "Conserta o checklist").
+    Só vale quando o spec é deste arquivo: mesmo nome de saída e mesma duração."""
+    arq = os.path.join(B, P["auto"], "montagem_hf.json")
+    if not os.path.exists(arq): return None
+    try:
+        spec = json.load(open(arq, encoding="utf-8"))
+        if NUCLEO not in sys.path: sys.path.insert(0, NUCLEO)
+        import hf_molde as hm
+        if abs(float(spec.get("dur", 0)) - duracao(video)) > 0.2: return None
+        w, h = tamanho(video); marcas = list(spec.get("marcas", {})) or ["ad"]
+        tronco = lambda x: os.path.splitext(os.path.basename(x))[0].lower()
+        for p in marcas:
+            if not tronco(video).startswith(tronco(hm.destino(B, spec, p))): continue
+            for F in (hm.por_marca(f, p, marcas) for f in spec.get("formatos", {}).values()):
+                tela = F.get("tela")
+                if "de" in F or not tela or abs(tela[0] / tela[1] - w / max(h, 1)) > 0.01: continue
+                out = []; png = os.path.join(tempfile.gettempdir(), f"ck_hf_{os.getpid()}.png")
+                for c in F.get("camadas", []):
+                    if c.get("tipo") != "texto": continue
+                    bb = hm.png_texto(c, tela, png)
+                    if bb[3] <= bb[1]: continue
+                    out.append({"tipo": "legenda" if c.get("estilo", "legenda") in ("legenda", "check") else "texto",
+                                "t0": c.get("t0", 0), "t1": c.get("t1", spec.get("dur", 0)),
+                                "x0": round(bb[0] / tela[0], 4), "x1": round(bb[2] / tela[0], 4),
+                                "y0": round(bb[1] / tela[1], 4), "y1": round(bb[3] / tela[1], 4)})
+                try: os.remove(png)
+                except OSError: pass
+                return {"camadas": out, "fonte": "montagem_hf.json"} if out else None
+    except (Exception, SystemExit):
+        return None
+    return None
+
+
+def texto_de_apoio(B, P):
+    """Job sem roteiro alinhável (sem plano.json e sem "## H<n>" no roteiro.md; LFS da Naturva, 22/11/2026): o texto do
+    brief e do roteiro serve só para saber se a palavra dobrada já vem do roteiro do cliente ("stomach. Stomach acid",
+    "for you, you get"). Não liga a conferência palavra a palavra."""
+    out = []
+    for f in sorted(glob.glob(os.path.join(glob.escape(os.path.join(B, P["roteiro"])), "*"))):
+        n = os.path.basename(f).lower()
+        if n.startswith(("roteiro", "brief", "script")) and n.endswith((".md", ".txt")):
+            try: out.append(open(f, encoding="utf-8", errors="replace").read())
+            except OSError: pass
+    return "\n".join(out) or None
+
+
+def primeira_entrega(B, P):
+    """(k, frase) de "primeira_entrega": {"versao": "V3", "fefo": "<frase do Fefo, data>"} no job.json/batch.json: as
+    versões até a V<k> foram internas (notas do Fefo na sala) e o cliente ainda não viu nenhuma. Sem a frase do Fefo
+    não vale. (None, None) quando não há."""
+    try:
+        pe = json.load(open(os.path.join(B, P["config"]), encoding="utf-8")).get("primeira_entrega") or {}
+        m = re.match(r"V(\d+)", str(pe.get("versao", ""))); fr = str(pe.get("fefo", "")).strip()
+        if m and fr: return int(m[1]), fr
+    except (OSError, ValueError, AttributeError): pass
+    return None, None
 
 
 # ---------------------------------------------------------------- rodar
@@ -1232,7 +1357,7 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
                         return d - sum(max(0.0, min(t + d, b) - max(t, a)) for a, b in sf)
                     pz = [(t, round(_fora(t, d), 2)) for t, d in pz]
         except (OSError, ValueError, AttributeError, KeyError): pass
-        ok3, r3, o3 = item_vo(words, rot, marca, c3, dur, pz, exata=stems)
+        ok3, r3, o3 = item_vo(words, rot, marca, c3, dur, pz, exata=stems, apoio=None if rot else texto_de_apoio(B, P))
         if (confirma_repeticoes(wp, o3, idi, tc.vocabulario(video))     # repetição só do Whisper vira aviso
                 + confirma_trocadas(wp, o3, idi)):                        # troca só do medium vira aviso (17/11/2026)
             er = [o for o in o3 if o["nivel"] == "erro"]; ok3 = not er
@@ -1262,12 +1387,13 @@ def rodar_video(B, ficha, cfg, video, versao, itens, tmp, debug=False):
             for n in (1, 2):
                 if n in itens: poe(n, False, "OCR indisponível nesta máquina", [{"t": 0, "msg": "sem OCR: não deu para conferir o texto", "nivel": "erro"}])
         else:
-            cam = lado_montar(B, P, video, "camadas", dg)
+            cam = lado_montar(B, P, video, "camadas", dg) or camadas_hf(B, P, video)
             zt, ezt = zonas_tela(B, P, video)
             cfg = dict(cfg, _banner_bf=bool(re.search(r"\bBF(CM)?\b", os.path.basename(video))))   # banner BF Late/BFCM (18/11/2026)
             if norma_legenda(B, P) == "plataforma":      # legenda na zona segura de Meta e TikTok (job com a chave "norma")
                 cfg = dict(cfg, area_legenda=dict(AREA_PLATAFORMA), legenda_centro_max=min(cfg["legenda_centro_max"], 0.63))
             ok1, r1, o1, legendas = item_texto(qs, vis, words, cfg, cam, tamanho(video), img, vocab_cena(B, P), zt)
+            if cam and cam.get("fonte"): r1 += f"; legenda pelas camadas do {cam['fonte']}"
             if zt: r1 += f"; texto de tela do plano em {', '.join(f'{mmss(a)}–{mmss(b)}' for a, b in zt)}"
             if ezt: ok1, o1 = False, ezt + o1
             if 1 in itens: poe(1, ok1, r1, o1)
@@ -1407,7 +1533,14 @@ def cmd_entrega(a):
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "entrega":
         ap = argparse.ArgumentParser(prog="checklist.py entrega"); ap.add_argument("batch"); ap.add_argument("videos", nargs="*")
-        return cmd_entrega(ap.parse_args(sys.argv[2:]))
+        a = ap.parse_args(sys.argv[2:]); rc = cmd_entrega(a)
+        # entrega liberada: apaga o cache do job no TEMP (Fefo, 24/11/2026; o TEMP chegou a 165 GB). Pular: FLUXO_SEM_LIMPEZA=1
+        if rc == 0 and os.environ.get("FLUXO_SEM_LIMPEZA") != "1":
+            try:
+                sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import limpa_temp
+                limpa_temp.limpar(a.batch)
+            except Exception as e: print(f"limpeza do TEMP falhou (a entrega vale igual): {e}")
+        return rc
     if len(sys.argv) > 1 and sys.argv[1] == "estado":
         out = {v: estado_de(v) for v in sys.argv[2:]}
         print(json.dumps(out, ensure_ascii=False, indent=1)); return 0

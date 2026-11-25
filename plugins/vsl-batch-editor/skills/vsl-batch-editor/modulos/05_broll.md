@@ -100,11 +100,10 @@
 - **Porta, gaveta ou tampa se mexendo** no Kling morfa: na S01 da 3214 a porta do armário fechou, a maçaneta pulou e
   abriu de novo ("o comportamento das portas tá estranho", Fefo). Peça o quadro já aberto e só a câmera se mexendo.
 - **Ação clara** (arremessar, rasgar) e causa e efeito (antes/depois): Kling com `start_image` + `end_image`.
-- **Seedance só em Drama ad** (ordem do cliente, 30/10/2026; regra em `04_falas.md`). Fora dele, Kling falhou, travou
-  (429 o dia todo) ou não faz a ação: tente de novo mais tarde ou simplifique o plano, e avise o Fefo. Seedance sem o ok
-  dele, nunca. Em Drama ad: **Seedance 2.5** (`seedance_2_5`, `omni_reference`, `start_image`, 720p,
-  `generate_audio: false`, ~35 cr/5 s), com ou sem pessoas; ação clara com `start_image` + `end_image`.
-  Frasco com rótulo legível fica no Kling pro.
+- **Modelo por tipo (Fefo, 25/11/2026; substitui o "Seedance só em Drama ad"):** b-roll, animações e complementos no
+  **Kling**; cena com pessoa ou cena-chave no **Seedance 480p** (`kie.py seedance`; regra em `04_falas.md`). Kling falhou,
+  travou (429 o dia todo) ou não faz a ação: tente de novo mais tarde ou simplifique o plano, e avise o Fefo.
+  Frasco com rótulo legível fica no Kling 720p.
 - **Efeito sutil** (camada afinando, sintoma de visão): o modelo quase não mostra; faça na edição. Efeitos de sintoma em
   ffmpeg sem crédito (onda/bojo, metade cinza, cor sumindo, mancha central): `BATCH#1980/08_auto/efeitos_1980.py`.
 - NSFW do Sunburst: cama + toque ou roupa íntima barra (ver `03_personagens.md`).

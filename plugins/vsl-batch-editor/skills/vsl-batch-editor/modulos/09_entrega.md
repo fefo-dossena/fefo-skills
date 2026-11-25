@@ -2,10 +2,10 @@
 Roda no fim de toda batch e no fim de toda revisão, depois de conferir os ADs. Subir e gerar links publica para o time:
 faça quando o Fefo pedir a entrega ou disser que a batch está pronta.
 
-**Antes do "Ready for view", sempre mandar os vídeos ao Fefo para revisar** (regra do Fefo, 13/10/2026): mandar a versão
-nova para a sala do painel local (`11_review_room.md`; SendUserFile só se ele pedir) e esperar o OK dele no chat. Aprovar na
-sala não libera a entrega. Na mesma pergunta, diga tudo o que o OK libera:
-"Posso subir no Frame.io, comentar o Ready for view no card do Notion e mudar o status para CS NEEDS TO REVIEW?"
+**Antes do "Ready for view", sempre mandar os vídeos ao Fefo para revisar** (regra do Fefo, 13/10/2026): publicar a versão
+nova na Review Room (`11_review_room.md`; SendUserFile só se ele pedir) e esperar o OK dele no chat. Aprovar na sala não
+libera a entrega. Na mesma pergunta, diga tudo o que o OK libera:
+"Posso subir no Frame.io, comentar o Ready for view no card do Notion e mudar o status para QC NEEDS TO REVIEW?"
 
 Ordem depois do OK: 1) Frame.io e links; 2) Google Drive; 3) mensagem "Ready for view"; 4) Notion (comentário +
 status); 5) marcar Done no `dia.json` (o Clock Out sai quando o Fefo pedir). Cada passo está numa seção abaixo.
@@ -34,15 +34,19 @@ py -X utf8 "@CLIENTES/_FLUXO/scripts/checagens/checklist.py" entrega "<batch>"  
 ## Onde fica no Frame.io
 Conta "Umut's Account" → projeto **Hike Balance Brand** → pasta de quem usa → `BATCH_<n>/`. Nos comandos abaixo,
 `<pasta>` = `frameio.pasta` do perfil (Fefo: `Hike Balance Brand/FEFO`).
-Padrão de versões do Fefo: o que está **solto na raiz** de `BATCH_<n>/` é a versão atual; versões antigas ficam em
-`V1/`, `V2/`, `V3/`… (próximo número livre). Não usar pilha de versões.
+**Pilha de versões (desde 24/11/2026, SOP da EV e QC da Jalila):** a V2, a V3 e as seguintes entram como versão nova
+do MESMO vídeo da V1 no Frame.io (version stack), para o QC ver o que mudou e contar as rodadas. O `nova` faz isso
+sozinho: empilha cada arquivo no item de mesmo nome na raiz de `BATCH_<n>/`. Por isso o nome do AD não muda entre as
+versões. Batch antiga, com pastas `V1/` e `V2/`: o que está solto na raiz é a versão atual e recebe a pilha. O
+padrão antigo de pastas (`--pastas`) só vale com ordem do Fefo. Depois de subir, o card volta para QC NEEDS TO REVIEW
+(também na revisão).
 
 ## Script: `scripts/frameio.py` (API Frame.io V4, sem limite de tamanho)
 ```
 cd "<raiz>/_FLUXO_VSL/scripts"
 python3 frameio.py ls "<pasta>/BATCH_<n>"                       # o que já está lá (+ subpastas)
 python3 frameio.py nova "<pasta>/BATCH_<n>" <arquivos.mp4> --teste   # mostra o plano
-python3 frameio.py nova "<pasta>/BATCH_<n>" <arquivos.mp4>           # raiz → V<k>, novos na raiz
+python3 frameio.py nova "<pasta>/BATCH_<n>" <arquivos.mp4>           # empilha como versão nova (mesmo nome); sem par → raiz
 python3 frameio.py links "<pasta>/BATCH_<n>"                     # 1 link f.io público por marca
 python3 frameio.py comentarios "<pasta>/BATCH_<n>"               # comentários de revisão
 ```
@@ -97,7 +101,7 @@ Neurobella: https://f.io/YYYY
 Google Drive:
 https://drive.google.com/drive/folders/<id>?usp=sharing
 
-## Notion: comentário "Ready for view" + status CS NEEDS TO REVIEW (regra do Fefo, 15/10/2026)
+## Notion: comentário "Ready for view" + status QC NEEDS TO REVIEW (regra do Fefo, 15/10/2026)
 Só com `notion.usar: true` no perfil; senão pule esta seção (a pessoa cola a mensagem à mão).
 Faça depois do OK do Fefo e da mensagem acima, com o mesmo texto. Use o navegador interno (`mcp__Claude_Browser__*`,
 já logado no Notion com a conta de quem usa).
@@ -142,8 +146,8 @@ Caminho manual (clicar e digitar):
    BackSpace apagou o corpo do card da BATCH#1977. Para recomeçar o rascunho: clique na caixa, confirme com
    `javascript_tool` que `document.activeElement` é a caixa e que a seleção está dentro dela, `End` e BackSpace com
    `repeat` igual ao número de caracteres do rascunho.
-4. **Status:** clique no valor atual do Status (ex.: "Started" ou "Revisions") e escolha **CS NEEDS TO REVIEW**.
-   Confira que a página mostra "Status" seguido de "CS NEEDS TO REVIEW".
+4. **Status:** clique no valor atual do Status (ex.: "Started" ou "Revisions") e escolha **QC NEEDS TO REVIEW**.
+   Confira que a página mostra "Status" seguido de "QC NEEDS TO REVIEW".
    Clique UMA vez no valor e ache a opção com `find` (o screenshot do Notion atrasa: um 2º clique cai numa opção do
    menu já aberto — na 1977 virou "Not started Shahzad" sem querer). Confirme abrindo o card de novo com `preview_start`.
 5. Se algo falhar (login, card não achado), não insista: avise o Fefo e mande a mensagem para ele colar à mão.
@@ -169,16 +173,17 @@ A lista do dia fica no `clock.dia_json` do perfil, relativo à raiz (Fefo: `_FLU
    branco e as revisões (lista `revisoes` do dia ou situação "Revision …"), numeração contínua; **a revisão leva
    " - Revision" logo depois do número da batch**, como no Clock In (pedido do Fefo, 23/10: "sinalizar visualmente qual
    foi a de revisão"). Data = dia sem zero à esquerda + mês abreviado em inglês (`LC_ALL=en_US.UTF-8 date +"%-d %b"` →
-   "15 Oct", "9 Oct"). **Cada linha termina com os ADs e a duração média** (regra do Fefo, 30/10/2026): " - 6 ads - avg 2:22",
-   do `python3 scripts/monitor/ads_do_dia.py` (ADs da versão atual em `09_export/<produto>/`, sem `_old/` nem `4x5/`; na
-   revisão, todos os ADs da versão atual). Batch sem exports (QA sem edição): a linha sai sem esse trecho:
+   "15 Oct", "9 Oct"). **Cada linha termina com o número de ADs, sem a duração** (regra do Fefo, 30/10/2026; duração
+   "avg" retirada em 20/11/2026: "retira os tempos dos clockouts a partir de hoje"): " - 6 ads", do
+   `python3 scripts/monitor/ads_do_dia.py` (use só o "N ads"; ADs da versão atual em `09_export/<produto>/`, sem `_old/` nem
+   `4x5/`; na revisão, todos os ADs da versão atual). Batch sem exports (QA sem edição): a linha sai sem esse trecho:
 
 🔴 CLOCK OUT - Video Editor Date: 15 Oct
 
-1. Task: BATCH#1980 - Done - CS needs to Review - 6 ads - avg 2:22
-2. Task: BATCH#1977 - Done - CS needs to Review - 6 ads - avg 1:18
+1. Task: BATCH#1980 - Done - CS needs to Review - 6 ads
+2. Task: BATCH#1977 - Done - CS needs to Review - 6 ads
 
-3. Task: BATCH#1975 - Revision - Done - CS needs to Review - 6 ads - avg 1:56
+3. Task: BATCH#1975 - Revision - Done - CS needs to Review - 6 ads
 
    Batch que ainda não está como Done no `dia.json`: sai como Done no Clock Out do mesmo jeito, mas avise o Fefo para
    conferir se a entrega dela saiu.

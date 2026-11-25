@@ -37,8 +37,8 @@ Uso (--teste em qualquer geração mostra o pedido sem subir arquivo e sem gasta
         # IMAGEM = quadro inicial, ou "-" para só texto (sai 9:16).
   python3 kie.py kling4 PROMPT.txt SAIDA.mp4 --dur 5 [--video F01.mp4] [--imagem A.png] [--voz nome=AUDIO.mp3] [--res 720p]
         # Reference-to-video. No prompt: @video_1, @image_1, @nome. Toda menção precisa de arquivo. Sempre com som.
-  python3 kie.py seedance PROMPT.txt SAIDA.mp4 --dur 8 [--imagem A.png] [--audio F01.mp3] [--res 720p] [--sem-som]
-        # Só em Drama ad. Referências, sem quadro inicial: o Kie não aceita os dois juntos.
+  python3 kie.py seedance PROMPT.txt SAIDA.mp4 --dur 8 [--imagem A.png] [--audio F01.mp3] [--video RASCUNHO.mp4] [--sem-som]
+        # Avatares, pessoas e cenas-chave, sempre em 480p (Fefo, 25/11/2026; o script recusa outra resolução). Referências, sem quadro inicial: o Kie não aceita os dois juntos.
   python3 kie.py tts TEXTO.txt SAIDA.mp3 --voz ID [--speed 1]
         # ElevenLabs Multilingual v2. Só vozes prontas do catálogo, sem voz clonada.
   python3 kie.py gemini-tts TEXTO.txt SAIDA.wav --voz Sulafat [--estilo Empathetic] [--ritmo Natural] [--sotaque "American (Gen)"]
@@ -320,10 +320,17 @@ def cria(modelo, entrada, saida):
     if TESTE:
         sys.exit(json.dumps({'model': modelo, 'input': entrada}, ensure_ascii=False, indent=1))
     corpo = json.dumps({'model': modelo, 'input': entrada}).encode()
+    # A pasta da saída existe ANTES de pagar (M1WK4B2 Naturva, 19/11/2026: pasta faltando = FileNotFoundError depois do
+    # createTask, taskId perdido e ~900 cr pagos sem id).
+    pasta = os.path.dirname(os.path.abspath(saida))
+    os.makedirs(pasta, exist_ok=True)
     task = _pede(f'{API}/api/v1/jobs/createTask', corpo)['taskId']
-    json.dump({'taskId': task, 'cliente': CONTA, 'model': modelo, 'input': entrada},
-              open(saida + '.task.json', 'w'), ensure_ascii=False, indent=1)
-    print(f'taskId {task}', flush=True)
+    print(f'taskId {task}', flush=True)               # primeiro o id na tela (log), depois o arquivo
+    try:
+        with open(saida + '.task.json', 'w') as f:
+            json.dump({'taskId': task, 'cliente': CONTA, 'model': modelo, 'input': entrada}, f, ensure_ascii=False, indent=1)
+    except OSError as ex:
+        print(f'AVISO: taskId {task} pago, mas {saida}.task.json não gravou ({ex}). Guarde este id.', file=sys.stderr, flush=True)
     return task
 
 
@@ -358,8 +365,11 @@ def espera(task, saida):
                 saidas = [f'{base}_{i}{ext}' for i in range(1, len(urls) + 1)]
             for url, arq in zip(urls, saidas):
                 req = urllib.request.Request(url, headers={'User-Agent': UA})   # sem a chave: é outro host
-                with urllib.request.urlopen(req, timeout=300) as r, open(arq, 'wb') as f:
-                    f.write(r.read())
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    dados = r.read()
+                with open(arq, 'wb') as f:
+                    f.write(dados)
+                _acerta_formato(arq, dados)
             ids = _ids_faixas(d)
             if ids:   # Suno: guarda os ids das faixas (para suno-persona)
                 json.dump({'taskId': task, 'faixas': [{'arquivo': a, 'audio_id': i} for a, i in zip(saidas, ids)]},
@@ -368,6 +378,25 @@ def espera(task, saida):
             return d
         time.sleep(10)
     sys.exit(f'Sem resultado em {ESPERA_MAX} s. Retome com: python3 kie.py espera {task} {saida}')
+
+
+def _acerta_formato(arq, dados):
+    """A imagem vem num formato e o nome diz outro (M1WK4B2 Naturva, 19/11/2026: o modelo devolveu WEBP gravado como .png
+    e o Kling recusou "file extension matches"). Converte para o formato do nome."""
+    ext = os.path.splitext(arq)[1].lower()
+    real = ('webp' if dados[:4] == b'RIFF' and dados[8:12] == b'WEBP' else 'png' if dados[:8] == bytes.fromhex('89504e470d0a1a0a')
+            else 'jpg' if dados[:3] == bytes.fromhex('ffd8ff') else None)
+    quer = {'.png': 'png', '.jpg': 'jpg', '.jpeg': 'jpg', '.webp': 'webp'}.get(ext)
+    if not real or not quer or real == quer:
+        return
+    try:
+        from PIL import Image
+        im = Image.open(arq); im.load()
+        if quer == 'jpg' and im.mode not in ('RGB', 'L'): im = im.convert('RGB')
+        im.save(arq, {'png': 'PNG', 'jpg': 'JPEG', 'webp': 'WEBP'}[quer], **({'quality': 95} if quer == 'jpg' else {}))
+        print(f'{arq}: veio {real.upper()}, convertido para {quer.upper()}', flush=True)
+    except Exception as ex:
+        print(f'AVISO: {arq} veio {real.upper()} com nome .{quer}; não converti ({ex})', file=sys.stderr, flush=True)
 
 
 def _urls(d):
@@ -472,8 +501,17 @@ def _desce_ao_teto(saida, teto):
     return nw, nh
 
 
+# Linha de modo do prompt_qa ("MODO: FALA", "MODE: TALK"...) é marcação da folha, não vai para o modelo (BATCH#4680,
+# 23/11/2026). A folha e o ok continuam com o hash do arquivo inteiro (prompt_qa.texto), então nada muda lá.
+MODO_LINHA = re.compile(r'^\s*(?:MODO|MODE)\s*:\s*(?:FALA|TALK\w*|CURTO|SHORT)\b[^\n]*\n?', re.I)
+
+
+def _sem_modo(t):
+    return MODO_LINHA.sub('', t, count=1).strip()
+
+
 def _texto(caminho):
-    return open(caminho, encoding='utf-8').read().strip()
+    return _sem_modo(open(caminho, encoding='utf-8').read())
 
 
 # Posição da SAIDA entre os args de cada subcomando (args = o que vem depois do nome do subcomando).
@@ -503,7 +541,7 @@ def _tarefa_velha(saida, args):
     textos = []
     for x in args:   # prompt direto ou arquivo .txt de prompt
         if len(x) > 3 and x.lower().endswith('.txt') and os.path.isfile(x):
-            try: x = open(x, encoding='utf-8').read()
+            try: x = _sem_modo(open(x, encoding='utf-8').read())
             except OSError: continue
         if len(x) >= 20 and not os.path.exists(x):
             textos.append(x.strip())
@@ -811,12 +849,18 @@ def main():
         espera(cria('kling-4.0/reference-to-video', entrada, saida), saida)
     elif a[0] == 'seedance':
         prompt, saida = _texto(a[1]), a[2]
-        entrada = {'prompt': prompt, 'duration': int(_opcao(a, '--dur', '5')), 'resolution': _res(a, 'video'),
+        # Seedance só em 480p, para avatares, pessoas e cenas-chave (Fefo, 25/11/2026). B-roll e animação vão no Kling.
+        res_sd = _opcao(a, '--res', '480p')
+        if res_sd != '480p':
+            sys.exit('RECUSADO: Seedance só em 480p (Fefo, 25/11/2026). Tire o --res ou use --res 480p.')
+        entrada = {'prompt': prompt, 'duration': int(_opcao(a, '--dur', '5')), 'resolution': res_sd,
                    'aspect_ratio': '9:16', 'generate_audio': '--sem-som' not in a}
         if _opcoes(a, '--imagem'):
             entrada['reference_image_urls'] = [_sobe(i) for i in _opcoes(a, '--imagem')]
         if _opcoes(a, '--audio'):
             entrada['reference_audio_urls'] = [_sobe(c) for c in _opcoes(a, '--audio')]
+        if _opcoes(a, '--video'):   # rascunho de movimento (Blender) como referência (Fefo, 25/11/2026, BATCH#4456; teste)
+            entrada['reference_video_urls'] = [_sobe(v) for v in _opcoes(a, '--video')]
         espera(cria('bytedance/seedance-2-5', entrada, saida), saida)
     elif a[0] == 'tts':
         texto, saida = _texto(a[1]), a[2]

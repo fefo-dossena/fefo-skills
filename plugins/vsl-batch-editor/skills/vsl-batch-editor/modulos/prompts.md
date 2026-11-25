@@ -107,8 +107,8 @@ e o que ficou de fora: `Pesquisas/Realismo em filme de IA.md` no segundo cérebr
   looking straight up from inside". Em diálogo, preserve o eixo: diga em qual borda do quadro cada silhueta fica.
 - **10 Physics**: externa com tudo parado parece falsa; acrescente vento leve em roupa e cabelo.
 - **11 Lighting**: a luz vem do lugar (mesma fonte, direção e cor da folha de cenário), para o personagem pertencer à cena.
-- **Rascunho**: `seedance_2_5` em 480p (3/s) para testar movimento; só o plano certo sobe de resolução. Não serve para
-  testar fala: no site o Draft sai mudo.
+- **Seedance em 480p** (Fefo, 25/11/2026): é a resolução final do Seedance, não rascunho. Rascunho de pose e câmera: Blender
+  (`REGRAS_DA_SESSAO.md`, piloto).
 - **Roteiro**: uma virada emocional clara, tons alternados (choro, alegria, rotina) e final contido em vez de melodrama.
 
 ## Reforços das skills do Joey (Fefo, 18/11/2026: "Aplica as 5")

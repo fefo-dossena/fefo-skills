@@ -27,6 +27,12 @@ Linha de comando (a sessão da task roda; o Fefo aprova na sala):
   py linha_do_tempo.py <pasta_auto> aprovar <id|papel> [...]     papel = hook1, hold_neurobella, corpo... (a pasta do segmento)
   py linha_do_tempo.py <pasta_auto> reabrir <id|papel> [...]     destrava (só com pedido do Fefo)
   py linha_do_tempo.py <pasta_auto> limpar                       apaga do cache os .mkv que nenhum AD usa
+  py linha_do_tempo.py <pasta_auto> liberar-qa <id|papel> [...] "<palavras do Fefo e data>"
+                 QA ainda vermelho depois da correção única e o Fefo mandou montar assim (ou ajuste mecânico sem QA)
+
+Trava do QA (Fefo, 22/11/2026: "QA antes da montagem final, em cima dos trechos isolados; só monta quando o QA liberar"):
+segmento novo nasce com `qa_exigido`; `faltam()` só libera o final com o OK do Fefo E o QA liberado. O selo chega sozinho
+quando o `revisor.py selo` sela a sala do segmento (<papel>/<id>.mp4). Segmento de antes da trava não pede QA.
 """
 import datetime
 import hashlib
@@ -282,7 +288,8 @@ class Linha:
 
     def _registra(self, papel, h, sid, dst, ad, novo, fps=30):
         seg = self.st["segmentos"]
-        s = seg.setdefault(sid, {"papel": papel, "hash": h, "arquivo": dst, "aprovado": False, "ads": []})
+        # qa_exigido: segmento nascido depois da trava do QA (22/11/2026) só junta com o selo do QA; os antigos não pedem
+        s = seg.setdefault(sid, {"papel": papel, "hash": h, "arquivo": dst, "aprovado": False, "ads": [], "qa_exigido": True})
         s["arquivo"] = dst; s["fps"] = int(fps)
         if novo or "dur" not in s:
             s["dur"] = round(dur(dst), 3)
@@ -317,9 +324,39 @@ class Linha:
         return ids
 
     def faltam(self, ad):
-        """Ids do AD que ainda não foram aprovados."""
-        self.fresco()
-        return [i for i in self.st["ads"].get(ad, []) if not self.st["segmentos"].get(i, {}).get("aprovado")]
+        """O que falta para o final do AD: segmento sem o OK do Fefo ou sem o QA liberado (trava do QA, Fefo, 22/11/2026:
+        "só monta quando o QA liberar"). Lista vazia = pode juntar. Cada item é o id, com "(falta QA)" quando é o QA."""
+        self.fresco(); out = []
+        for i in self.st["ads"].get(ad, []):
+            s = self.st["segmentos"].get(i, {})
+            if not qa_ok(s): out.append(f"{i} (falta QA: revisor.py pedido com {s.get('papel', '?')}/{i}.mp4)")
+            elif not s.get("aprovado"): out.append(i)
+        return out
+
+    def marca_qa(self, sid, veredito, parecer, rodada=None, digital=None):
+        """Selo do QA no segmento (chamado pelo `revisor.py selo` quando o vídeo revisado é a sala de um segmento)."""
+        def fn(st):
+            s = st["segmentos"].get(sid)
+            if not s: return False
+            s["qa"] = {"veredito": veredito, "em": agora(), "parecer": parecer, "rodada": rodada, "digital": digital}
+            return True
+        return self.mexe(fn)
+
+    def liberar_qa(self, alvo, palavras):
+        """O Fefo manda juntar com o QA ainda vermelho (depois da correção única) ou dispensa o QA (ajuste mecânico).
+        `palavras` = as palavras dele e a data, gravadas no segmento."""
+        if not palavras or len(palavras.strip()) < 8:
+            raise SystemExit('liberar-qa pede as palavras do Fefo e a data, ex.: "Fefo 22/11: monta assim"')
+        def fn(st):
+            ids = self.ids_de(alvo)
+            for i in ids:
+                q = st["segmentos"][i].setdefault("qa", {})
+                q.update(liberado=palavras.strip(), liberado_em=agora())
+            return ids
+        ids = self.mexe(fn)
+        if not ids:
+            raise SystemExit(f"segmento {alvo!r} não existe na linha do tempo ({self.arq})")
+        return ids
 
     def limpar(self):
         return self.mexe(lambda st: self._limpar())
@@ -343,9 +380,44 @@ class Linha:
             partes = []
             for i in ids:
                 s = self.st["segmentos"].get(i, {})
-                partes.append(f"{i} ({s.get('dur', 0):.2f} s, {'APROVADO' if s.get('aprovado') else 'falta OK'})")
+                partes.append(f"{i} ({s.get('dur', 0):.2f} s, {'APROVADO' if s.get('aprovado') else 'falta OK'}, {qa_txt(s)})")
             linhas.append(f"{ad}: " + " + ".join(partes))
         return "\n".join(linhas) or "(linha do tempo vazia)"
+
+
+QA_VERDE = ("APROVADO", "APROVADO COM AJUSTES")
+
+
+def qa_ok(s):
+    """Segmento liberado pelo QA: selo verde (ou só NÃO VI), ou o Fefo liberou com as palavras dele. Segmento de antes
+    da trava (sem `qa_exigido`) passa."""
+    q = s.get("qa") or {}
+    return not s.get("qa_exigido") or q.get("veredito") in QA_VERDE or bool(q.get("liberado"))
+
+
+def qa_txt(s):
+    q = s.get("qa") or {}
+    if q.get("liberado"): return f"QA liberado pelo Fefo ({q['liberado']})"
+    if q.get("veredito"): return f"QA {q['veredito']}"
+    return "QA não pedido (antigo)" if not s.get("qa_exigido") else "falta QA"
+
+
+def segmento_do_video(caminho):
+    """Acha (pasta_auto, sid) do vídeo da sala de um segmento: <...>/<papel>/<papel>_<hash>.mp4, com o segmentos.json
+    num dos pais (EV: <batch>/08_auto; TS: <job>/06_auto). None se o vídeo não é sala de segmento."""
+    base = os.path.splitext(os.path.basename(caminho))[0]
+    m = re.fullmatch(r"(.+)_([0-9a-f]{10})", base)
+    if not m or os.path.basename(os.path.dirname(caminho)) != m[1]: return None
+    d = os.path.dirname(os.path.abspath(caminho))
+    for _ in range(5):
+        d = os.path.dirname(d)
+        for cand in (d, os.path.join(d, "08_auto"), os.path.join(d, "06_auto")):
+            arq = os.path.join(cand, "segmentos.json")
+            try:
+                if base in json.load(open(arq, encoding="utf-8")).get("segmentos", {}): return cand, base
+            except (OSError, ValueError):
+                pass
+    return None
 
 
 # ---------------------------------------------------------------- sala e final
@@ -509,6 +581,13 @@ if __name__ == "__main__":
         for x in alvos:
             ids = L.aprovar(x, cmd == "aprovar")
             print(f"{'aprovado' if cmd == 'aprovar' else 'reaberto'}: {', '.join(ids)}")
+            for i in ids:
+                if cmd == "aprovar" and not qa_ok(L.st["segmentos"][i]):
+                    print(f"   ! {i}: OK do Fefo gravado, mas o final só junta com o QA liberado (revisor.py selo ou liberar-qa)")
+        print(L.resumo())
+    elif cmd == "liberar-qa":
+        if len(alvos) < 2: sys.exit('liberar-qa <id|papel> [...] "<palavras do Fefo e data>"')
+        print("QA liberado pelo Fefo: " + ", ".join(sum((L.liberar_qa(x, alvos[-1]) for x in alvos[:-1]), [])))
         print(L.resumo())
     elif cmd == "limpar":
         print(f"{L.limpar()} intermediários sem uso apagados de {L.cache}")

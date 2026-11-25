@@ -21,7 +21,7 @@ confirmar com ele. Detalhe: `@CLIENTES/_FLUXO/LEIA-ME.md`.
 | Fala no Gemini Omni, junto do Kling (liberado em 02/11) | `kie.py omni P.txt A.png S.mp4 --dur 8` | `gemini-omni-video` (`--dur` 4, 6, 8 ou 10; ver `04_falas.md`) |
 | B-roll e fala padrão | `kie.py kling3 P.txt QUADRO.png S.mp4 --dur 5 --sem-som [--fim FIM.png]` | `kling-3.0/video` (`-` no lugar do quadro = só texto) |
 | Voz igual entre falas | `kie.py kling4 P.txt S.mp4 --dur 6 --video F01.mp4 [--imagem A.png] [--voz Nome=A.mp3]` | `kling-4.0/reference-to-video` |
-| Só Drama ad | `kie.py seedance P.txt S.mp4 --dur 8 --imagem A.png --audio F01.mp3` | `bytedance/seedance-2-5` |
+| Avatar, pessoas e cenas-chave (Fefo, 25/11/2026), sempre 480p | `kie.py seedance P.txt S.mp4 --dur 8 --imagem A.png --audio F01.mp3` (sem `--res`; o script recusa outra) | `bytedance/seedance-2-5` |
 | Avatar falando um áudio pronto (lip-sync), 17/11 | `kie.py omnihuman IMAGEM.png AUDIO.mp3 SAIDA.mp4 [--prompt P.txt]` (720p, sem marca d'água; áudio 4–300 s, até 15 MB). Modelo novo no fluxo: só com ok do Fefo | `omnihuman-2-0` (14 cr/s; 30 s = 420 cr) |
 | Upscale de clipe (intermediário), 17/11 | `kie.py upscale VIDEO.mp4 SAIDA.mp4 [--fator 1|2|4]` (MP4/MOV/MKV até 50 MB). O arquivo final desce ao teto da ficha (`kie.upscale_res_max`; sem o campo, 720p). Acima de 720p só com o ok escrito do Fefo gravado na ficha. O export segue a regra de resolução | `topaz/video-upscale` (8 cr/s em 1x/2x, 14 cr/s em 4x; 5 s em 2x = 40 cr) |
 | Voz pronta do catálogo | `kie.py tts T.txt S.mp3 --voz ID` | `elevenlabs/text-to-speech-multilingual-v2` |
@@ -37,7 +37,7 @@ confirmar com ele. Detalhe: `@CLIENTES/_FLUXO/LEIA-ME.md`.
 ## Regras
 - **Crédito só com ok.** `kie.py saldo` antes de cada lote. Falha não cobra.
 - Custo real: `creditsConsumed` no fim de cada geração, anotado em `08_auto/*_ids.tsv`. 1 cr ≈ US$ 0,005. O crédito do
-  Kie não é o do Higgsfield: Kling 3.0 std 5 s com som = 100 cr (3217, 31/10). Kling 4.0 720p com som: 34 cr/s (3222). GPT Image 2.5 Sunburst 2K (texto ou com --ref): 10 cr. Kling 3.0 std 5 s sem som: 70 cr (14 cr/s), sai 716x1280 24 fps (3825, 03/11). Os
+  Kie não é o do Higgsfield: Kling 3.0 std 5 s com som = 100 cr (3217, 31/10). Kling 4.0 720p com som: 34 cr/s (3222). GPT Image 2.5 Sunburst 2K (texto ou com --ref): 10 cr. Kling 3.0 std 5 s sem som: 70 cr (14 cr/s), sai 716x1280 24 fps (3825, 03/11). **Seedance 2.5 480p no Kie: ~28 cr/s** (4454, 24/11: 6 s = 168 cr; 12 falas = 1.400 cr), não os 3 cr/s do Higgsfield. Os
   demais, medir no 1º uso. Os números de crédito antigos dos módulos e do `CALIBRACAO.md` são do Higgsfield.
 - Em paralelo (Fefo, 04/11/2026), pelo `kie.py lote` (seção abaixo); nada de fila única. O limite do Kie é 20 pedidos novos por 10 s.
 - Caiu a conexão: `kie.py espera <taskId> <saída>` (o id fica em `<saída>.task.json`). **Não reenvie: cobra de novo.**

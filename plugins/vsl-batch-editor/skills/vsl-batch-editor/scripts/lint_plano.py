@@ -608,9 +608,10 @@ def lint_mix(B, plano):
                 ach.append({'nivel': nv, 'regra': 'mix', 'ini': 0, 'fim': 0,
                             'msg': f"{c.get('id')}: IA fora do mecanismo (\"{str(c.get('mostra') or c.get('copy'))[:70]}\"). "
                                    "Busque vídeo real no banco (real=1) ou marque o porquê em \"origem_motivo\"."})
-        if o in ('real', 'ia') and d > 3.0 and int(c.get('planos', 1) or 1) < -(-d // 3) and not c.get('origem_motivo'):
+        # teto de 2,5 s por plano (Fefo, 20/11/2026; antes 3 s, Umut/Daniel); 0.05 de folga para arredondamento
+        if o in ('real', 'ia') and d > 2.55 and int(c.get('planos', 1) or 1) < -(-d // 2.5) and not c.get('origem_motivo'):
             ach.append({'nivel': 'aviso', 'regra': 'mix', 'ini': 0, 'fim': 0,
-                        'msg': f"{c.get('id')}: ~{d:.1f} s num plano só; nada passa de 3 s (Umut/Daniel): divida ou ponha \"planos\": {int(-(-d // 3))}"})
+                        'msg': f"{c.get('id')}: ~{d:.1f} s num plano só; nada passa de 2,5 s (Fefo, 20/11): divida ou ponha \"planos\": {int(-(-d // 2.5))}"})
     br = soma['real'] + soma['ia']
     if br > 0:
         pr = soma['real'] / br

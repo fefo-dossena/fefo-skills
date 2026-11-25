@@ -9,7 +9,9 @@ Uso:
         # sobe cada arquivo e empilha como versão nova do item com o MESMO nome na pasta
         # (procura também nas subpastas). Sem item com esse nome → só sobe. --teste = só mostra o plano.
   python3 frameio.py nova "Hike Balance Brand/FEFO/BATCH_1970" ARQ1.mp4 …  [--teste]
-        # padrão de pastas: o que está solto na pasta da batch vai para V<n> e os novos entram na raiz
+        # desde 24/11/2026 (SOP da EV, QC da Jalila): cada arquivo vira VERSÃO NOVA do item de MESMO nome na raiz
+        # da pasta da batch (pilha de versões, V2/V3 em cima da V1); sem item igual → sobe solto na raiz.
+        # --pastas = padrão antigo (soltos vão para V<n>/ e os novos entram na raiz)
   python3 frameio.py links "Hike Balance Brand/FEFO/BATCH_1971"   # 1 link f.io público por marca (vídeos da raiz)
   python3 frameio.py comentarios "Hike Balance Brand/FEFO" [filtro_nome]
   python3 frameio.py comentarios "Hike Balance Brand/FEFO/BATCH_3858" --revisao <pasta da batch> [--versao 5]
@@ -216,11 +218,12 @@ def trava_checklist(arqs):
                  '\nCorrija e rode `fluxo.py checar <batch>` no arquivo final (ou `checklist.py entrega <batch>`).')
 
 
-def cmd_versao(caminho, arqs, teste):
+def cmd_versao(caminho, arqs, teste, so_raiz=False):
     trava_checklist(arqs)
     aid, fid = resolve(caminho)
     idx = {}
-    for pre, pai, f in arvore(aid, fid):
+    itens = ((('', fid, f) for f in paginado(f'/accounts/{aid}/folders/{fid}/children')) if so_raiz else arvore(aid, fid))
+    for pre, pai, f in itens:
         if f['type'] in ('file', 'version_stack'):
             idx.setdefault(f['name'].strip(), []).append((pre, pai, f))
     plano = []
@@ -333,7 +336,10 @@ if __name__ == '__main__':
     elif a[0] == 'eu': cmd_eu()
     elif a[0] == 'ls': cmd_ls(a[1])
     elif a[0] == 'versao': cmd_versao(a[1], [x for x in a[2:] if x != '--teste'], '--teste' in a)
-    elif a[0] == 'nova': cmd_nova(a[1], [x for x in a[2:] if x != '--teste'], '--teste' in a)
+    elif a[0] == 'nova':   # desde 24/11/2026 (SOP da EV): V2+ empilhada no mesmo vídeo da V1; --pastas = padrão antigo V<n>/
+        arqs = [x for x in a[2:] if x not in ('--teste', '--pastas')]
+        if '--pastas' in a: cmd_nova(a[1], arqs, '--teste' in a)
+        else: cmd_versao(a[1], arqs, '--teste' in a, so_raiz=True)
     elif a[0] == 'links': cmd_links(a[1])
     elif a[0] == 'comentarios':
         import re
