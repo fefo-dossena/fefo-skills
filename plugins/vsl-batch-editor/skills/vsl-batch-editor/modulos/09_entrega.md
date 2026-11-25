@@ -188,6 +188,17 @@ A lista do dia fica no `clock.dia_json` do perfil, relativo à raiz (Fefo: `_FLU
    Batch que ainda não está como Done no `dia.json`: sai como Done no Clock Out do mesmo jeito, mas avise o Fefo para
    conferir se a entrega dela saiu.
 
+## Limpar o TEMP depois da entrega (Fefo, 24/11 e 25/11/2026)
+O `checklist.py entrega` verde já apaga o cache do job no TEMP (`_FLUXO/scripts/checagens/limpa_temp.py`). Depois que a
+entrega sair (Frame.io, Notion), confira e feche:
+1. `py -X utf8 "G:/Meu Drive/@CLIENTES/_FLUXO/scripts/checagens/limpa_temp.py" "<pasta da batch>" --ver`: lista o que
+   sobrou do job no TEMP (render refeito depois do checklist, prévias, quadros).
+2. Sobrou algo: rode de novo sem `--ver` para apagar. Só pastas deste job; outro job, só com o ok do Fefo.
+3. Diga na mensagem final quanto saiu ("TEMP: 12,4 GB apagados" ou "TEMP já limpo").
+Nunca apague `.cache\huggingface` (modelos do whisper) nem os exports e estados no Drive. Revisão futura refaz o cache
+(ex.: o rótulo tratado da M8WK3B15, ~5 min). Pular a limpeza (ex.: revisão já pedida no mesmo dia): `FLUXO_SEM_LIMPEZA=1`
+e diga por quê.
+
 ## Fechamento com aprendizado (Fefo, 17/11/2026)
 No fim de toda etapa fechada e de toda entrega (e na sessão que para sem terminar): siga a regra "Fechamento com aprendizado"
 de `@CLIENTES/_FLUXO/REGRAS_DA_SESSAO.md`. Escreva a entrada no fim de `@CLIENTES/_FLUXO/APRENDIZADOS.md`, no modelo de lá, e avise a Central numa linha.
