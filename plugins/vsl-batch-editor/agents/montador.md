@@ -2,7 +2,7 @@
 name: montador
 description: Monta e confere um job ou batch (Empire Vision e Trendscale) pelo roteiro único de qualidade - prévia com PREVIA=1, timeline conferida antes do render, `fluxo.py checar` do barato ao caro (baratas, depois qc e checklist da Louise L1-L6 com true peak), render final depois do aprovado e `checklist.py entrega`. Já sabe as regras do PDF do Lucas e do checklist da Louise. Use depois que o plano e os assets estão decididos; devolve o resultado para a sessão principal julgar.
 tools: Read, Bash, Grep, Glob, Write, Edit
-model: sonnet
+model: opus
 effort: medium
 ---
 
